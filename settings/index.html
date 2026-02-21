@@ -8,11 +8,16 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #f5f5f7; color: #1d1d1f; }
-    .container { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+    .container { max-width: 760px; margin: 0 auto; padding: 12px 8px 40px; }
     h1  { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #e8441a; }
-    .subtitle { font-size: 13px; color: #636366; margin-bottom: 20px; }
-    h2  { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 12px; }
-    .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .header-top { position: relative; display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+    .header-title { flex: 1; }
+    .subtitle { font-size: 13px; color: #636366; margin-bottom: 16px; }
+    #guard-toggle { width: 30px; height: 18px; }
+    #guard-toggle .slider { border-radius: 18px; }
+    #guard-toggle .slider:before { height: 14px; width: 14px; }
+    h2  { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 10px; }
+    .card { background: #fff; border-radius: 12px; padding: 12px 10px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
     .row { display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; gap: 12px; }
     .row:last-child { border-bottom: none; padding-bottom: 0; }
     .row:first-child { padding-top: 0; }
@@ -47,17 +52,24 @@
     .tab-btn.active { color: #e8441a; border-bottom-color: #e8441a; }
     .tab-btn:hover:not(.active) { color: #1d1d1f; }
     /* Device list */
-    .dev-list { list-style: none; }
-    .dev-list li { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px; margin-bottom: 5px; }
-    .dev-list li.managed   { background: #f5f5f7; }
+    .dev-list { list-style: none; padding-left: 0; margin-left: 0; }
+    .dev-list li { display: flex; align-items: center; gap: 2px; padding: 2px 4px 2px 2px; border-radius: 4px; margin-bottom: 0; }
+    .dev-list li.managed   { background: #f5f5f7; border: 1.5px solid #fff; margin-bottom: 2px; border-radius: 8px; box-shadow: 0 0.5px 2px rgba(0,0,0,.06); }
     .dev-list li.unmanaged { background: #f5f5f7; opacity: 0.55; }
     .dev-list li.drag-over { background: #e5e5ea !important; }
-    .handle { cursor: grab; color: #bbb; font-size: 16px; user-select: none; touch-action: none; min-width: 20px; text-align: center; }
-    .priority-num { font-size: 11px; color: #636366; min-width: 22px; text-align: right; }
-    .dev-name { flex: 1; font-size: 15px; font-weight: 600; color: #1d1d1f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0.01em; }
-    .dev-list select { font-size: 12px; padding: 4px 6px; max-width: 150px; }
-    .section-label { font-size: 11px; color: #636366; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 12px 0 6px; }
-    .room-label { font-size: 12px; color: #aaa; font-weight: 500; padding: 8px 2px 4px; display: flex; align-items: center; gap: 6px; }
+    .handle { cursor: grab; color: #bbb; font-size: 13px; user-select: none; touch-action: none; min-width: 12px; width: 12px; text-align: center; flex-shrink: 0; }
+    .reorder-btns { display: flex; flex-direction: column; gap: 0; flex-shrink: 0; }
+    .reorder-btns button { background: transparent; border: none; padding: 0 1px; cursor: pointer; transition: transform 0.12s ease, filter 0.12s ease; line-height: 0; -webkit-tap-highlight-color: transparent; outline: none; user-select: none; }
+    .reorder-btns button:hover:not(.pressing) { transform: scale(1.25); filter: brightness(1.2); }
+    .reorder-btns button.pressing { transform: scale(0.85); }
+    .reorder-btns button:disabled { opacity: 0.2; cursor: default; transform: none; filter: none; }
+    @media (hover: none) { .reorder-btns button:hover:not(.pressing) { transform: scale(1); filter: none; } }
+    .reorder-btns svg { display: block; }
+    .priority-num { font-size: 10px; color: #636366; min-width: 14px; width: 14px; text-align: right; flex-shrink: 0; }
+    .dev-name { flex: 2; font-size: 13px; font-weight: 600; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0.01em; white-space: normal; word-break: break-word; line-height: 1.25; }
+    .dev-list select { font-size: 11px; padding: 3px 4px; max-width: 120px; flex-shrink: 0; }
+    .section-label { font-size: 11px; color: #636366; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 5px 0 2px; }
+    .room-label { font-size: 12px; color: #aaa; font-weight: 500; padding: 4px 2px 2px; display: flex; align-items: center; gap: 6px; }
     .room-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
     /* Toggle switch */
     .toggle { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
@@ -76,13 +88,67 @@
     #token-input { flex: 1; min-width: 200px; font-family: monospace; font-size: 12px; }
     #connect-error { display: none; color: #ff3b30; font-size: 12px; margin-top: 8px; }
     #loading-indicator { text-align: center; padding: 30px; font-size: 13px; color: #636366; }
+    /* Mobile responsive - use full width */
+    @media (max-width: 600px) {
+      .container { padding: 6px 4px 30px; max-width: 100%; }
+      .card { border-radius: 8px; padding: 10px 6px; margin-bottom: 8px; }
+      .row { padding: 7px 0; gap: 6px; }
+      .label-group label { font-size: 14px; }
+      .dev-name { font-size: 14px; }
+      .dev-list li.managed { padding: 10px 0; }
+      .dev-list li.managed .dev-name { font-size: 16px; font-weight: 700; }
+      .dev-list li.managed .priority-num { font-size: 11px; }
+      .dev-list li.managed select { font-size: 11px; }
+      .dev-list select { max-width: 100px; font-size: 10px; }
+      .tab-btn { padding: 8px 14px; font-size: 13px; }
+      .status-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .stat-box { padding: 8px 8px; }
+      .header-top { flex-direction: column; align-items: flex-start; }
+      input[type=number] { width: 90px; }
+    }
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body { background: #1d1d1f; color: #f5f5f7; }
+      .card { background: #2a2a2c; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+      h1 { color: #ff9500; }
+      h2 { color: #f5f5f7; }
+      .subtitle, .label-group .hint, .section-label { color: #a1a1a6; }
+      .row { border-bottom-color: #424245; }
+      .label-group label { color: #f5f5f7; }
+      .dev-list li.managed { background: #2a2a2c; border-color: #424245; box-shadow: 0 0.5px 2px rgba(0,0,0,.3); }
+      .dev-list li.unmanaged { background: #2a2a2c; }
+      .dev-list li.drag-over { background: #3a3a3c !important; }
+      .dev-name { color: #f5f5f7; }
+      .priority-num { color: #a1a1a6; }
+      input[type=number], input[type=text], input[type=password], select { background: #424245; color: #f5f5f7; border-color: #555555; }
+      .range-val { color: #a1a1a6; }
+      .stat-box { background: #2a2a2c; }
+      .stat-box .stat-label { color: #a1a1a6; }
+      .stat-box .stat-value { color: #f5f5f7; }
+      .stat-box .stat-sub { color: #a1a1a6; }
+      .btn-secondary { background: #424245; color: #f5f5f7; }
+      .advanced-toggle { color: #a1a1a6; }
+      .advanced-toggle:hover { color: #f5f5f7; }
+      .log-entry { color: #a1a1a6; }
+      .log-time { color: #888; }
+      .tab-btn { color: #a1a1a6; }
+      .tab-btn:hover:not(.active) { color: #f5f5f7; }
+      .tab-btn.active { color: #ff9500; border-bottom-color: #ff9500; }
+      .room-label { color: #a1a1a6; }
+      .room-label::after { background: #424245; }
+      #error-banner { background: #8b0000; color: #fff; }
+    }
   </style>
 </head>
 <body>
 <div class="container">
 
-  <h1>Power Guard</h1>
-  <p class="subtitle">Automatically turns off devices before you exceed your power limit.</p>
+<div class="header-top">
+  <div class="header-title">
+    <h1>Power Guard</h1>
+    <p class="subtitle">Automatically turns off devices before you exceed your power limit.</p>
+  </div>
+</div>
 
   <div id="error-banner"></div>
   <div id="loading-indicator">Connecting to Homey…</div>
@@ -124,16 +190,24 @@
             <div class="stat-sub">of <span id="st-limit">–</span> W limit</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Guard is</div>
-            <div class="stat-value" id="st-enabled-big">–</div>
-            <div class="stat-sub" id="st-profile-sub">–</div>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%">
+              <div>
+                <div class="stat-label">Guard is active</div>
+                <div class="stat-value" id="st-enabled-big">–</div>
+                <div class="stat-sub" id="st-profile-sub">–</div>
+              </div>
+              <label class="toggle" id="guard-toggle" style="margin: 0;flex-shrink:0;margin-top:2px">
+                <input type="checkbox" id="s-enabled-toggle" onchange="updateEnabledSync(this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
           <div class="stat-box">
             <div class="stat-label">Power meter</div>
             <div class="stat-value" id="st-han" style="font-size:14px;padding-top:4px">–</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Devices switched off</div>
+            <div class="stat-label">Devices controlled</div>
             <div class="stat-value" id="st-mitigation">–</div>
           </div>
         </div>
@@ -145,16 +219,11 @@
           <div style="font-size:12px;color:#636366;margin-bottom:6px;font-weight:500">EV CHARGERS</div>
           <div id="ev-grid" class="status-grid"></div>
         </div>
+        <!-- Hidden sync element for s-enabled -->
+        <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
       </div>
 
       <div class="card">
-        <div class="row">
-          <div class="label-group">
-            <label>Power Guard active</label>
-            <span class="hint">Disable to stop Power Guard from controlling any devices.</span>
-          </div>
-          <div class="control"><input type="checkbox" id="s-enabled" checked></div>
-        </div>
         <div class="row">
           <div class="label-group">
             <label>Protection mode</label>
@@ -273,7 +342,7 @@
 <div id="toast">Settings saved!</div>
 
 <!-- Debug log panel -->
-<div id="debug-panel" style="position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow-y:auto;background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;z-index:9999;display:block;border-top:2px solid #e8441a;">
+<div id="debug-panel" style="position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow-y:auto;background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;z-index:9999;display:none;border-top:2px solid #e8441a;">
   <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
     <b style="color:#e8441a;">DEBUG LOG</b>
     <span>
@@ -287,13 +356,8 @@
 <script>
   // ── Debug logging ──────────────────────────────────────────────────────────
   function dbg(msg) {
-    var el = document.getElementById('debug-log');
-    if (el) {
-      var t = new Date().toLocaleTimeString();
-      el.innerHTML += '<div><span style="color:#888">' + t + '</span> ' + msg + '</div>';
-      el.parentElement.scrollTop = el.parentElement.scrollHeight;
-    }
-    console.log('[DBG] ' + msg.replace(/<[^>]+>/g, ''));
+    // Debug panel disabled — re-enable by changing display:none to display:block on #debug-panel
+    return;
   }
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -346,6 +410,7 @@
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
+    loadAll();
   }
 
   function showMain() {
@@ -405,6 +470,7 @@
   function applySettings(s) {
     if (!s) return;
     document.getElementById('s-enabled').checked = s.enabled !== false;
+    document.getElementById('s-enabled-toggle').checked = s.enabled !== false;
     document.getElementById('s-profile').value   = s.profile || 'normal';
     setNum('s-powerLimitW',     s.powerLimitW,    10000);
     setNum('s-cooldownSeconds', s.cooldownSeconds, 30);
@@ -583,7 +649,14 @@
     var li = document.createElement('li');
     li.className = 'managed';
     li.innerHTML =
-      '<span class="handle" title="Drag to reorder">&#9776;</span>' +
+      '<span class="reorder-btns">' +
+        '<button onclick="pressButton(this); moveDevice(' + idx + ',-1)"' + (idx === 0 ? ' disabled' : '') + ' title="Move up">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24"><defs><linearGradient id="gu' + idx + '" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#1e40af"/><stop offset="40%" stop-color="#2563eb"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs><path d="M12 3L4 13h5v8h6v-8h5z" fill="url(#gu' + idx + ')" stroke="#1e3a8a" stroke-width="0.8" stroke-linejoin="round"/></svg>' +
+        '</button>' +
+        '<button onclick="pressButton(this); moveDevice(' + idx + ',1)"' + (idx === total - 1 ? ' disabled' : '') + ' title="Move down">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24"><defs><linearGradient id="gd' + idx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="60%" stop-color="#2563eb"/><stop offset="100%" stop-color="#1e40af"/></linearGradient></defs><path d="M12 21L4 11h5V3h6v8h5z" fill="url(#gd' + idx + ')" stroke="#1e3a8a" stroke-width="0.8" stroke-linejoin="round"/></svg>' +
+        '</button>' +
+      '</span>' +
       '<span class="priority-num">' + (idx + 1) + '.</span>' +
       '<span class="dev-name">' + escHtml(entry.name) + '</span>' +
       '<select onchange="updateDeviceAction(\'' + entry.deviceId + '\',this.value)">' +
@@ -597,25 +670,6 @@
         '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
         '<span class="slider"></span>' +
       '</label>';
-    var handle = li.querySelector('.handle');
-    handle.setAttribute('draggable', 'true');
-    handle.addEventListener('dragstart', function(e) {
-      e.dataTransfer.setData('text/plain', String(idx));
-      li.style.opacity = '0.45';
-    });
-    handle.addEventListener('dragend', function() { li.style.opacity = ''; });
-    li.addEventListener('dragover',  function(e) { e.preventDefault(); li.classList.add('drag-over'); });
-    li.addEventListener('dragleave', function()  { li.classList.remove('drag-over'); });
-    li.addEventListener('drop', function(e) {
-      e.preventDefault();
-      li.classList.remove('drag-over');
-      var from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      if (from === idx) return;
-      reorderManaged(from, idx);
-    });
-    handle.addEventListener('touchstart', onTouchDragStart, { passive: false });
-    handle.addEventListener('touchmove',  onTouchDragMove,  { passive: false });
-    handle.addEventListener('touchend',   onTouchDragEnd,   { passive: false });
     return li;
   }
 
@@ -623,8 +677,8 @@
     var li = document.createElement('li');
     li.className = 'unmanaged';
     li.innerHTML =
-      '<span style="min-width:20px"></span>' +
-      '<span style="min-width:22px"></span>' +
+      '<span class="handle" style="visibility:hidden">&#9776;</span>' +
+      '<span class="priority-num" style="visibility:hidden">0.</span>' +
       '<span class="dev-name">' + escHtml(dev.name) + '</span>' +
       '<select id="def-action-' + dev.id.replace(/[^a-z0-9]/gi,'_') + '">' +
         '<option value="onoff">Turn off</option>' +
@@ -649,10 +703,10 @@
       var safeId = deviceId.replace(/[^a-z0-9]/gi, '_');
       var sel = document.getElementById('def-action-' + safeId);
       var action = sel ? sel.value : 'onoff';
-      priorityList.forEach(function(e) { e.priority = (e.priority || 0) + 1; });
+      var maxPriority = Math.max(0, ...priorityList.map(function(e) { return e.priority || 0; }));
       priorityList.push({
         deviceId: deviceId, name: dev.name,
-        priority: 1, action: action, enabled: true,
+        priority: maxPriority + 1, action: action, enabled: true,
         minRuntimeSeconds: 0, minOffTimeSeconds: 60
       });
     } else {
@@ -678,6 +732,39 @@
     sorted.forEach(function(x, i) { x.priority = i + 1; });
     renderAllDevices();
     savePriorityList();
+  }
+
+  function updateEnabledSync(checked) {
+    document.getElementById('s-enabled').checked = checked;
+    syncEnabledCheckbox();
+  }
+
+  function syncEnabledCheckbox() {
+    var checked = document.getElementById('s-enabled').checked;
+    document.getElementById('s-enabled-toggle').checked = checked;
+    clearError();
+    if (!_H) { showError('Not connected to Homey'); return; }
+    var settings = collectSettings();
+    hApi('/api/app/no.powerguard/settings', 'PUT', settings, function(err) {
+      if (err) {
+        showError(err.message || JSON.stringify(err));
+        document.getElementById('s-enabled').checked = !checked;
+        document.getElementById('s-enabled-toggle').checked = !checked;
+      } else {
+        showSuccess('Settings saved');
+      }
+    });
+  }
+
+  function pressButton(btn) {
+    btn.classList.add('pressing');
+    setTimeout(function() { btn.classList.remove('pressing'); }, 150);
+  }
+
+  function moveDevice(idx, direction) {
+    var toIdx = idx + direction;
+    if (toIdx < 0 || toIdx >= priorityList.length) return;
+    reorderManaged(idx, toIdx);
   }
 
   // ── Touch drag handlers ────────────────────────────────────────────────────
@@ -851,6 +938,11 @@
       });
       dbg('Registered realtime: priorityList');
     } catch (e) { dbg('Realtime priorityList failed: ' + e.message); }
+
+    // Refresh data every time the page becomes visible (e.g. switching back to the app)
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) loadAll();
+    });
 
     // Periodic sync fallback every 15s
     setInterval(function() {
