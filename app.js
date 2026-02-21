@@ -447,6 +447,7 @@ class PowerGuardApp extends Homey.App {
 
       // First, try to mitigate by adjusting EV chargers (least disruptive)
       await this._mitigateEVChargers().catch(() => {});
+      await this._mitigateEaseeChargers().catch(() => {});
 
       const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
       const mitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
@@ -733,6 +734,8 @@ class PowerGuardApp extends Homey.App {
             class:        d.class,
             capabilities: d.capabilities || [],
             zoneName:     zoneMap[d.zone] || 'Other',
+            driverId:     d.driverId,
+            isEasee:      (d.driverId === 'charger' && d.driver && d.driver.owner_uri === 'homey:app:no.easee'),
           };
         });
 
@@ -887,22 +890,71 @@ class PowerGuardApp extends Homey.App {
    * Dynamically control EV chargers during mitigation.
    * Adjusts charger currents to stay within power limit while maximizing charging.
    */
-  async _mitigateEVChargers() {
-    const evEntries = (this._settings.priorityList || []).filter(e =>
-      e.action === 'dynamic_current' && e.enabled !== false
+  /**
+   * Set Easee charger current using the HomeyAPI.
+   * @param {string} deviceId - Device ID
+   * @param {number} currentA - Target current in amps (or null to pause)
+   * @returns {Promise<boolean>} true if set successfully
+   */
+  async _setEaseeChargerCurrent(deviceId, currentA) {
+    if (!this._api) return false;
+
+    try {
+      const device = await this._api.devices.getDevice({ id: deviceId });
+      if (!device) return false;
+
+      // If currentA is null, pause by turning off
+      if (currentA === null) {
+        if (device.capabilities.includes('onoff')) {
+          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+          this._addLog(`Easee paused: ${device.name}`);
+          return true;
+        }
+        return false;
+      }
+
+      // For Easee, use the setCapabilityValue API if available, but also try direct call
+      // Check if device has a method to set current (Easee may expose it)
+      const dynCap = ['target_current', 'dynamicCircuitCurrentP1', 'dynamic_current']
+        .find(cap => (device.capabilities || []).includes(cap));
+
+      if (dynCap) {
+        await device.setCapabilityValue({ capabilityId: dynCap, value: currentA });
+        this._addLog(`Easee adjusted: ${device.name} → ${currentA}A`);
+        return true;
+      }
+
+      // If no direct capability, try calling Easee app method via homey-api
+      // This is a fallback if the Easee app exposes methods
+      this.log(`[Easee] Device ${deviceId} doesn't expose direct current capability, may need flow automation`);
+      return false;
+    } catch (err) {
+      this.error(`Failed to set Easee current for ${deviceId}:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Mitigate by adjusting Easee chargers specifically.
+   */
+  async _mitigateEaseeChargers() {
+    const easeeEntries = (this._settings.priorityList || []).filter(e =>
+      e.enabled !== false && e.action === 'dynamic_current'
     );
 
-    if (!evEntries.length) return;
+    if (!easeeEntries.length) return;
 
     const limit = this._getEffectiveLimit();
     const currentPower = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     const totalOverload = Math.max(0, currentPower - limit);
 
-    for (const entry of evEntries) {
+    for (const entry of easeeEntries) {
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
-      await this._adjustEVChargerCurrent(entry.deviceId, targetCurrent).catch(() => {});
+      await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => {});
     }
   }
+
+
 
   getDiagnosticInfo() {
     const hasApi = !!this._api;
