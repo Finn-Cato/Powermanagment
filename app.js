@@ -800,15 +800,17 @@ class PowerGuardApp extends Homey.App {
 
   /**
    * Calculate optimal current for an EV charger given the current overload.
-   * Uses the formula: Available Power = Limit - Current Usage
+   * Respects per-charger circuit limits.
    * @param {number} totalOverloadW - Total power overage in watts
-   * @param {Object} chargerEntry - Entry from priorityList
-   * @returns {number} Target current in amps (6-32), or null to pause charger
+   * @param {Object} chargerEntry - Entry from priorityList (may have circuitLimitA)
+   * @returns {number} Target current in amps (6-32), or null to pause
    */
   _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
+    const circuitLimitA = chargerEntry.circuitLimitA || 32;  // Use circuit limit if set
+
     if (!totalOverloadW || totalOverloadW <= 0) {
-      // No overload, charge at maximum
-      return 32;  // Default max for Easee
+      // No overload, charge at maximum (but respect circuit limit)
+      return Math.min(32, circuitLimitA);
     }
 
     const limit = this._getEffectiveLimit();
@@ -824,16 +826,15 @@ class PowerGuardApp extends Homey.App {
     }
 
     // Convert power to current (230V single-phase, simplified)
-    // For 3-phase: use 3 * 230 * sqrt(3) = 1196V per phase
-    const voltage = 230;  // Simplified: single phase
+    const voltage = 230;
     const availableCurrentA = Math.round(availablePowerW / voltage);
 
-    // Clamp to min/max (Easee: 6-32A)
+    // Clamp to min/max, but also respect circuit limit
     const minCurrent = 6;
-    const maxCurrent = 32;
+    const maxCurrent = Math.min(32, circuitLimitA);  // Never exceed circuit limit
     const targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
 
-    this.log(`EV calc: overload=${totalOverloadW}W, available=${availablePowerW}W → ${targetCurrent}A`);
+    this.log(`EV calc: overload=${totalOverloadW}W, available=${availablePowerW}W, circuit=${circuitLimitA}A → ${targetCurrent}A`);
     return targetCurrent;
   }
 

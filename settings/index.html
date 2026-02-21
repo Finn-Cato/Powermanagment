@@ -68,6 +68,7 @@
     .priority-num { font-size: 10px; color: #636366; min-width: 14px; width: 14px; text-align: right; flex-shrink: 0; }
     .dev-name { flex: 2; font-size: 13px; font-weight: 600; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0.01em; white-space: normal; word-break: break-word; line-height: 1.25; }
     .dev-list select { font-size: 11px; padding: 3px 4px; max-width: 120px; flex-shrink: 0; }
+    .dev-list input[type=number] { font-size: 11px; padding: 3px 4px; width: 50px; flex-shrink: 0; border: 1px solid #d1d1d6; border-radius: 4px; background: #fff; }
     .section-label { font-size: 11px; color: #636366; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 5px 0 2px; }
     .room-label { font-size: 12px; color: #aaa; font-weight: 500; padding: 4px 2px 2px; display: flex; align-items: center; gap: 6px; }
     .room-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
@@ -666,6 +667,7 @@
         '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging</option>' +
         '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee)</option>' +
       '</select>' +
+      (entry.action === 'dynamic_current' ? '<input type="number" min="6" max="32" value="' + (entry.circuitLimitA || 32) + '" onchange="updateDeviceCircuitLimit(\'' + entry.deviceId + '\',this.value)" title="Max circuit amperage" style="width:50px;font-size:11px">' : '') +
       '<label class="toggle" title="Managed \u2014 toggle to remove">' +
         '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
         '<span class="slider"></span>' +
@@ -707,7 +709,8 @@
       priorityList.push({
         deviceId: deviceId, name: dev.name,
         priority: maxPriority + 1, action: action, enabled: true,
-        minRuntimeSeconds: 0, minOffTimeSeconds: 60
+        minRuntimeSeconds: 0, minOffTimeSeconds: 60,
+        circuitLimitA: 32
       });
     } else {
       var idx = -1;
@@ -723,7 +726,12 @@
 
   function updateDeviceAction(deviceId, val) {
     var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
-    if (entry) { entry.action = val; savePriorityList(); }
+    if (entry) { entry.action = val; renderAllDevices(); savePriorityList(); }
+  }
+
+  function updateDeviceCircuitLimit(deviceId, val) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (entry) { entry.circuitLimitA = parseInt(val) || 32; savePriorityList(); }
   }
 
   function reorderManaged(fromIdx, toIdx) {
