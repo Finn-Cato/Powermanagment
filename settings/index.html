@@ -176,6 +176,7 @@
     <!-- Tab bar -->
     <div class="tab-bar">
       <button class="tab-btn active" id="tb-settings" onclick="showTab('settings')">Settings</button>
+      <button class="tab-btn"        id="tb-system"   onclick="showTab('system')">System</button>
       <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')">Devices</button>
     </div>
 
@@ -309,6 +310,66 @@
 
     </div><!-- /#tab-settings -->
 
+    <!-- ── System tab ────────────────────────────────────────────────────── -->
+    <div id="tab-system" style="display:none">
+
+      <div class="card">
+        <h2>Electrical System Configuration</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Main circuit voltage</label>
+            <span class="hint">Select your electrical system type. This affects power calculations for EV charger control.</span>
+          </div>
+          <div class="control">
+            <select id="s-voltageSystem">
+              <option value="230v-1phase">230V Single-phase (Home)</option>
+              <option value="400v-3phase">400V Three-phase (Industrial)</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" id="phase-config-row" style="display:none">
+          <div class="label-group">
+            <label>Phase configuration</label>
+            <span class="hint">For 3-phase systems, specify how chargers are distributed.</span>
+          </div>
+          <div class="control">
+            <select id="s-phaseDistribution">
+              <option value="balanced">Balanced (chargers on all 3 phases)</option>
+              <option value="single-phase-a">Single Phase A only</option>
+              <option value="single-phase-b">Single Phase B only</option>
+              <option value="single-phase-c">Single Phase C only</option>
+              <option value="two-phases">Two phases (custom)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Charger Circuit Details</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Circuit amperage</label>
+            <span class="hint">Main circuit breaker amperage rating. Used to validate charger limits.</span>
+          </div>
+          <div class="control">
+            <input type="number" id="s-mainCircuitA" min="10" max="100" step="1" value="25">
+            <span style="font-size:12px;color:#636366">A</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Managed Chargers</h2>
+        <p style="font-size:13px;color:#636366;margin-bottom:12px;line-height:1.5">
+          Current power ratings and circuit limits for chargers under Power Guard control.
+        </p>
+        <div id="charger-details-list" style="font-size:12px;">
+          <span style="color:#636366">⏳ Loading chargers...</span>
+        </div>
+      </div>
+
+    </div><!-- /#tab-system -->
+
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
     <div id="tab-devices" style="display:none">
 
@@ -407,7 +468,7 @@
   }
 
   function showTab(name) {
-    ['settings','devices'].forEach(function(t) {
+    ['settings','system','devices'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -473,15 +534,19 @@
     document.getElementById('s-enabled').checked = s.enabled !== false;
     document.getElementById('s-enabled-toggle').checked = s.enabled !== false;
     document.getElementById('s-profile').value   = s.profile || 'normal';
+    document.getElementById('s-voltageSystem').value = s.voltageSystem || '230v-1phase';
+    document.getElementById('s-phaseDistribution').value = s.phaseDistribution || 'balanced';
     setNum('s-powerLimitW',     s.powerLimitW,    10000);
     setNum('s-cooldownSeconds', s.cooldownSeconds, 30);
     setNum('s-phase1LimitA',    s.phase1LimitA,   0);
     setNum('s-phase2LimitA',    s.phase2LimitA,   0);
     setNum('s-phase3LimitA',    s.phase3LimitA,   0);
+    setNum('s-mainCircuitA',    s.mainCircuitA,   25);
     setRange('s-smoothingWindow', 'v-smoothingWindow', s.smoothingWindow, 5,   '');
     setRange('s-spikeMultiplier', 'v-spikeMultiplier', s.spikeMultiplier, 2.0, '\u00d7');
     setRange('s-hysteresisCount', 'v-hysteresisCount', s.hysteresisCount, 3,   '');
     priorityList = Array.isArray(s.priorityList) ? s.priorityList : [];
+    updatePhaseConfigVisibility();
   }
   function setNum(id, val, fb) {
     var e = document.getElementById(id);
@@ -491,6 +556,101 @@
     var e = document.getElementById(id), v = document.getElementById(vid), n = (val != null) ? val : fb;
     if (e) e.value = n;
     if (v) v.textContent = n + sfx;
+  }
+
+  // ── System configuration ────────────────────────────────────────────────────
+  function updatePhaseConfigVisibility() {
+    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    var phaseRow = document.getElementById('phase-config-row');
+    if (phaseRow) {
+      phaseRow.style.display = (voltageSystem === '400v-3phase') ? 'flex' : 'none';
+    }
+    renderAllDevices();  // Refresh device list to update power calculations
+    renderChargerDetails();  // Update charger power details based on voltage system
+  }
+
+  /**
+   * Render charger-specific power details based on voltage system.
+   */
+  function renderChargerDetails() {
+    var container = document.getElementById('charger-details-list');
+    if (!container) return;
+
+    Homey.api('/priority-list', 'GET', function(err, priorityList) {
+      if (err || !priorityList) {
+        container.innerHTML = '<span style="color:#ff3b30">⚠ Failed to load chargers</span>';
+        return;
+      }
+
+      var chargers = priorityList.filter(function(e) { 
+        return e.action === 'dynamic_current' && e.enabled !== false; 
+      });
+
+      if (chargers.length === 0) {
+        container.innerHTML = '<span style="color:#636366">No dynamic chargers configured</span>';
+        return;
+      }
+
+      var voltageSystem = document.getElementById('s-voltageSystem').value;
+      var mainCircuitA = parseInt(document.getElementById('s-mainCircuitA').value) || 25;
+
+      var html = '<table style="width:100%; border-collapse:collapse;">';
+      html += '<thead><tr style="border-bottom:1px solid #e5e5ea;">' +
+              '<th style="text-align:left; padding:8px 4px;">Charger</th>' +
+              '<th style="text-align:center; padding:8px 4px;">Circuit Limit</th>' +
+              '<th style="text-align:center; padding:8px 4px;">Max Power @ ' + 
+              (voltageSystem === '230v-1phase' ? '230V' : '400V') + '</th>' +
+              '</tr></thead><tbody>';
+
+      chargers.forEach(function(charger, idx) {
+        var circuitA = charger.circuitLimitA || 32;
+        var maxPowerW;
+
+        // Calculate max power based on voltage system
+        if (voltageSystem === '230v-1phase') {
+          maxPowerW = Math.round(230 * Math.min(circuitA, mainCircuitA));
+        } else {
+          // 400V 3-phase: P = √3 × 400 × A ≈ 692 × A
+          maxPowerW = Math.round(692 * Math.min(circuitA, mainCircuitA));
+        }
+
+        var bgColor = idx % 2 === 0 ? 'transparent' : '#f5f5f7';
+        html += '<tr style="background:' + bgColor + '; border-bottom:1px solid #e5e5ea;">' +
+                '<td style="padding:8px 4px;">' + escHtml(charger.name) + '</td>' +
+                '<td style="text-align:center; padding:8px 4px;"><strong>' + circuitA + 'A</strong></td>' +
+                '<td style="text-align:center; padding:8px 4px;">' + (maxPowerW / 1000).toFixed(1) + 'kW</td>' +
+                '</tr>';
+      });
+
+      html += '</tbody></table>';
+      html += '<div style="font-size:11px; color:#636366; margin-top:8px; line-height:1.5;">' +
+              '💡 <strong>Note:</strong> Max Power is calculated from the lower of circuit limit and main circuit breaker (' + mainCircuitA + 'A). ' +
+              'Actual available current will be reduced during power overload mitigation.' +
+              '</div>';
+
+      container.innerHTML = html;
+    });
+  }
+
+  function getVoltageConverter() {
+    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    // Returns a function that converts amperage to watts
+    if (voltageSystem === '400v-3phase') {
+      // 400V 3-phase: P = √3 × 400V × A = 692 × A (per phase)
+      return function(ampA) { return Math.round(692 * ampA); };
+    } else {
+      // 230V single-phase: P = 230V × A
+      return function(ampA) { return Math.round(230 * ampA); };
+    }
+  }
+
+  function getMaxAmpFromWatt(wattW) {
+    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    if (voltageSystem === '400v-3phase') {
+      return Math.round(wattW / 692);
+    } else {
+      return Math.round(wattW / 230);
+    }
   }
 
   // ── Load all data ──────────────────────────────────────────────────────────
@@ -516,6 +676,7 @@
         updateStatusUI(status);
         availableDevices = Array.isArray(devices) ? devices : [];
         renderAllDevices();
+        renderChargerDetails();  // Refresh charger details after loading
         dbg('Load complete: ' + availableDevices.length + ' devices');
       })
       .catch(function(err) {
@@ -559,7 +720,11 @@
       smoothingWindow: getNumValue('s-smoothingWindow', 5),
       spikeMultiplier: getFloatValue('s-spikeMultiplier', 2.0),
       hysteresisCount: getNumValue('s-hysteresisCount', 3),
-      cooldownSeconds: getNumValue('s-cooldownSeconds', 30)
+      cooldownSeconds: getNumValue('s-cooldownSeconds', 30),
+      voltageSystem:   getStringValue('s-voltageSystem', '230v-1phase'),
+      phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
+      mainCircuitA:    getNumValue('s-mainCircuitA', 25),
+      priorityList:    priorityList
     };
   }
 
@@ -894,6 +1059,23 @@
     Homey.ready();
     dbg('Homey.ready() called, api=' + (typeof Homey.api));
 
+    // Setup event listeners
+    var voltageSelect = document.getElementById('s-voltageSystem');
+    if (voltageSelect) {
+      voltageSelect.addEventListener('change', function() {
+        updatePhaseConfigVisibility();
+        savePriorityList();
+      });
+    }
+
+    var mainCircuitInput = document.getElementById('s-mainCircuitA');
+    if (mainCircuitInput) {
+      mainCircuitInput.addEventListener('change', function() {
+        renderChargerDetails();
+        savePriorityList();
+      });
+    }
+
     // Load all data via Homey.api('GET', '/all', ...)
     hApi('GET', '/all', null)
       .then(function(data) {
@@ -915,6 +1097,7 @@
         updateStatusUI(data.status || {});
         availableDevices = Array.isArray(data.devices) ? data.devices : [];
         renderAllDevices();
+        renderChargerDetails();  // Initial render of charger power details
         dbg('Initial load: ' + availableDevices.length + ' devices');
 
         startCacheStatusPolling();
@@ -943,6 +1126,7 @@
         if (!Array.isArray(list)) return;
         priorityList = list;
         renderAllDevices();
+        renderChargerDetails();  // Update charger details when priority list changes
       });
       dbg('Registered realtime: priorityList');
     } catch (e) { dbg('Realtime priorityList failed: ' + e.message); }
@@ -962,6 +1146,7 @@
           if (incoming !== current) {
             priorityList = s.priorityList;
             renderAllDevices();
+            renderChargerDetails();  // Update charger details if priority list changed
           }
         })
         .catch(function() {});
