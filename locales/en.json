@@ -1,0 +1,38 @@
+{
+  "device": {
+    "name": "Power Guard"
+  },
+  "errors": {
+    "deviceExists": "A Power Guard device already exists. Only one is allowed.",
+    "hanTimeout": "HAN device not reporting — check frient HAN Port connection."
+  },
+  "settings": {
+    "title": "Power Guard Settings",
+    "enabled": "Enable Power Guard",
+    "profile": "Active Profile",
+    "profiles": {
+      "normal": "Normal",
+      "strict": "Strict (90% limit)",
+      "solar": "Solar-friendly"
+    },
+    "powerLimitW": "Power Limit (W)",
+    "phaseLimit": "Phase Limit (A)",
+    "smoothingWindow": "Smoothing Window (readings)",
+    "spikeMultiplier": "Spike Filter (× average)",
+    "hysteresisCount": "Hysteresis (consecutive readings)",
+    "cooldownSeconds": "Cooldown Between Steps (s)",
+    "priorityList": "Device Priority List",
+    "diagnostics": "Diagnostics",
+    "currentPower": "Current Power",
+    "limitValue": "Effective Limit",
+    "hanConnected": "HAN Connected",
+    "mitigatedDevices": "Devices Under Mitigation",
+    "recentLog": "Recent Log"
+  },
+  "actions": {
+    "onoff": "Turn off",
+    "dim": "Dim to minimum",
+    "target_temperature": "Lower temperature",
+    "charge_pause": "Pause charging"
+  }
+}

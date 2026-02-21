@@ -1,0 +1,38 @@
+{
+  "device": {
+    "name": "Power Guard"
+  },
+  "errors": {
+    "deviceExists": "En Power Guard-enhet finnes allerede. Kun én er tillatt.",
+    "hanTimeout": "HAN-enheten rapporterer ikke — sjekk frient HAN Port-tilkoblingen."
+  },
+  "settings": {
+    "title": "Power Guard-innstillinger",
+    "enabled": "Aktiver Power Guard",
+    "profile": "Aktiv profil",
+    "profiles": {
+      "normal": "Normal",
+      "strict": "Streng (90% grense)",
+      "solar": "Sol-vennlig"
+    },
+    "powerLimitW": "Effektgrense (W)",
+    "phaseLimit": "Fasegrense (A)",
+    "smoothingWindow": "Utjevningsvindu (målinger)",
+    "spikeMultiplier": "Piggfilter (× gjennomsnitt)",
+    "hysteresisCount": "Hysterese (påfølgende målinger)",
+    "cooldownSeconds": "Nedkjøling mellom tiltak (s)",
+    "priorityList": "Enhetsprioritetsliste",
+    "diagnostics": "Diagnostikk",
+    "currentPower": "Nåværende effekt",
+    "limitValue": "Effektiv grense",
+    "hanConnected": "HAN tilkoblet",
+    "mitigatedDevices": "Enheter under tiltak",
+    "recentLog": "Nylig logg"
+  },
+  "actions": {
+    "onoff": "Slå av",
+    "dim": "Dim til minimum",
+    "target_temperature": "Senk temperatur",
+    "charge_pause": "Pause lading"
+  }
+}

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Power Guard Settings</title>
+  <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #f5f5f7; color: #1d1d1f; }
+    .container { max-width: 760px; margin: 0 auto; padding: 20px 16px 40px; }
+    h1  { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #e8441a; }
+    .subtitle { font-size: 13px; color: #636366; margin-bottom: 20px; }
+    h2  { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 12px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .row { display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; gap: 12px; }
+    .row:last-child { border-bottom: none; padding-bottom: 0; }
+    .row:first-child { padding-top: 0; }
+    .label-group { flex: 1; }
+    .label-group label { font-size: 13px; font-weight: 500; color: #1d1d1f; display: block; }
+    .label-group .hint { font-size: 12px; color: #636366; margin-top: 2px; line-height: 1.4; }
+    .control { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+    input[type=number] { width: 110px; padding: 6px 8px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 13px; }
+    input[type=text], input[type=password] { padding: 6px 8px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 13px; }
+    select { padding: 6px 8px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 13px; background: #fff; }
+    input[type=checkbox] { width: 20px; height: 20px; cursor: pointer; accent-color: #e8441a; }
+    input[type=range] { width: 110px; accent-color: #e8441a; }
+    .range-val { min-width: 36px; text-align: right; font-size: 13px; color: #3a3a3c; font-weight: 500; }
+    button { padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
+    .btn-primary   { background: #e8441a; color: #fff; }
+    .btn-secondary { background: #e5e5ea; color: #1d1d1f; }
+    .btn-small     { padding: 5px 12px; font-size: 12px; }
+    .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-box { background: #f5f5f7; border-radius: 10px; padding: 12px 14px; }
+    .stat-box .stat-label { font-size: 11px; color: #636366; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    .stat-box .stat-value { font-size: 20px; font-weight: 700; color: #1d1d1f; }
+    .stat-box .stat-sub   { font-size: 11px; color: #636366; margin-top: 2px; }
+    .advanced-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #636366; margin-top: 4px; user-select: none; }
+    .advanced-toggle:hover { color: #1d1d1f; }
+    #advanced-section { display: none; margin-top: 12px; border-top: 1px solid #f0f0f0; padding-top: 12px; }
+    .log-entry { font-size: 12px; font-family: monospace; color: #3a3a3c; padding: 3px 0; }
+    .log-time  { color: #aaa; margin-right: 6px; }
+    .save-row  { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+    /* Tabs */
+    .tab-bar { display: flex; border-bottom: 2px solid #e5e5ea; margin-bottom: 16px; }
+    .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; padding: 10px 22px; font-size: 14px; font-weight: 500; color: #636366; cursor: pointer; border-radius: 0; }
+    .tab-btn.active { color: #e8441a; border-bottom-color: #e8441a; }
+    .tab-btn:hover:not(.active) { color: #1d1d1f; }
+    /* Device list */
+    .dev-list { list-style: none; }
+    .dev-list li { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 8px; margin-bottom: 5px; }
+    .dev-list li.managed   { background: #f5f5f7; }
+    .dev-list li.unmanaged { background: #f5f5f7; opacity: 0.55; }
+    .dev-list li.drag-over { background: #e5e5ea !important; }
+    .handle { cursor: grab; color: #bbb; font-size: 16px; user-select: none; touch-action: none; min-width: 20px; text-align: center; }
+    .priority-num { font-size: 11px; color: #636366; min-width: 22px; text-align: right; }
+    .dev-name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+    .dev-list select { font-size: 12px; padding: 4px 6px; max-width: 150px; }
+    .section-label { font-size: 11px; color: #636366; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 12px 0 6px; }
+    .room-label { font-size: 12px; color: #aaa; font-weight: 500; padding: 8px 2px 4px; display: flex; align-items: center; gap: 6px; }
+    .room-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
+    /* Toggle switch */
+    .toggle { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 22px; transition: background .2s; }
+    .toggle .slider:before { position: absolute; content: ''; height: 18px; width: 18px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+    .toggle input:checked + .slider { background: #34c759; }
+    .toggle input:checked + .slider:before { transform: translateX(16px); }
+    /* Misc */
+    #toast { display: none; position: fixed; bottom: 24px; right: 24px; background: #34c759; color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
+    #error-banner { display: none; background: #ff3b30; color: #fff; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; word-break: break-word; }
+    #connect-card { display: none; }
+    #connect-card .steps { font-size: 12px; color: #636366; line-height: 1.8; margin-bottom: 14px; }
+    #connect-card .steps b { color: #1d1d1f; }
+    #token-row  { display: flex; gap: 8px; flex-wrap: wrap; }
+    #token-input { flex: 1; min-width: 200px; font-family: monospace; font-size: 12px; }
+    #connect-error { display: none; color: #ff3b30; font-size: 12px; margin-top: 8px; }
+    #loading-indicator { text-align: center; padding: 30px; font-size: 13px; color: #636366; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Power Guard</h1>
+  <p class="subtitle">Automatically turns off devices before you exceed your power limit.</p>
+
+  <div id="error-banner"></div>
+  <div id="loading-indicator">Connecting to Homey…</div>
+
+  <!-- Token fallback card -->
+  <div class="card" id="connect-card">
+    <h2>Connect to Homey API</h2>
+    <div class="steps">
+      Power Guard needs a Personal Access Token to read and save settings.<br>
+      <b>1.</b> Go to <b>my.homey.app</b> → your name → <b>Account</b> → <b>Security</b> → <b>Personal Access Tokens</b><br>
+      <b>2.</b> Create a new token with scope <b>homey:manager:api</b><br>
+      <b>3.</b> Paste it below (held in memory only for this session).
+    </div>
+    <div id="token-row">
+      <input type="password" id="token-input" placeholder="pat-apps-…" autocomplete="off">
+      <button class="btn-primary" onclick="connectWithToken()">Connect</button>
+    </div>
+    <div id="connect-error"></div>
+  </div>
+
+  <!-- Main content -->
+  <div id="main-content" style="display:none">
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tb-settings" onclick="showTab('settings')">Settings</button>
+      <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')">Devices</button>
+    </div>
+
+    <!-- ── Settings tab ──────────────────────────────────────────────────── -->
+    <div id="tab-settings">
+
+      <div class="card">
+        <h2>Current Status</h2>
+        <div class="status-grid">
+          <div class="stat-box">
+            <div class="stat-label">Power right now</div>
+            <div class="stat-value" id="st-power">– W</div>
+            <div class="stat-sub">of <span id="st-limit">–</span> W limit</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Guard is</div>
+            <div class="stat-value" id="st-enabled-big">–</div>
+            <div class="stat-sub" id="st-profile-sub">–</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Power meter</div>
+            <div class="stat-value" id="st-han" style="font-size:14px;padding-top:4px">–</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Devices switched off</div>
+            <div class="stat-value" id="st-mitigation">–</div>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:#636366;margin-bottom:6px;font-weight:500">RECENT ACTIVITY</div>
+          <div id="log-container"><div class="log-entry" style="color:#aaa">No activity yet.</div></div>
+        </div>
+        <div id="ev-section" style="display:none;margin-top:14px">
+          <div style="font-size:12px;color:#636366;margin-bottom:6px;font-weight:500">EV CHARGERS</div>
+          <div id="ev-grid" class="status-grid"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="label-group">
+            <label>Power Guard active</label>
+            <span class="hint">Disable to stop Power Guard from controlling any devices.</span>
+          </div>
+          <div class="control"><input type="checkbox" id="s-enabled" checked></div>
+        </div>
+        <div class="row">
+          <div class="label-group">
+            <label>Protection mode</label>
+            <span class="hint"><b>Normal</b> — full limit. &nbsp;<b>Strict</b> — 90% of limit. &nbsp;<b>Solar-friendly</b> — relaxed when sun is producing.</span>
+          </div>
+          <div class="control">
+            <select id="s-profile">
+              <option value="normal">Normal</option>
+              <option value="strict">Strict</option>
+              <option value="solar">Solar-friendly</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Power Limit</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Maximum power (W)</label>
+            <span class="hint">Your grid connection limit. Typical: 10 000 W (10 kW) or 15 000 W (15 kW).</span>
+          </div>
+          <div class="control">
+            <input type="number" id="s-powerLimitW" min="100" max="100000" step="500" value="10000">
+            <span style="font-size:12px;color:#636366">W</span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label-group">
+            <label>Time before acting (s)</label>
+            <span class="hint">How long the limit must be exceeded before turning off a device.</span>
+          </div>
+          <div class="control">
+            <input type="number" id="s-cooldownSeconds" min="5" max="300" step="5" value="30">
+            <span style="font-size:12px;color:#636366">s</span>
+          </div>
+        </div>
+        <div class="advanced-toggle" onclick="toggleAdvanced()">
+          <span id="adv-arrow">&#9654;</span> Advanced settings
+        </div>
+        <div id="advanced-section">
+          <div class="row" style="padding-top:12px">
+            <div class="label-group"><label>Phase 1 limit (A)</label><span class="hint">0 = disabled</span></div>
+            <div class="control"><input type="number" id="s-phase1LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:#636366">A</span></div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Phase 2 limit (A)</label></div>
+            <div class="control"><input type="number" id="s-phase2LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:#636366">A</span></div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Phase 3 limit (A)</label></div>
+            <div class="control"><input type="number" id="s-phase3LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:#636366">A</span></div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Reaction speed</label><span class="hint">Readings to average. Lower = faster.</span></div>
+            <div class="control">
+              <input type="range" id="s-smoothingWindow" min="1" max="20" step="1" value="5">
+              <span class="range-val" id="v-smoothingWindow">5</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Spike ignore threshold</label><span class="hint">Readings × avg before ignoring as a spike.</span></div>
+            <div class="control">
+              <input type="range" id="s-spikeMultiplier" min="1.2" max="5.0" step="0.1" value="2.0">
+              <span class="range-val" id="v-spikeMultiplier">2.0×</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Confirm before acting</label><span class="hint">High readings in a row before switching off.</span></div>
+            <div class="control">
+              <input type="range" id="s-hysteresisCount" min="1" max="10" step="1" value="3">
+              <span class="range-val" id="v-hysteresisCount">3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="save-row">
+        <button class="btn-secondary" onclick="loadAll()">Discard</button>
+        <button class="btn-primary"   onclick="saveAll()">Save settings</button>
+      </div>
+
+    </div><!-- /#tab-settings -->
+
+    <!-- ── Devices tab ───────────────────────────────────────────────────── -->
+    <div id="tab-devices" style="display:none">
+
+      <div class="card">
+        <div id="cache-status" style="font-size:12px; color:#636366; margin-bottom:12px; padding: 8px; background:#f5f5f7; border-radius:8px;">
+          <span id="cache-loading" style="color:#636366">⏳ Loading devices...</span>
+          <span id="cache-status-text" style="display:none; color:#34c759">✓</span>
+          <span id="cache-refresh-btn" style="display:none; margin-left:12px;">
+            <button class="btn-small btn-secondary" onclick="refreshDeviceCache()" style="padding:4px 10px; font-size:11px;">Refresh</button>
+          </span>
+        </div>
+
+        <h2>Device priority</h2>
+        <p style="font-size:13px;color:#636366;margin-bottom:4px;line-height:1.5">
+          Toggle a device <b>on</b> to let Power Guard control it. Drag &#9776; to set the order —
+          devices higher in the list are turned off first.
+        </p>
+        <div id="devices-list"></div>
+      </div>
+
+      <div class="save-row">
+        <span id="dev-save-status" style="font-size:12px;color:#636366;margin-right:auto"></span>
+        <button class="btn-secondary" onclick="loadAll()">Discard</button>
+        <button class="btn-primary"   onclick="saveAll()">Save</button>
+      </div>
+
+    </div><!-- /#tab-devices -->
+
+  </div><!-- /#main-content -->
+</div>
+
+<div id="toast">Settings saved!</div>
+
+<!-- Debug log panel -->
+<div id="debug-panel" style="position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow-y:auto;background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;z-index:9999;display:block;border-top:2px solid #e8441a;">
+  <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+    <b style="color:#e8441a;">DEBUG LOG</b>
+    <span>
+      <button onclick="document.getElementById('debug-log').innerHTML=''" style="font-size:10px;padding:2px 8px;cursor:pointer;">Clear</button>
+      <button onclick="document.getElementById('debug-panel').style.display='none'" style="font-size:10px;padding:2px 8px;cursor:pointer;">Hide</button>
+    </span>
+  </div>
+  <div id="debug-log"></div>
+</div>
+
+<script>
+  // ── Debug logging ──────────────────────────────────────────────────────────
+  function dbg(msg) {
+    var el = document.getElementById('debug-log');
+    if (el) {
+      var t = new Date().toLocaleTimeString();
+      el.innerHTML += '<div><span style="color:#888">' + t + '</span> ' + msg + '</div>';
+      el.parentElement.scrollTop = el.parentElement.scrollHeight;
+    }
+    console.log('[DBG] ' + msg.replace(/<[^>]+>/g, ''));
+  }
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  var _H              = null;
+  var priorityList    = [];
+  var availableDevices = [];
+  var _touchDragIdx   = null;
+  var _touchTargetIdx = null;
+  var _touchDragLi    = null;
+
+  // ── Homey.api() wrappers (return Promises) ────────────────────────────────
+  // Per official docs: Homey.api(method, path, body, callback)
+  // Callback signature: function(err, result)
+
+  function hApi(method, path, body) {
+    return new Promise(function(resolve, reject) {
+      _H.api(method, path, body, function(err, result) {
+        if (err) {
+          dbg('<span style="color:red">' + method + ' ' + path + ' error: ' + (err.message || err) + '</span>');
+          reject(err);
+        } else {
+          dbg(method + ' ' + path + ' OK');
+          resolve(result);
+        }
+      });
+    });
+  }
+
+  // ── Priority list persistence ─────────────────────────────────────────────
+  function savePriorityList() {
+    if (!_H) return;
+    hApi('POST', '/priority-list', priorityList)
+      .then(function() { dbg('Priority list saved'); })
+      .catch(function(e) { dbg('Priority save error: ' + e.message); });
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
+  function showError(msg)  { var e = document.getElementById('error-banner'); e.textContent = msg; e.style.display = 'block'; }
+  function clearError()    { document.getElementById('error-banner').style.display = 'none'; }
+  function showToast()     { var t = document.getElementById('toast'); t.style.display = 'block'; setTimeout(function() { t.style.display = 'none'; }, 2500); }
+  function escHtml(s)      { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function toggleAdvanced() {
+    var s = document.getElementById('advanced-section'), a = document.getElementById('adv-arrow');
+    if (s.style.display === 'none' || !s.style.display) { s.style.display = 'block'; a.innerHTML = '&#9660;'; }
+    else { s.style.display = 'none'; a.innerHTML = '&#9654;'; }
+  }
+
+  function showTab(name) {
+    ['settings','devices'].forEach(function(t) {
+      document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
+      document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
+    });
+  }
+
+  function showMain() {
+    document.getElementById('loading-indicator').style.display = 'none';
+    document.getElementById('connect-card').style.display     = 'none';
+    document.getElementById('main-content').style.display     = 'block';
+  }
+  function showConnectCard() {
+    document.getElementById('loading-indicator').style.display = 'none';
+    document.getElementById('connect-card').style.display     = 'block';
+  }
+
+  // ── Status UI ──────────────────────────────────────────────────────────────
+  function updateStatusUI(s) {
+    if (!s) return;
+    document.getElementById('st-power').textContent       = Math.round(s.currentPowerW || 0) + ' W';
+    document.getElementById('st-limit').textContent       = Math.round(s.limitW || 0);
+    document.getElementById('st-enabled-big').textContent = s.enabled ? 'ON' : 'OFF';
+    document.getElementById('st-enabled-big').style.color = s.enabled ? '#34c759' : '#ff9500';
+    document.getElementById('st-profile-sub').textContent =
+      ({ normal: 'Normal mode', strict: 'Strict mode', solar: 'Solar-friendly' }[s.profile] || '');
+    var h = document.getElementById('st-han');
+    h.textContent = s.hanConnected ? 'Connected' : 'Not found';
+    h.style.color = s.hanConnected ? '#34c759' : '#ff3b30';
+    var n = (s.mitigatedDevices || []).length;
+    var m = document.getElementById('st-mitigation');
+    m.textContent = n || 'None';
+    m.style.color = n > 0 ? '#ff9500' : '#34c759';
+    var entries = (s.log || []).slice().reverse().slice(0, 8);
+    document.getElementById('log-container').innerHTML = entries.length
+      ? entries.map(function(e) {
+          return '<div class="log-entry"><span class="log-time">' +
+            (e.time ? new Date(e.time).toLocaleTimeString() : '') + '</span>' +
+            escHtml(e.message || '') + '</div>';
+        }).join('')
+      : '<div class="log-entry" style="color:#aaa">No activity yet.</div>';
+    var evChargers = Array.isArray(s.evChargers) ? s.evChargers : [];
+    var evSection = document.getElementById('ev-section');
+    var evGrid = document.getElementById('ev-grid');
+    if (evSection && evGrid) {
+      if (evChargers.length) {
+        evSection.style.display = 'block';
+        evGrid.innerHTML = evChargers.map(function(c) {
+          return '<div class="stat-box">' +
+            '<div class="stat-label">' + escHtml(c.name || 'EV Charger') + '</div>' +
+            '<div class="stat-value">' + Math.round(c.powerW || 0) + ' W</div>' +
+            '<div class="stat-sub">' + (c.isCharging ? 'Charging' : 'Paused') + '</div>' +
+            '</div>';
+        }).join('');
+      } else {
+        evSection.style.display = 'none';
+      }
+    }
+  }
+
+  // ── Apply settings to form ─────────────────────────────────────────────────
+  function applySettings(s) {
+    if (!s) return;
+    document.getElementById('s-enabled').checked = s.enabled !== false;
+    document.getElementById('s-profile').value   = s.profile || 'normal';
+    setNum('s-powerLimitW',     s.powerLimitW,    10000);
+    setNum('s-cooldownSeconds', s.cooldownSeconds, 30);
+    setNum('s-phase1LimitA',    s.phase1LimitA,   0);
+    setNum('s-phase2LimitA',    s.phase2LimitA,   0);
+    setNum('s-phase3LimitA',    s.phase3LimitA,   0);
+    setRange('s-smoothingWindow', 'v-smoothingWindow', s.smoothingWindow, 5,   '');
+    setRange('s-spikeMultiplier', 'v-spikeMultiplier', s.spikeMultiplier, 2.0, '\u00d7');
+    setRange('s-hysteresisCount', 'v-hysteresisCount', s.hysteresisCount, 3,   '');
+    priorityList = Array.isArray(s.priorityList) ? s.priorityList : [];
+  }
+  function setNum(id, val, fb) {
+    var e = document.getElementById(id);
+    if (e) e.value = (val != null) ? val : fb;
+  }
+  function setRange(id, vid, val, fb, sfx) {
+    var e = document.getElementById(id), v = document.getElementById(vid), n = (val != null) ? val : fb;
+    if (e) e.value = n;
+    if (v) v.textContent = n + sfx;
+  }
+
+  // ── Load all data ──────────────────────────────────────────────────────────
+  function loadAll() {
+    clearError();
+    dbg('Loading all data via Homey.api...');
+    hApi('GET', '/all', null)
+      .then(function(data) {
+        var settings = data.settings || {};
+        var status = data.status || {};
+        var devices = data.devices || [];
+        var defs = {
+          enabled: true, profile: 'normal', powerLimitW: 10000,
+          phase1LimitA: 0, phase2LimitA: 0, phase3LimitA: 0,
+          smoothingWindow: 5, spikeMultiplier: 2.0,
+          hysteresisCount: 3, cooldownSeconds: 30, priorityList: []
+        };
+        Object.keys(defs).forEach(function(k) {
+          if (settings[k] == null) settings[k] = defs[k];
+        });
+        dbg('Settings loaded: ' + JSON.stringify(settings).substring(0, 200));
+        applySettings(settings);
+        updateStatusUI(status);
+        availableDevices = Array.isArray(devices) ? devices : [];
+        renderAllDevices();
+        dbg('Load complete: ' + availableDevices.length + ' devices');
+      })
+      .catch(function(err) {
+        dbg('Load error: ' + (err.message || err));
+        showError('Cannot load settings: ' + (err.message || err));
+        renderAllDevices();
+      });
+  }
+
+  // ── Collect settings from form ─────────────────────────────────────────────
+  function collectSettings() {
+    var getNumValue = function(id, fb) {
+      var el = document.getElementById(id);
+      if (!el) return fb;
+      var val = parseInt(el.value, 10);
+      return isNaN(val) ? fb : val;
+    };
+    var getFloatValue = function(id, fb) {
+      var el = document.getElementById(id);
+      if (!el) return fb;
+      var val = parseFloat(el.value);
+      return isNaN(val) ? fb : val;
+    };
+    var getBoolValue = function(id, fb) {
+      var el = document.getElementById(id);
+      if (!el) return fb;
+      return el.checked !== undefined ? el.checked : fb;
+    };
+    var getStringValue = function(id, fb) {
+      var el = document.getElementById(id);
+      if (!el) return fb;
+      return el.value || fb;
+    };
+    return {
+      enabled:         getBoolValue('s-enabled', true),
+      profile:         getStringValue('s-profile', 'normal'),
+      powerLimitW:     getNumValue('s-powerLimitW', 10000),
+      phase1LimitA:    getNumValue('s-phase1LimitA', 0),
+      phase2LimitA:    getNumValue('s-phase2LimitA', 0),
+      phase3LimitA:    getNumValue('s-phase3LimitA', 0),
+      smoothingWindow: getNumValue('s-smoothingWindow', 5),
+      spikeMultiplier: getFloatValue('s-spikeMultiplier', 2.0),
+      hysteresisCount: getNumValue('s-hysteresisCount', 3),
+      cooldownSeconds: getNumValue('s-cooldownSeconds', 30)
+    };
+  }
+
+  // ── Save all settings ──────────────────────────────────────────────────────
+  function saveAll() {
+    clearError();
+    if (!_H) { showError('Not connected to Homey'); return; }
+    var settings = collectSettings();
+    dbg('Saving settings...');
+    Promise.all([
+      hApi('POST', '/settings', settings),
+      hApi('POST', '/priority-list', priorityList)
+    ])
+      .then(function() {
+        dbg('All settings saved successfully');
+        showToast();
+      })
+      .catch(function(err) {
+        dbg('Save error: ' + (err.message || err));
+        showError('Save failed: ' + (err.message || err));
+      });
+  }
+
+  // ── Devices tab rendering ──────────────────────────────────────────────────
+  function selOpt(cur, val) { return cur === val ? ' selected' : ''; }
+
+  function renderAllDevices() {
+    var container = document.getElementById('devices-list');
+    if (!container) return;
+    container.innerHTML = '';
+    var managed = priorityList.slice().sort(function(a, b) { return (a.priority || 0) - (b.priority || 0); });
+    var managedIds = {};
+    managed.forEach(function(e) { managedIds[e.deviceId] = true; });
+    var unmanaged = availableDevices.filter(function(d) { return !managedIds[d.id]; });
+
+    if (managed.length) {
+      var lbl1 = document.createElement('div');
+      lbl1.className = 'section-label';
+      lbl1.textContent = 'Managed \u2014 turned off first to last';
+      container.appendChild(lbl1);
+      var ul = document.createElement('ul');
+      ul.className = 'dev-list';
+      ul.id = 'priority-list';
+      managed.forEach(function(entry, idx) {
+        ul.appendChild(buildManagedRow(entry, idx, managed.length));
+      });
+      container.appendChild(ul);
+    }
+
+    if (unmanaged.length) {
+      var lbl2 = document.createElement('div');
+      lbl2.className = 'section-label';
+      lbl2.textContent = managed.length ? 'Not managed' : 'Available devices \u2014 toggle on to manage';
+      container.appendChild(lbl2);
+      var groups = {};
+      unmanaged.forEach(function(dev) {
+        var zone = dev.zoneName || 'Other';
+        if (!groups[zone]) groups[zone] = [];
+        groups[zone].push(dev);
+      });
+      var zoneNames = Object.keys(groups).sort(function(a, b) { return a.localeCompare(b); });
+      var multiRoom = zoneNames.length > 1;
+      zoneNames.forEach(function(zone) {
+        if (multiRoom) {
+          var roomLbl = document.createElement('div');
+          roomLbl.className = 'room-label';
+          roomLbl.textContent = zone;
+          container.appendChild(roomLbl);
+        }
+        var ul = document.createElement('ul');
+        ul.className = 'dev-list';
+        groups[zone].forEach(function(dev) { ul.appendChild(buildUnmanagedRow(dev)); });
+        container.appendChild(ul);
+      });
+    }
+
+    if (!managed.length && !unmanaged.length) {
+      var msg = document.createElement('p');
+      msg.style.cssText = 'color:#aaa;font-size:13px;padding:16px 0;text-align:center';
+      msg.textContent = availableDevices.length
+        ? 'Toggle devices on to manage them.'
+        : 'No devices found. The cache is loading \u2014 this will update automatically.';
+      container.appendChild(msg);
+    }
+  }
+
+  function buildManagedRow(entry, idx, total) {
+    var li = document.createElement('li');
+    li.className = 'managed';
+    li.innerHTML =
+      '<span class="handle" title="Drag to reorder">&#9776;</span>' +
+      '<span class="priority-num">' + (idx + 1) + '.</span>' +
+      '<span class="dev-name">' + escHtml(entry.name) + '</span>' +
+      '<select onchange="updateDeviceAction(\'' + entry.deviceId + '\',this.value)">' +
+        '<option value="onoff"'             + selOpt(entry.action,'onoff')             + '>Turn off</option>' +
+        '<option value="dim"'               + selOpt(entry.action,'dim')               + '>Dim</option>' +
+        '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>Lower thermostat</option>' +
+        '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging</option>' +
+        '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee)</option>' +
+      '</select>' +
+      '<label class="toggle" title="Managed \u2014 toggle to remove">' +
+        '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
+        '<span class="slider"></span>' +
+      '</label>';
+    var handle = li.querySelector('.handle');
+    handle.setAttribute('draggable', 'true');
+    handle.addEventListener('dragstart', function(e) {
+      e.dataTransfer.setData('text/plain', String(idx));
+      li.style.opacity = '0.45';
+    });
+    handle.addEventListener('dragend', function() { li.style.opacity = ''; });
+    li.addEventListener('dragover',  function(e) { e.preventDefault(); li.classList.add('drag-over'); });
+    li.addEventListener('dragleave', function()  { li.classList.remove('drag-over'); });
+    li.addEventListener('drop', function(e) {
+      e.preventDefault();
+      li.classList.remove('drag-over');
+      var from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      if (from === idx) return;
+      reorderManaged(from, idx);
+    });
+    handle.addEventListener('touchstart', onTouchDragStart, { passive: false });
+    handle.addEventListener('touchmove',  onTouchDragMove,  { passive: false });
+    handle.addEventListener('touchend',   onTouchDragEnd,   { passive: false });
+    return li;
+  }
+
+  function buildUnmanagedRow(dev) {
+    var li = document.createElement('li');
+    li.className = 'unmanaged';
+    li.innerHTML =
+      '<span style="min-width:20px"></span>' +
+      '<span style="min-width:22px"></span>' +
+      '<span class="dev-name">' + escHtml(dev.name) + '</span>' +
+      '<select id="def-action-' + dev.id.replace(/[^a-z0-9]/gi,'_') + '">' +
+        '<option value="onoff">Turn off</option>' +
+        '<option value="dim">Dim</option>' +
+        '<option value="target_temperature">Lower thermostat</option>' +
+        '<option value="charge_pause">Pause EV charging</option>' +
+        '<option value="dynamic_current">Dynamic charging (Easee)</option>' +
+      '</select>' +
+      '<label class="toggle" title="Toggle on to manage this device">' +
+        '<input type="checkbox" onchange="toggleDevice(\'' + dev.id + '\',this.checked)">' +
+        '<span class="slider"></span>' +
+      '</label>';
+    return li;
+  }
+
+  // ── Device list actions ────────────────────────────────────────────────────
+  function toggleDevice(deviceId, checked) {
+    if (checked) {
+      if (priorityList.some(function(e) { return e.deviceId === deviceId; })) return;
+      var dev = availableDevices.filter(function(d) { return d.id === deviceId; })[0];
+      if (!dev) return;
+      var safeId = deviceId.replace(/[^a-z0-9]/gi, '_');
+      var sel = document.getElementById('def-action-' + safeId);
+      var action = sel ? sel.value : 'onoff';
+      priorityList.forEach(function(e) { e.priority = (e.priority || 0) + 1; });
+      priorityList.push({
+        deviceId: deviceId, name: dev.name,
+        priority: 1, action: action, enabled: true,
+        minRuntimeSeconds: 0, minOffTimeSeconds: 60
+      });
+    } else {
+      var idx = -1;
+      priorityList.forEach(function(e, i) { if (e.deviceId === deviceId) idx = i; });
+      if (idx !== -1) {
+        priorityList.splice(idx, 1);
+        priorityList.forEach(function(e, i) { e.priority = i + 1; });
+      }
+    }
+    renderAllDevices();
+    savePriorityList();
+  }
+
+  function updateDeviceAction(deviceId, val) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (entry) { entry.action = val; savePriorityList(); }
+  }
+
+  function reorderManaged(fromIdx, toIdx) {
+    var sorted = priorityList.slice().sort(function(a, b) { return (a.priority || 0) - (b.priority || 0); });
+    sorted.splice(toIdx, 0, sorted.splice(fromIdx, 1)[0]);
+    sorted.forEach(function(x, i) { x.priority = i + 1; });
+    renderAllDevices();
+    savePriorityList();
+  }
+
+  // ── Touch drag handlers ────────────────────────────────────────────────────
+  function onTouchDragStart(e) {
+    e.preventDefault();
+    _touchDragLi = e.currentTarget.parentElement;
+    var items = Array.from(document.querySelectorAll('#priority-list li'));
+    _touchDragIdx   = items.indexOf(_touchDragLi);
+    _touchTargetIdx = _touchDragIdx;
+    _touchDragLi.style.opacity = '0.45';
+  }
+  function onTouchDragMove(e) {
+    e.preventDefault();
+    if (_touchDragIdx === null) return;
+    var touch = e.touches[0];
+    Array.from(document.querySelectorAll('#priority-list li')).forEach(function(item, i) {
+      item.classList.remove('drag-over');
+      var r = item.getBoundingClientRect();
+      if (touch.clientY >= r.top && touch.clientY <= r.bottom) {
+        _touchTargetIdx = i;
+        if (i !== _touchDragIdx) item.classList.add('drag-over');
+      }
+    });
+  }
+  function onTouchDragEnd(e) {
+    e.preventDefault();
+    if (_touchDragLi) _touchDragLi.style.opacity = '';
+    Array.from(document.querySelectorAll('#priority-list li')).forEach(function(item) {
+      item.classList.remove('drag-over');
+    });
+    if (_touchDragIdx !== null && _touchTargetIdx !== null && _touchDragIdx !== _touchTargetIdx) {
+      reorderManaged(_touchDragIdx, _touchTargetIdx);
+    }
+    _touchDragIdx = null; _touchTargetIdx = null; _touchDragLi = null;
+  }
+
+  // ── Cache Status & Refresh ─────────────────────────────────────────────────
+  function showCacheStatus() {
+    var loadingEl = document.getElementById('cache-loading');
+    var statusEl = document.getElementById('cache-status-text');
+    var refreshEl = document.getElementById('cache-refresh-btn');
+    hApi('GET', '/cache-status', null)
+      .then(function(data) {
+        loadingEl.style.display = 'none';
+        statusEl.style.display = 'inline';
+        refreshEl.style.display = 'inline';
+        if (data.cacheReady && data.cacheCount > 0) {
+          statusEl.textContent = data.cacheCount + ' devices (updated ' + data.cacheAgeSeconds + 's ago)';
+          statusEl.style.color = '#34c759';
+          if (availableDevices.length === 0) {
+            dbg('Cache ready, reloading device list...');
+            loadAll();
+          }
+        } else if (data.cacheReady) {
+          statusEl.textContent = 'Cache ready (0 devices)';
+          statusEl.style.color = '#ff9500';
+        } else {
+          statusEl.textContent = 'Cache loading...';
+          statusEl.style.color = '#636366';
+        }
+      })
+      .catch(function() {
+        if (availableDevices.length > 0) {
+          loadingEl.style.display = 'none';
+          statusEl.style.display = 'inline';
+          refreshEl.style.display = 'inline';
+          statusEl.textContent = availableDevices.length + ' devices loaded';
+          statusEl.style.color = '#34c759';
+        }
+      });
+  }
+
+  function refreshDeviceCache() {
+    var statusEl = document.getElementById('cache-status-text');
+    statusEl.textContent = 'Refreshing...';
+    statusEl.style.color = '#636366';
+    hApi('POST', '/device-cache-refresh', null)
+      .then(function(data) {
+        if (data.success) {
+          showCacheStatus();
+          setTimeout(loadAll, 500);
+        } else {
+          statusEl.textContent = 'Refresh failed';
+          statusEl.style.color = '#ff3b30';
+        }
+      })
+      .catch(function(err) {
+        statusEl.textContent = (err.message || 'Error');
+        statusEl.style.color = '#ff3b30';
+      });
+  }
+
+  function startCacheStatusPolling() {
+    showCacheStatus();
+    setInterval(showCacheStatus, 5000);
+  }
+
+  // ── Range labels ───────────────────────────────────────────────────────────
+  document.getElementById('s-smoothingWindow').addEventListener('input', function() {
+    document.getElementById('v-smoothingWindow').textContent = this.value;
+  });
+  document.getElementById('s-spikeMultiplier').addEventListener('input', function() {
+    document.getElementById('v-spikeMultiplier').textContent = parseFloat(this.value).toFixed(1) + '\u00d7';
+  });
+  document.getElementById('s-hysteresisCount').addEventListener('input', function() {
+    document.getElementById('v-hysteresisCount').textContent = this.value;
+  });
+
+  // ── Entry point ────────────────────────────────────────────────────────────
+  function onHomeyReady(Homey) {
+    _H = Homey;
+    dbg('onHomeyReady called');
+
+    // Probe what methods are available (for debug visibility)
+    var methods = ['get','set','api','on','alert','confirm','ready','getLanguage','popup'];
+    var avail = methods.filter(function(m) { return typeof Homey[m] === 'function'; });
+    dbg('Homey methods: ' + avail.join(', '));
+
+    Homey.ready();
+    dbg('Homey.ready() called, api=' + (typeof Homey.api));
+
+    // Load all data via Homey.api('GET', '/all', ...)
+    hApi('GET', '/all', null)
+      .then(function(data) {
+        dbg('API connected! Keys: ' + Object.keys(data).join(', '));
+        showMain();
+
+        var settings = data.settings || {};
+        var defs = {
+          enabled: true, profile: 'normal', powerLimitW: 10000,
+          phase1LimitA: 0, phase2LimitA: 0, phase3LimitA: 0,
+          smoothingWindow: 5, spikeMultiplier: 2.0,
+          hysteresisCount: 3, cooldownSeconds: 30, priorityList: []
+        };
+        Object.keys(defs).forEach(function(k) {
+          if (settings[k] == null) settings[k] = defs[k];
+        });
+
+        applySettings(settings);
+        updateStatusUI(data.status || {});
+        availableDevices = Array.isArray(data.devices) ? data.devices : [];
+        renderAllDevices();
+        dbg('Initial load: ' + availableDevices.length + ' devices');
+
+        startCacheStatusPolling();
+
+        // Poll live status every 3 seconds
+        setInterval(function() {
+          hApi('GET', '/status', null)
+            .then(function(s) { if (s) updateStatusUI(s); })
+            .catch(function() {});
+        }, 3000);
+      })
+      .catch(function(err) {
+        dbg('Initial load error: ' + (err.message || err));
+        showError('Cannot connect: ' + (err.message || err));
+        showMain();
+      });
+
+    // Realtime events (per SDK docs: Homey.on(event, callback))
+    try {
+      Homey.on('status', function(s) { if (s) updateStatusUI(s); });
+      dbg('Registered realtime: status');
+    } catch (e) { dbg('Realtime status failed: ' + e.message); }
+
+    try {
+      Homey.on('priorityList', function(list) {
+        if (!Array.isArray(list)) return;
+        priorityList = list;
+        renderAllDevices();
+      });
+      dbg('Registered realtime: priorityList');
+    } catch (e) { dbg('Realtime priorityList failed: ' + e.message); }
+
+    // Periodic sync fallback every 15s
+    setInterval(function() {
+      hApi('GET', '/settings-all', null)
+        .then(function(s) {
+          if (!s || !s.priorityList) return;
+          var incoming = JSON.stringify(s.priorityList.slice().sort(function(a, b) { return a.deviceId < b.deviceId ? -1 : 1; }));
+          var current = JSON.stringify(priorityList.slice().sort(function(a, b) { return a.deviceId < b.deviceId ? -1 : 1; }));
+          if (incoming !== current) {
+            priorityList = s.priorityList;
+            renderAllDevices();
+          }
+        })
+        .catch(function() {});
+    }, 15000);
+  }
+</script>
+</body>
+</html>

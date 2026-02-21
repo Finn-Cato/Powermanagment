@@ -1,0 +1,20 @@
+{
+  "name": "no.powerguard",
+  "version": "1.0.0",
+  "description": "Power Guard – Limit household power usage via priority-based device control",
+  "main": "app.js",
+  "scripts": {
+    "start": "homey app run"
+  },
+  "dependencies": {
+    "async-mutex": "^0.4.0",
+    "homey-api": "^3.17.0"
+  },
+  "devDependencies": {
+    "homey": "^4.0.4"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "license": "GPL-3.0"
+}
