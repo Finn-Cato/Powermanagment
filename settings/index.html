@@ -531,7 +531,18 @@
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
     if (name === 'consumption') {
-      loadConsumption();
+      // Load settings first to restore filters, then load consumption data
+      hApi('GET', '/all', null)
+        .then(function(data) {
+          var settings = data.settings || {};
+          if (settings.classFilters && typeof settings.classFilters === 'object') {
+            _classFilters = settings.classFilters;
+          }
+          loadConsumption();
+        })
+        .catch(function(err) {
+          loadConsumption(); // Load consumption anyway if settings fail
+        });
     } else {
       loadAll();
     }

@@ -29,6 +29,7 @@ module.exports = {
       voltageSystem:     s.get('voltageSystem')     ?? '230v-1phase',
       phaseDistribution: s.get('phaseDistribution') ?? 'balanced',
       mainCircuitA:      s.get('mainCircuitA')      ?? 25,
+      classFilters:      s.get('classFilters')      ?? {},
       priorityList:      s.get('priorityList')      ?? [],
     };
   },
@@ -58,6 +59,7 @@ module.exports = {
         voltageSystem:     s.get('voltageSystem')     ?? '230v-1phase',
         phaseDistribution: s.get('phaseDistribution') ?? 'balanced',
         mainCircuitA:      s.get('mainCircuitA')      ?? 25,
+        classFilters:      s.get('classFilters')      ?? {},
         priorityList:      s.get('priorityList')      ?? [],
       },
       status:  homey.app.getStatus(),
@@ -84,7 +86,7 @@ module.exports = {
       'enabled', 'profile', 'powerLimitW',
       'phase1LimitA', 'phase2LimitA', 'phase3LimitA',
       'smoothingWindow', 'spikeMultiplier', 'hysteresisCount', 'cooldownSeconds',
-      'voltageSystem', 'phaseDistribution', 'mainCircuitA',
+      'voltageSystem', 'phaseDistribution', 'mainCircuitA', 'classFilters',
     ];
     const changed = [];
     for (const key of allowed) {
