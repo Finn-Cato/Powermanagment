@@ -4,6 +4,10 @@
 
 Power Guard monitors your household power consumption in real-time via a HAN meter (e.g. Frient Electricity Meter) and automatically turns off or dims devices when you approach your grid connection limit — preventing costly peak penalties and tripped breakers.
 
+## ⚠️ Trial Version Notice
+
+This app is currently in **trial version**. Users install and use it **at their own risk**. While we strive to ensure reliability, there may be bugs or unexpected behavior. Your feedback is greatly appreciated to help identify and fix errors. Please report any issues you encounter.
+
 ## Supported Hardware
 
 **Current Release:**
