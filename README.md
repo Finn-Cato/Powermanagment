@@ -8,13 +8,20 @@ Power Guard monitors your household power consumption in real-time via a HAN met
 
 **Current Release:**
 - **EV Charger:** Easee charger only (Easee Home & Easee Pro)
-- **Power Meter:** Frient Electricity Meter (Zigbee HAN port)
+- **Power Meter:** Auto-detects any HAN electricity meter:
+  - ✅ Frient Electricity Meter
+  - ✅ Futurehome HAN
+  - ✅ Tibber Pulse
+  - ✅ Aidon HAN
+  - ✅ Kaifa HAN
+  - ✅ Any other meter with `measure_power` capability
 
 *Additional chargers and HAN devices will be added in future releases.*
 
 ## Features
 
-- **Real-time power monitoring** — Reads live power data from your Frient HAN meter
+- **Real-time power monitoring** — Auto-detects and reads live power data from any HAN electricity meter (Frient, Futurehome, Tibber, Aidon, Kaifa, etc.)
+- **Multi-brand HAN support** — Automatically identifies connected meter brand and displays it in the System tab
 - **Dynamic EV charging control** — Automatically adjusts charger current based on available household power
 - **Priority-based device control** — Define which devices to turn off first via a drag-and-drop priority list
 - **Multiple protection profiles** — Normal and Strict (90% of limit) modes
