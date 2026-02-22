@@ -1027,6 +1027,24 @@
   var _consumptionRefresh = null;
   var _classFilters = {}; // Track which device classes are visible
   
+  function renumberVisibleDevices() {
+    // Renumber visible rows only
+    var rows = document.querySelectorAll('.consumption-row:not([style*="display: none"])');
+    var visibleCount = 0;
+    document.querySelectorAll('.consumption-row').forEach(function(row) {
+      if (row.style.display !== 'none') {
+        visibleCount++;
+        var firstCell = row.querySelector('td');
+        if (firstCell) {
+          // Extract device name (everything after ". " in the current text)
+          var currentText = firstCell.textContent;
+          var deviceName = currentText.substring(currentText.indexOf('. ') + 2);
+          firstCell.textContent = visibleCount + '. ' + deviceName;
+        }
+      }
+    });
+  }
+  
   function toggleClassFilter(className) {
     // Get the checkbox element first
     var checkbox = document.querySelector('[data-class-filter="' + className + '"]');
@@ -1042,6 +1060,9 @@
       var isVisible = _classFilters[rowClass] !== false;
       row.style.display = isVisible ? '' : 'none';
     });
+    
+    // Renumber visible devices
+    renumberVisibleDevices();
     
     // Save immediately
     saveAll();
@@ -1099,6 +1120,9 @@
 
         var timeStr = new Date(data.timestamp).toLocaleTimeString('sv-SE');
         document.getElementById('consumption-time').textContent = timeStr;
+        
+        // Renumber visible devices based on current filters
+        renumberVisibleDevices();
       })
       .catch(function(err) {
         showError('Failed to load power consumption: ' + err.message);
