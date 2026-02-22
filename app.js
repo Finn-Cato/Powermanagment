@@ -1379,6 +1379,25 @@ class PowerGuardApp extends Homey.App {
     const allDevices = this.homey.settings.get('_deviceCache') || [];
     const floorHeaters = [];
     
+    // First, log all thermostats to help debug Futurehome
+    const allThermostats = allDevices.filter(d => d && d.class === 'thermostat');
+    if (allThermostats.length > 0) {
+      this.log(`[FloorHeater] DEBUG: Found ${allThermostats.length} thermostat devices:`);
+      allThermostats.forEach(d => {
+        const capsList = d.capabilitiesObj ? Object.keys(d.capabilitiesObj) : (Array.isArray(d.capabilities) ? d.capabilities : []);
+        this.log(`  Device: ${d.name}`);
+        this.log(`    Class: ${d.class}`);
+        this.log(`    Driver: ${d.driverUri || 'N/A'}`);
+        this.log(`    Capabilities: ${capsList.join(', ')}`);
+        if (d.capabilitiesObj) {
+          capsList.forEach(cap => {
+            const val = d.capabilitiesObj[cap];
+            this.log(`      ${cap}: ${val && val.value !== undefined ? val.value : 'N/A'}`);
+          });
+        }
+      });
+    }
+    
     allDevices.forEach(device => {
       if (!device) return;
       
