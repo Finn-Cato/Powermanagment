@@ -75,6 +75,10 @@
       "method": "GET",
       "path": "/debugLog"
     },
+    "getFloorHeaters": {
+      "method": "GET",
+      "path": "/floorHeaters"
+    },
     "testCharger": {
       "method": "POST",
       "path": "/test-charger"

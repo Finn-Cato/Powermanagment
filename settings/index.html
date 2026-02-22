@@ -180,6 +180,7 @@
       <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')">Devices</button>
       <button class="tab-btn"        id="tb-system"   onclick="showTab('system')">System</button>
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')">Consumption</button>
+      <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')">Floor Heater Check</button>
     </div>
 
     <!-- ── Settings tab ──────────────────────────────────────────────────── -->
@@ -414,6 +415,40 @@
 
     </div><!-- /#tab-consumption -->
 
+    <!-- ── Floor Heater Check tab ────────────────────────────────────────── -->
+    <div id="tab-floorheater" style="display:none">
+
+      <div class="card">
+        <h2>Floor Heater Connection Check</h2>
+        <div style="font-size:12px;color:#636366;margin-bottom:12px;font-weight:500">
+          Scanning for floor heaters and control capabilities
+        </div>
+        <button onclick="loadFloorHeaters()" style="padding:8px 16px;background:#007AFF;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;margin-bottom:12px;">
+          Refresh
+        </button>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead style="border-bottom:2px solid #e5e5ea;">
+            <tr>
+              <th style="text-align:left;padding:8px 0;color:#636366;font-weight:500;">Device</th>
+              <th style="text-align:left;padding:8px 0;color:#636366;font-weight:500;">Zone</th>
+              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Control</th>
+              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Temp</th>
+              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Power</th>
+            </tr>
+          </thead>
+          <tbody id="floorheater-table">
+            <tr>
+              <td colspan="5" style="text-align:center;padding:24px;color:#aaa;">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size:11px;color:#999;margin-top:12px;">
+          <span id="floorheater-count">–</span> floor heaters found
+        </div>
+      </div>
+
+    </div><!-- /#tab-floorheater -->
+
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
     <div id="tab-devices" style="display:none">
 
@@ -514,7 +549,7 @@
   }
 
   function showTab(name) {
-    ['settings','system','devices','consumption'].forEach(function(t) {
+    ['settings','system','devices','consumption','floorheater'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -531,6 +566,8 @@
         .catch(function(err) {
           loadConsumption(); // Load consumption anyway if settings fail
         });
+    } else if (name === 'floorheater') {
+      loadFloorHeaters();
     } else {
       loadAll();
     }
@@ -1125,6 +1162,45 @@
       })
       .catch(function(err) {
         showError('Failed to load power consumption: ' + err.message);
+      });
+  }
+
+  // ── Load Floor Heater Connections ─────────────────────────────────────────
+  function loadFloorHeaters() {
+    if (!_H) { showError('Not connected to Homey'); return; }
+    hApi('GET', '/floorHeaters', null)
+      .then(function(data) {
+        clearError();
+        var floorHeaters = Array.isArray(data) ? data : [];
+        var tbody = document.getElementById('floorheater-table');
+        if (!tbody) return;
+
+        document.getElementById('floorheater-count').textContent = floorHeaters.length;
+
+        if (floorHeaters.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#aaa;">No floor heaters found</td></tr>';
+          return;
+        }
+
+        var rows = floorHeaters.map(function(heater) {
+          var controlStatus = heater.canControl ? '✓ Yes' : '✗ No';
+          var controlColor = heater.canControl ? '#34c759' : '#ff3b30';
+          var tempStatus = heater.hasMeasureTemp ? '✓' : '✗';
+          var powerStatus = heater.hasMeasurePower ? '✓' : '✗';
+          
+          return '<tr style="border-bottom:1px solid #f0f0f0;">' +
+            '<td style="padding:10px 0;color:#1d1d1f;font-weight:500;">' + heater.name + '</td>' +
+            '<td style="padding:10px 0;color:#636366;">' + heater.zone + '</td>' +
+            '<td style="text-align:center;padding:10px 0;color:' + controlColor + ';font-weight:500;">' + controlStatus + '</td>' +
+            '<td style="text-align:center;padding:10px 0;color:#1d1d1f;">' + tempStatus + '</td>' +
+            '<td style="text-align:center;padding:10px 0;color:#1d1d1f;">' + powerStatus + '</td>' +
+            '</tr>';
+        }).join('');
+        tbody.innerHTML = rows;
+      })
+      .catch(function(err) {
+        showError('Failed to load floor heaters: ' + err.message);
+        document.getElementById('floorheater-table').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#ff3b30;">Error loading floor heaters</td></tr>';
       });
   }
 

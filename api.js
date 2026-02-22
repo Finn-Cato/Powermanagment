@@ -13,6 +13,10 @@ module.exports = {
     return homey.app.getDebugLog();
   },
 
+  async getFloorHeaters({ homey }) {
+    return homey.app.checkFloorHeaterConnections();
+  },
+
   async getSettings({ homey }) {
     const s = homey.settings;
     return {

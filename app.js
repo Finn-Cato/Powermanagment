@@ -1374,6 +1374,50 @@ class PowerGuardApp extends Homey.App {
     return list;
   }
 
+  checkFloorHeaterConnections() {
+    // Scan all devices and identify floor heaters with control capabilities
+    const allDevices = this.homey.settings.get('_deviceCache') || [];
+    const floorHeaters = [];
+    
+    allDevices.forEach(device => {
+      if (!device) return;
+      
+      const name = (device.name || '').toLowerCase();
+      const cls = (device.class || '').toLowerCase();
+      const caps = Array.isArray(device.capabilities) ? device.capabilities : [];
+      
+      // Identify floor heaters (usually thermostat class or names containing 'heat', 'floor', etc.)
+      const isFloorHeater = cls === 'thermostat' || 
+                            name.includes('floor') || 
+                            name.includes('varme') || // Norwegian for heat
+                            name.includes('heating');
+      
+      if (!isFloorHeater) return;
+      
+      const hasTargetTemp = caps.includes('target_temperature');
+      const hasMeasureTemp = caps.includes('measure_temperature');
+      const hasMeasurePower = caps.includes('measure_power');
+      const canControl = hasTargetTemp; // Can be controlled if it has target_temperature
+      
+      floorHeaters.push({
+        deviceId: device.id,
+        name: device.name,
+        class: device.class,
+        zone: device.zone ? device.zone.name : 'Unknown',
+        hasTargetTemp: hasTargetTemp,
+        hasMeasureTemp: hasMeasureTemp,
+        hasMeasurePower: hasMeasurePower,
+        canControl: canControl,
+        controlCapability: canControl ? 'target_temperature' : 'none',
+        timestamp: new Date().toISOString()
+      });
+      
+      this.log(`[FloorHeater] Found: ${device.name} | Control: ${canControl} | Power: ${hasMeasurePower}`);
+    });
+    
+    return floorHeaters;
+  }
+
   // ─── Public API (settings UI) ─────────────────────────────────────────────
 
   _updatePowerConsumption(currentTotalW) {
