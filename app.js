@@ -1403,21 +1403,54 @@ class PowerGuardApp extends Homey.App {
       
       const name = (device.name || '').toLowerCase();
       const cls = (device.class || '').toLowerCase();
-      const caps = Array.isArray(device.capabilities) ? device.capabilities : [];
+      
+      // Get capabilities from either capabilitiesObj keys or capabilities array
+      let caps = [];
+      if (device.capabilitiesObj && typeof device.capabilitiesObj === 'object') {
+        caps = Object.keys(device.capabilitiesObj);
+      } else if (Array.isArray(device.capabilities)) {
+        caps = device.capabilities;
+      }
       
       // Identify floor heaters (usually thermostat class or names containing 'heat', 'floor', etc.)
       const isFloorHeater = cls === 'thermostat' || 
                             name.includes('floor') || 
                             name.includes('varme') || // Norwegian for heat
-                            name.includes('heating');
+                            name.includes('heating') ||
+                            name.includes('värmepump') || // Swedish for heat pump
+                            name.includes('futurehome'); // Explicitly check for Futurehome
       
       if (!isFloorHeater) return;
       
-      const hasTargetTemp = caps.includes('target_temperature');
-      const hasMeasureTemp = caps.includes('measure_temperature');
+      // Check for target temperature capability (various names)
+      let targetTempCapability = null;
+      if (caps.includes('target_temperature')) {
+        targetTempCapability = 'target_temperature';
+      } else if (caps.includes('set_temperature')) {
+        targetTempCapability = 'set_temperature';
+      } else if (caps.includes('setpoint_temperature')) {
+        targetTempCapability = 'setpoint_temperature';
+      } else if (caps.includes('heating_setpoint')) {
+        targetTempCapability = 'heating_setpoint';
+      } else if (caps.includes('desired_temperature')) {
+        targetTempCapability = 'desired_temperature';
+      }
+      
+      // Check for measure temperature capability (various names)
+      let measureTempCapability = null;
+      if (caps.includes('measure_temperature')) {
+        measureTempCapability = 'measure_temperature';
+      } else if (caps.includes('temperature')) {
+        measureTempCapability = 'temperature';
+      } else if (caps.includes('current_temperature')) {
+        measureTempCapability = 'current_temperature';
+      }
+      
+      const hasTargetTemp = targetTempCapability !== null;
+      const hasMeasureTemp = measureTempCapability !== null;
       const hasMeasurePower = caps.includes('measure_power');
       const hasOnOff = caps.includes('onoff');
-      const canControl = hasTargetTemp; // Can be controlled if it has target_temperature
+      const canControl = hasTargetTemp; // Can be controlled if it has target_temperature (or variant)
       
       // Get current values
       let currentTarget = null;
@@ -1426,11 +1459,11 @@ class PowerGuardApp extends Homey.App {
       
       try {
         if (device.capabilitiesObj) {
-          if (device.capabilitiesObj.target_temperature) {
-            currentTarget = device.capabilitiesObj.target_temperature.value;
+          if (targetTempCapability && device.capabilitiesObj[targetTempCapability]) {
+            currentTarget = device.capabilitiesObj[targetTempCapability].value;
           }
-          if (device.capabilitiesObj.measure_temperature) {
-            currentMeasure = device.capabilitiesObj.measure_temperature.value;
+          if (measureTempCapability && device.capabilitiesObj[measureTempCapability]) {
+            currentMeasure = device.capabilitiesObj[measureTempCapability].value;
           }
           if (device.capabilitiesObj.onoff) {
             isOn = device.capabilitiesObj.onoff.value;
@@ -1450,14 +1483,16 @@ class PowerGuardApp extends Homey.App {
         hasMeasurePower: hasMeasurePower,
         hasOnOff: hasOnOff,
         canControl: canControl,
-        controlCapability: canControl ? 'target_temperature' : 'none',
+        controlCapability: targetTempCapability || 'none', // Use actual capability name
+        targetTempCapability: targetTempCapability,
+        measureTempCapability: measureTempCapability,
         currentTarget: currentTarget,
         currentMeasure: currentMeasure,
         isOn: isOn,
         timestamp: new Date().toISOString()
       });
       
-      this.log(`[FloorHeater] Found: ${device.name} | Control: ${canControl} | Power: ${hasMeasurePower} | Target: ${currentTarget}°C | Measure: ${currentMeasure}°C`);
+      this.log(`[FloorHeater] Found: ${device.name} | Control: ${canControl} | TargetTemp: ${hasTargetTemp} (${targetTempCapability}) | MeasureTemp: ${hasMeasureTemp} (${measureTempCapability}) | CurrentTarget: ${currentTarget}°C | CurrentMeasure: ${currentMeasure}°C`);
     });
     
     return floorHeaters;
@@ -1476,13 +1511,25 @@ class PowerGuardApp extends Homey.App {
       
       this.log(`[FloorHeater] Control action: ${action} on ${device.name}, value: ${value}`);
       
+      // Get the floor heater info to find correct capability names
+      const floorHeaters = this.checkFloorHeaterConnections();
+      const heater = floorHeaters.find(h => h.deviceId === deviceId);
+      
       if (action === 'on' && device.capabilitiesObj?.onoff) {
         await device.setCapabilityValue('onoff', true);
         return { ok: true, message: `${device.name} turned on` };
       } else if (action === 'off' && device.capabilitiesObj?.onoff) {
         await device.setCapabilityValue('onoff', false);
         return { ok: true, message: `${device.name} turned off` };
+      } else if (action === 'setTarget' && heater && heater.targetTempCapability) {
+        const temp = parseFloat(value);
+        if (isNaN(temp)) {
+          return { ok: false, error: 'Invalid temperature value' };
+        }
+        await device.setCapabilityValue(heater.targetTempCapability, temp);
+        return { ok: true, message: `${device.name} set to ${temp}°C` };
       } else if (action === 'setTarget' && device.capabilitiesObj?.target_temperature) {
+        // Fallback to standard capability name if heater info not found
         const temp = parseFloat(value);
         if (isNaN(temp)) {
           return { ok: false, error: 'Invalid temperature value' };
