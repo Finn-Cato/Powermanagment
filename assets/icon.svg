@@ -1,4 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="48" fill="#E8441A"/>
-  <text x="50" y="68" font-size="52" text-anchor="middle" fill="white" font-family="sans-serif" font-weight="bold">⚡</text>
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B35"/>
+      <stop offset="100%" style="stop-color:#E8441A"/>
+    </linearGradient>
+    <linearGradient id="boltGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFF8E1"/>
+      <stop offset="100%" style="stop-color:#FFD54F"/>
+    </linearGradient>
+    <linearGradient id="shieldInner" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D63A12"/>
+      <stop offset="100%" style="stop-color:#B22E0D"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-opacity="0.25"/>
+    </filter>
+    <filter id="boltShadow" x="-20%" y="-10%" width="140%" height="130%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Shield outer shape -->
+  <path d="M50 5 L88 20 C88 20 90 55 75 75 C65 88 50 95 50 95 C50 95 35 88 25 75 C10 55 12 20 12 20 Z"
+        fill="url(#shieldGrad)" filter="url(#shadow)"/>
+
+  <!-- Shield inner border -->
+  <path d="M50 12 L82 25 C82 25 84 54 71 72 C63 83 50 89 50 89 C50 89 37 83 29 72 C16 54 18 25 18 25 Z"
+        fill="url(#shieldInner)" opacity="0.9"/>
+
+  <!-- Shield highlight -->
+  <path d="M50 12 L82 25 C82 25 83 40 78 52 L50 12 Z"
+        fill="white" opacity="0.08"/>
+
+  <!-- Lightning bolt -->
+  <path d="M55 18 L38 50 L48 50 L43 82 L66 46 L54 46 Z"
+        fill="url(#boltGrad)" filter="url(#boltShadow)" stroke="#E8441A" stroke-width="0.5" stroke-opacity="0.3"/>
+
+  <!-- Bolt shine highlight -->
+  <path d="M55 18 L43 42 L50 42 L55 18 Z"
+        fill="white" opacity="0.35"/>
 </svg>
