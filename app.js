@@ -30,6 +30,8 @@ class PowerGuardApp extends Homey.App {
     this._api = null;
     this._hanCapabilityInstance = null;
     this._hanDevice = null;
+    this._hanDeviceName = null;
+    this._hanDeviceManufacturer = null;
     this._lastHanReading = null;
     this._hanDeviceId = null;
     this._hanPollInterval = null;
@@ -327,27 +329,42 @@ class PowerGuardApp extends Homey.App {
 
   // ─── HAN Port integration ──────────────────────────────────────────────────
 
+  _getHANDeviceBrand() {
+    if (!this._hanDevice) return 'Unknown';
+    const name = (this._hanDevice.name || '').toLowerCase();
+    const mfg = (this._hanDeviceManufacturer || '').toLowerCase();
+    const driver = (this._hanDevice.driverId || '').toLowerCase();
+    if (name.includes('frient') || mfg.includes('frient') || driver.includes('frient')) return 'Frient Electricity Meter';
+    if (name.includes('futurehome') || mfg.includes('futurehome') || driver.includes('futurehome')) return 'Futurehome HAN';
+    if (name.includes('tibber') || mfg.includes('tibber') || driver.includes('tibber')) return 'Tibber Pulse';
+    if (name.includes('aidon') || mfg.includes('aidon')) return 'Aidon HAN';
+    if (name.includes('kaifa') || mfg.includes('kaifa')) return 'Kaifa HAN';
+    return this._hanDeviceName || 'Unknown meter';
+  }
+
   async _connectToHAN() {
     const allDevices = await this._api.devices.getDevices();
 
     const hanDevice = Object.values(allDevices).find(d => {
-      const name = (d.name || '').toLowerCase();
-      const driverId = (d.driverId || '').toLowerCase();
       const hasPower = Array.isArray(d.capabilities) && d.capabilities.includes('measure_power');
-      return hasPower && (
-        name.includes('frient') || name.includes('han') ||
-        driverId.includes('frient') || driverId.includes('han')
-      );
+      return hasPower;
     });
 
     if (!hanDevice) {
-      this.log('frient HAN Port not found. Power Guard will not receive live data until restarted after pairing the HAN device.');
+      this.log('No electricity meter with measure_power capability found. Power Guard will not receive live data until a meter is paired.');
+      this._hanDeviceId = null;
+      this._hanDevice = null;
+      this._hanDeviceName = null;
+      this._hanDeviceManufacturer = null;
       return;
     }
 
     this._hanDeviceId = hanDevice.id;
     this._hanDevice = hanDevice;
-    this.log(`HAN device found: "${hanDevice.name}" (${hanDevice.id})`);
+    this._hanDeviceName = hanDevice.name || 'Unknown meter';
+    this._hanDeviceManufacturer = hanDevice.owner?.name || hanDevice.driverId || null;
+    const brand = this._getHANDeviceBrand();
+    this.log(`HAN device found: "${this._hanDeviceName}" (${brand}) (${hanDevice.id})`);
 
     // makeCapabilityInstance is the correct homey-api v3 way to subscribe to capability changes
     this._hanCapabilityInstance = hanDevice.makeCapabilityInstance('measure_power', (value) => {
@@ -674,6 +691,8 @@ class PowerGuardApp extends Homey.App {
             this._hanPollInterval = null;
           }
           this._hanDevice = null;
+          this._hanDeviceName = null;
+          this._hanDeviceManufacturer = null;
           await this._connectToHAN();
           if (this._hanDeviceId) {
             this.log('[Watchdog] HAN reconnected successfully');
@@ -1375,6 +1394,7 @@ class PowerGuardApp extends Homey.App {
       overLimitCount:   this._overLimitCount,
       mitigatedDevices: this._mitigatedDevices.map(m => ({ deviceId: m.deviceId, action: m.action })),
       hanConnected:     !!this._hanDeviceId,
+      hanDeviceName:    this._hanDeviceId ? this._getHANDeviceBrand() : null,
       hanLastSeen:      this._lastHanReading,
       log:              this._mitigationLog.slice(-20),
       evChargers:       evChargerStatus,

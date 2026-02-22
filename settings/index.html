@@ -519,19 +519,27 @@
     document.getElementById('st-profile-sub').textContent =
       ({ normal: 'Normal mode', strict: 'Strict mode', solar: 'Solar-friendly' }[s.profile] || '');
     var h = document.getElementById('st-han');
-    h.textContent = s.hanConnected ? 'Connected' : 'Not found';
-    h.style.color = s.hanConnected ? '#34c759' : '#ff3b30';
-    // Show time since last HAN reading
+    if (s.hanConnected) {
+      h.textContent = 'Connected';
+      h.style.color = '#34c759';
+    } else {
+      h.textContent = 'Not found';
+      h.style.color = '#ff3b30';
+    }
+    // Show device brand and reading age
     var hanAge = document.getElementById('st-han-age');
     if (hanAge && s.hanLastSeen) {
       var ageSec = Math.round((Date.now() - s.hanLastSeen) / 1000);
-      if (ageSec < 5) hanAge.textContent = 'Live';
-      else if (ageSec < 60) hanAge.textContent = ageSec + 's ago';
-      else hanAge.textContent = Math.round(ageSec / 60) + 'm ago';
+      var ageText = ageSec < 5 ? 'Live' : ageSec < 60 ? ageSec + 's ago' : Math.round(ageSec / 60) + 'm ago';
+      if (s.hanDeviceName) {
+        hanAge.textContent = s.hanDeviceName + ' (' + ageText + ')';
+      } else {
+        hanAge.textContent = ageText;
+      }
       hanAge.style.color = ageSec < 10 ? '#34c759' : ageSec < 30 ? '#ff9500' : '#ff3b30';
     } else if (hanAge) {
-      hanAge.textContent = s.hanConnected ? '' : 'No readings';
-      hanAge.style.color = '#ff3b30';
+      hanAge.textContent = s.hanDeviceName || (s.hanConnected ? '' : 'No readings');
+      hanAge.style.color = s.hanConnected ? '#636366' : '#ff3b30';
     }
     var n = (s.mitigatedDevices || []).length;
     var m = document.getElementById('st-mitigation');
