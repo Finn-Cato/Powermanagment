@@ -54,20 +54,76 @@ This app is currently in **trial version**. Users install and use it **at their 
 
 ## Installation
 
-### From Homey App Store
+### 📦 From Homey App Store
 *(Coming soon)*
 
-### Manual Install (Developer)
+---
 
-Requires [Homey CLI](https://developer.athom.com/tools/cli):
+### 🛠️ Installing via Homey CLI
 
+Install Power Guard directly on your Homey Pro using the command line.
+
+#### Prerequisites
+
+| Requirement | Link |
+|-------------|------|
+| **Homey Pro** | Any generation |
+| **Node.js** (v16+) | [nodejs.org](https://nodejs.org) |
+| **Homey CLI** | Installed via npm (see below) |
+
+#### Step-by-Step
+
+**1. Install Homey CLI**
 ```bash
 npm install -g homey
+```
+
+**2. Download the app from GitHub**
+- Go to the [Power Guard repository](https://github.com/Finn-Cato/Powermanagment)
+- Make sure you're on the `master` branch
+- Click **Code** → **Download ZIP**
+- Extract the ZIP to a folder on your computer
+
+**3. Log in to your Homey**
+```bash
 homey login
-cd Powermanagment
+```
+> This opens a browser window — sign in with your Athom account.
+
+**4. Select your Homey device**
+```bash
+homey select
+```
+> Pick the Homey Pro you want to install the app on.
+
+**5. Navigate to the extracted app folder**
+```bash
+cd path/to/Powermanagment
+```
+
+**6. Install dependencies**
+```bash
 npm install
+```
+
+**7. Install the app on Homey** 🚀
+```bash
 homey app install
 ```
+> The app will be compiled and pushed to your Homey. Once done, you'll find **Power Guard** in the Homey app list.
+
+#### 🧪 Optional: Run in Development Mode
+
+Want live logs and instant reloads during development?
+
+```bash
+homey app run
+```
+> Press `Ctrl+C` to stop. The app will be removed from Homey when you exit dev mode.
+
+---
+
+> **💡 Quick download:** Grab the latest release ZIP from the [Releases page](https://github.com/Finn-Cato/Powermanagment/releases) and follow the steps above.
 
 ## Configuration
 
