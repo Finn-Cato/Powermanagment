@@ -7,59 +7,75 @@
   <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #f5f5f7; color: #1d1d1f; }
+    :root {
+      --text-primary: #1d1d1f;
+      --text-muted: #636366;
+      --text-secondary: #3a3a3c;
+      --text-tertiary: #aaa;
+      --bg-body: #f5f5f7;
+      --bg-card: #fff;
+      --bg-surface: #f5f5f7;
+      --bg-tab-bar: #f2f2f7;
+      --border-color: #e5e5ea;
+      --border-light: #f0f0f0;
+      --input-border: #d1d1d6;
+      --divider-color: #ebebeb;
+      --shadow: rgba(0,0,0,.08);
+      --toggle-off: #ccc;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: var(--bg-body); color: var(--text-primary); }
     .container { max-width: 760px; margin: 0 auto; padding: 12px 8px 40px; }
     h1  { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #e8441a; }
     .header-top { position: relative; display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
     .header-title { flex: 1; }
-    .subtitle { font-size: 13px; color: #636366; margin-bottom: 16px; }
+    .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
     #guard-toggle { width: 30px; height: 18px; }
     #guard-toggle .slider { border-radius: 18px; }
     #guard-toggle .slider:before { height: 14px; width: 14px; }
-    h2  { font-size: 15px; font-weight: 600; color: #1d1d1f; margin-bottom: 10px; }
-    .card { background: #fff; border-radius: 12px; padding: 12px 10px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-    .row { display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f0f0f0; gap: 12px; }
+    h2  { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+    .card { background: var(--bg-card); border-radius: 12px; padding: 12px 10px; margin-bottom: 12px; box-shadow: 0 1px 4px var(--shadow); }
+    .row { display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-light); gap: 12px; }
     .row:last-child { border-bottom: none; padding-bottom: 0; }
     .row:first-child { padding-top: 0; }
     .label-group { flex: 1; }
-    .label-group label { font-size: 13px; font-weight: 500; color: #1d1d1f; display: block; }
-    .label-group .hint { font-size: 12px; color: #636366; margin-top: 2px; line-height: 1.4; }
+    .label-group label { font-size: 13px; font-weight: 500; color: var(--text-primary); display: block; }
+    .label-group .hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
     .control { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
-    input[type=number] { width: 110px; padding: 6px 8px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 13px; }
-    input[type=text], input[type=password] { padding: 6px 8px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 13px; }
-    select { padding: 6px 8px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 13px; background: #fff; }
+    input[type=number] { width: 110px; padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; background: var(--bg-card); color: var(--text-primary); }
+    input[type=text], input[type=password] { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; background: var(--bg-card); color: var(--text-primary); }
+    select { padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; background: var(--bg-card); color: var(--text-primary); }
     input[type=checkbox] { width: 20px; height: 20px; cursor: pointer; accent-color: #e8441a; }
     input[type=range] { width: 110px; accent-color: #e8441a; }
-    .range-val { min-width: 36px; text-align: right; font-size: 13px; color: #3a3a3c; font-weight: 500; }
+    .range-val { min-width: 36px; text-align: right; font-size: 13px; color: var(--text-secondary); font-weight: 500; }
     button { padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
     .btn-primary   { background: #e8441a; color: #fff; }
-    .btn-secondary { background: #e5e5ea; color: #1d1d1f; }
+    .btn-secondary { background: var(--border-color); color: var(--text-primary); }
     .btn-small     { padding: 5px 12px; font-size: 12px; }
     .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .stat-box { background: #f5f5f7; border-radius: 10px; padding: 12px 14px; }
-    .stat-box .stat-label { font-size: 11px; color: #636366; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
-    .stat-box .stat-value { font-size: 20px; font-weight: 700; color: #1d1d1f; }
-    .stat-box .stat-sub   { font-size: 11px; color: #636366; margin-top: 2px; }
-    .advanced-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #636366; margin-top: 4px; user-select: none; }
-    .advanced-toggle:hover { color: #1d1d1f; }
-    #advanced-section { display: none; margin-top: 12px; border-top: 1px solid #f0f0f0; padding-top: 12px; }
-    .log-entry { font-size: 12px; font-family: monospace; color: #3a3a3c; padding: 3px 0; }
-    .log-time  { color: #aaa; margin-right: 6px; }
+    .stat-box { background: var(--bg-surface); border-radius: 10px; padding: 12px 14px; }
+    .stat-box .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
+    .stat-box .stat-value { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+    .stat-box .stat-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .advanced-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--text-muted); margin-top: 4px; user-select: none; }
+    .advanced-toggle:hover { color: var(--text-primary); }
+    #advanced-section { display: none; margin-top: 12px; border-top: 1px solid var(--border-light); padding-top: 12px; }
+    .log-entry { font-size: 12px; font-family: monospace; color: var(--text-secondary); padding: 3px 0; }
+    .log-time  { color: var(--text-tertiary); margin-right: 6px; }
     .save-row  { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
     /* Tabs */
-    .tab-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; padding: 4px; background: #f2f2f7; border-radius: 12px; }
-    .tab-btn { background: none; border: none; padding: 8px 14px; font-size: 12px; font-weight: 500; color: #636366; cursor: pointer; border-radius: 8px; transition: all 0.2s ease; display: flex; align-items: center; gap: 5px; white-space: nowrap; flex: 1 1 auto; justify-content: center; min-width: 0; }
+    .tab-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; padding: 4px; background: var(--bg-tab-bar); border-radius: 12px; }
+    .tab-btn { background: none; border: none; padding: 8px 14px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.2s ease; display: flex; align-items: center; gap: 5px; white-space: nowrap; flex: 1 1 auto; justify-content: center; min-width: 0; }
     .tab-btn .tab-icon { font-size: 14px; flex-shrink: 0; }
     .tab-btn .tab-label { overflow: hidden; text-overflow: ellipsis; }
-    .tab-btn.active { color: #1d1d1f; background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .tab-btn:hover:not(.active) { color: #1d1d1f; background: rgba(255,255,255,0.5); }
+    .tab-btn.active { color: var(--text-primary); background: var(--bg-card); font-weight: 600; box-shadow: 0 1px 3px var(--shadow); }
+    .tab-btn:hover:not(.active) { color: var(--text-primary); background: rgba(255,255,255,0.5); }
     /* Device list */
     .dev-list { list-style: none; padding-left: 0; margin-left: 0; }
     .dev-list li { display: flex; align-items: center; gap: 2px; padding: 2px 4px 2px 2px; border-radius: 4px; margin-bottom: 0; }
-    .dev-list li.managed   { background: #f5f5f7; border: 1.5px solid #fff; margin-bottom: 2px; border-radius: 8px; box-shadow: 0 0.5px 2px rgba(0,0,0,.06); }
-    .dev-list li.unmanaged { background: #f5f5f7; opacity: 0.55; }
-    .dev-list li.drag-over { background: #e5e5ea !important; }
-    .handle { cursor: grab; color: #bbb; font-size: 13px; user-select: none; touch-action: none; min-width: 12px; width: 12px; text-align: center; flex-shrink: 0; }
+    .dev-list li.managed   { background: var(--bg-surface); border: 1.5px solid var(--bg-card); margin-bottom: 2px; border-radius: 8px; box-shadow: 0 0.5px 2px var(--shadow); }
+    .dev-list li.unmanaged { background: var(--bg-surface); opacity: 0.55; }
+    .dev-list li.drag-over { background: var(--border-color) !important; }
+    .handle { cursor: grab; color: var(--text-tertiary); font-size: 13px; user-select: none; touch-action: none; min-width: 12px; width: 12px; text-align: center; flex-shrink: 0; }
     .reorder-btns { display: flex; flex-direction: column; gap: 0; flex-shrink: 0; }
     .reorder-btns button { background: transparent; border: none; padding: 0 1px; cursor: pointer; transition: transform 0.12s ease, filter 0.12s ease; line-height: 0; -webkit-tap-highlight-color: transparent; outline: none; user-select: none; }
     .reorder-btns button:hover:not(.pressing) { transform: scale(1.25); filter: brightness(1.2); }
@@ -67,17 +83,17 @@
     .reorder-btns button:disabled { opacity: 0.2; cursor: default; transform: none; filter: none; }
     @media (hover: none) { .reorder-btns button:hover:not(.pressing) { transform: scale(1); filter: none; } }
     .reorder-btns svg { display: block; }
-    .priority-num { font-size: 10px; color: #636366; min-width: 14px; width: 14px; text-align: right; flex-shrink: 0; }
-    .dev-name { flex: 1 1 0; font-size: 13px; font-weight: 600; color: #1d1d1f; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0.01em; white-space: normal; word-break: break-word; line-height: 1.25; }
+    .priority-num { font-size: 10px; color: var(--text-muted); min-width: 14px; width: 14px; text-align: right; flex-shrink: 0; }
+    .dev-name { flex: 1 1 0; font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: 0.01em; white-space: normal; word-break: break-word; line-height: 1.25; }
     .dev-list select { font-size: 10px; padding: 2px 3px; max-width: 100px; flex-shrink: 0; }
-    .dev-list input[type=number] { font-size: 11px; padding: 3px 4px; width: 50px; flex-shrink: 0; border: 1px solid #d1d1d6; border-radius: 4px; background: #fff; }
-    .section-label { font-size: 11px; color: #636366; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 5px 0 2px; }
-    .room-label { font-size: 12px; color: #aaa; font-weight: 500; padding: 4px 2px 2px; display: flex; align-items: center; gap: 6px; }
-    .room-label::after { content: ''; flex: 1; height: 1px; background: #ebebeb; }
+    .dev-list input[type=number] { font-size: 11px; padding: 3px 4px; width: 50px; flex-shrink: 0; border: 1px solid var(--input-border); border-radius: 4px; background: var(--bg-card); }
+    .section-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-weight: 600; padding: 5px 0 2px; }
+    .room-label { font-size: 12px; color: var(--text-tertiary); font-weight: 500; padding: 4px 2px 2px; display: flex; align-items: center; gap: 6px; }
+    .room-label::after { content: ''; flex: 1; height: 1px; background: var(--divider-color); }
     /* Toggle switch */
     .toggle { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
     .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 22px; transition: background .2s; }
+    .toggle .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--toggle-off, #ccc); border-radius: 22px; transition: background .2s; }
     .toggle .slider:before { position: absolute; content: ''; height: 18px; width: 18px; left: 2px; bottom: 2px; background: #fff; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
     .toggle input:checked + .slider { background: #34c759; }
     .toggle input:checked + .slider:before { transform: translateX(16px); }
@@ -85,12 +101,12 @@
     #toast { display: none; position: fixed; bottom: 24px; right: 24px; background: #34c759; color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
     #error-banner { display: none; background: #ff3b30; color: #fff; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; word-break: break-word; }
     #connect-card { display: none; }
-    #connect-card .steps { font-size: 12px; color: #636366; line-height: 1.8; margin-bottom: 14px; }
-    #connect-card .steps b { color: #1d1d1f; }
+    #connect-card .steps { font-size: 12px; color: var(--text-muted); line-height: 1.8; margin-bottom: 14px; }
+    #connect-card .steps b { color: var(--text-primary); }
     #token-row  { display: flex; gap: 8px; flex-wrap: wrap; }
     #token-input { flex: 1; min-width: 200px; font-family: monospace; font-size: 12px; }
     #connect-error { display: none; color: #ff3b30; font-size: 12px; margin-top: 8px; }
-    #loading-indicator { text-align: center; padding: 30px; font-size: 13px; color: #636366; }
+    #loading-indicator { text-align: center; padding: 30px; font-size: 13px; color: var(--text-muted); }
     /* Mobile responsive - use full width */
     @media (max-width: 600px) {
       .container { padding: 6px 4px 30px; max-width: 100%; }
@@ -114,8 +130,8 @@
     /* ── Heater Card Styles ──────────────────────────────────────────────── */
     .heater-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
     .heater-card {
-      background: #fff; border-radius: 16px; padding: 20px; border: 2px solid #e5e5ea;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.06); transition: all 0.3s ease; position: relative; overflow: hidden;
+      background: var(--bg-card); border-radius: 16px; padding: 20px; border: 2px solid var(--border-color);
+      box-shadow: 0 2px 12px var(--shadow); transition: all 0.3s ease; position: relative; overflow: hidden;
     }
     .heater-card.heater-on {
       border-color: #ff9500; box-shadow: 0 0 20px rgba(255,149,0,0.1), 0 4px 16px rgba(0,0,0,0.08);
@@ -126,8 +142,8 @@
     }
     .heater-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .heater-title { flex: 1; min-width: 0; }
-    .heater-name { font-size: 15px; font-weight: 700; color: #1d1d1f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .heater-zone { font-size: 11px; color: #636366; margin-top: 2px; }
+    .heater-name { font-size: 15px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .heater-zone { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
     .heater-status-badge {
       display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px;
       font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; flex-shrink: 0;
@@ -143,36 +159,36 @@
     .temp-display { display: flex; flex-direction: column; align-items: center; margin: 12px 0 16px; }
     .temp-ring {
       width: 130px; height: 130px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      background: conic-gradient(from 180deg, #e5e5ea 0%, #e5e5ea 100%); padding: 5px; transition: all 0.5s ease;
+      background: conic-gradient(from 180deg, var(--border-color) 0%, var(--border-color) 100%); padding: 5px; transition: all 0.5s ease;
     }
     .temp-ring.heating {
-      background: conic-gradient(from 180deg, #ff9500 0%, #ff3b30 var(--heat-pct, 50%), #e5e5ea var(--heat-pct, 50%));
+      background: conic-gradient(from 180deg, #ff9500 0%, #ff3b30 var(--heat-pct, 50%), var(--border-color) var(--heat-pct, 50%));
     }
     .temp-ring-inner {
-      width: 100%; height: 100%; border-radius: 50%; background: #fff; display: flex; flex-direction: column;
+      width: 100%; height: 100%; border-radius: 50%; background: var(--bg-card); display: flex; flex-direction: column;
       align-items: center; justify-content: center; position: relative;
     }
-    .temp-current { font-size: 32px; font-weight: 800; color: #1d1d1f; line-height: 1; }
-    .temp-current-label { font-size: 10px; color: #636366; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .temp-current { font-size: 32px; font-weight: 800; color: var(--text-primary); line-height: 1; }
+    .temp-current-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
 
     /* Target temp controls */
     .temp-target-row { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 8px 0; }
     .temp-adjust-btn {
-      width: 40px; height: 40px; border-radius: 50%; border: 2px solid #e5e5ea; background: #f5f5f7;
-      font-size: 20px; font-weight: 700; color: #1d1d1f; cursor: pointer; display: flex; align-items: center;
+      width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border-color); background: var(--bg-surface);
+      font-size: 20px; font-weight: 700; color: var(--text-primary); cursor: pointer; display: flex; align-items: center;
       justify-content: center; transition: all 0.15s ease; user-select: none; -webkit-tap-highlight-color: transparent;
     }
-    .temp-adjust-btn:hover { background: #e5e5ea; transform: scale(1.08); }
+    .temp-adjust-btn:hover { background: var(--border-color); transform: scale(1.08); }
     .temp-adjust-btn:active { transform: scale(0.92); }
     .temp-target-display { text-align: center; min-width: 80px; }
     .temp-target-value { font-size: 24px; font-weight: 700; color: #ff9500; }
-    .temp-target-label { font-size: 10px; color: #636366; text-transform: uppercase; letter-spacing: 0.05em; }
+    .temp-target-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
 
     /* On/Off toggle */
     .heater-toggle-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 12px 0 4px; }
-    .heater-toggle-label { font-size: 13px; font-weight: 500; color: #636366; }
+    .heater-toggle-label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
     .heater-toggle-track {
-      width: 52px; height: 30px; border-radius: 15px; background: #ccc; position: relative; cursor: pointer;
+      width: 52px; height: 30px; border-radius: 15px; background: var(--toggle-off, #ccc); position: relative; cursor: pointer;
       transition: background 0.3s ease; flex-shrink: 0;
     }
     .heater-toggle-track.on { background: #ff9500; }
@@ -183,10 +199,10 @@
     .heater-toggle-track.on .heater-toggle-thumb { transform: translateX(22px); }
 
     /* Info row at bottom */
-    .heater-info-row { display: flex; justify-content: space-between; padding-top: 10px; margin-top: 10px; border-top: 1px solid #f0f0f0; }
+    .heater-info-row { display: flex; justify-content: space-between; padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border-light); }
     .heater-info-item { text-align: center; flex: 1; }
-    .heater-info-label { font-size: 10px; color: #636366; text-transform: uppercase; letter-spacing: 0.04em; }
-    .heater-info-value { font-size: 14px; font-weight: 600; color: #1d1d1f; margin-top: 2px; }
+    .heater-info-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .heater-info-value { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
 
     /* Heater card sending state */
     .heater-card.sending { opacity: 0.7; pointer-events: none; }
@@ -203,56 +219,66 @@
       .temp-target-value { font-size: 20px; }
       .temp-adjust-btn { width: 36px; height: 36px; font-size: 18px; }
     }
-    /* Dark mode support */
+    /* ── Dark mode: CSS media query fallback ─────────────────────────────
+       Catches cases where the browser CSS engine respects prefers-color-scheme
+       but JS matchMedia cannot see it (e.g. iframe sandboxing, simulator) */
     @media (prefers-color-scheme: dark) {
-      body { background: #1d1d1f; color: #f5f5f7; }
-      .card { background: #2a2a2c; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+      :root {
+        --text-primary: #f5f5f7;
+        --text-muted: #a1a1a6;
+        --text-secondary: #a1a1a6;
+        --text-tertiary: #888;
+        --bg-body: #1d1d1f;
+        --bg-card: #2a2a2c;
+        --bg-surface: #2a2a2c;
+        --bg-tab-bar: #2a2a2c;
+        --border-color: #424245;
+        --border-light: #424245;
+        --input-border: #555555;
+        --divider-color: #424245;
+        --shadow: rgba(0,0,0,.3);
+        --toggle-off: #555;
+      }
       h1 { color: #ff9500; }
-      h2 { color: #f5f5f7; }
-      .subtitle, .label-group .hint, .section-label { color: #a1a1a6; }
-      .row { border-bottom-color: #424245; }
-      .label-group label { color: #f5f5f7; }
-      .dev-list li.managed { background: #2a2a2c; border-color: #424245; box-shadow: 0 0.5px 2px rgba(0,0,0,.3); }
-      .dev-list li.unmanaged { background: #2a2a2c; }
+      .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.08); }
+      .tab-btn.active { background: #3a3a3c; }
       .dev-list li.drag-over { background: #3a3a3c !important; }
-      .dev-name { color: #f5f5f7; }
-      .priority-num { color: #a1a1a6; }
-      input[type=number], input[type=text], input[type=password], select { background: #424245; color: #f5f5f7; border-color: #555555; }
-      .range-val { color: #a1a1a6; }
-      .stat-box { background: #2a2a2c; }
-      .stat-box .stat-label { color: #a1a1a6; }
-      .stat-box .stat-value { color: #f5f5f7; }
-      .stat-box .stat-sub { color: #a1a1a6; }
-      .btn-secondary { background: #424245; color: #f5f5f7; }
-      .advanced-toggle { color: #a1a1a6; }
-      .advanced-toggle:hover { color: #f5f5f7; }
-      .log-entry { color: #a1a1a6; }
-      .log-time { color: #888; }
-      .tab-bar { background: #2a2a2c; }
-      .tab-btn { color: #a1a1a6; }
-      .tab-btn:hover:not(.active) { color: #f5f5f7; background: rgba(255,255,255,0.08); }
-      .tab-btn.active { color: #f5f5f7; background: #3a3a3c; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-      .room-label { color: #a1a1a6; }
-      .room-label::after { background: #424245; }
-      #error-banner { background: #8b0000; color: #fff; }
-      /* Heater cards dark mode */
-      .heater-card { background: #2a2a2c !important; border-color: #424245 !important; }
-      .heater-card.heater-on { border-color: #ff9500 !important; box-shadow: 0 0 20px rgba(255,149,0,0.15), 0 4px 16px rgba(0,0,0,0.3) !important; }
-      .heater-name { color: #f5f5f7 !important; }
-      .heater-zone { color: #a1a1a6 !important; }
-      .heater-status-badge { }
-      .temp-ring { background: conic-gradient(from 180deg, #555 0%, #555 100%) !important; }
-      .temp-ring.heating { background: conic-gradient(from 180deg, #ff9500 0%, #ff3b30 var(--heat-pct, 50%), #555 var(--heat-pct, 50%)) !important; }
-      .temp-ring-inner { background: #2a2a2c !important; }
-      .temp-current-label, .temp-target-label { color: #a1a1a6 !important; }
-      .temp-adjust-btn { background: #424245 !important; color: #f5f5f7 !important; border-color: #555 !important; }
-      .temp-adjust-btn:hover { background: #555 !important; }
-      .heater-info-row { border-top-color: #424245 !important; }
-      .heater-info-label { color: #a1a1a6 !important; }
-      .heater-info-value { color: #f5f5f7 !important; }
-      .heater-toggle-track { background: #555 !important; }
-      .heater-toggle-track.on { background: #ff9500 !important; }
+      #error-banner { background: #8b0000; }
+      .heater-card.heater-on { box-shadow: 0 0 20px rgba(255,149,0,0.15), 0 4px 16px rgba(0,0,0,0.3); }
+      .heater-card.sending::after { background: rgba(0,0,0,0.3); }
+      table th { color: var(--text-muted) !important; }
+      table td { color: var(--text-primary) !important; }
+      table tr { border-bottom-color: var(--border-light) !important; }
+      #cache-status { background: var(--bg-surface); color: var(--text-muted); }
     }
+    /* ── Dark mode: JS-triggered .dark class ──────────────────────────── */
+    html.dark {
+      --text-primary: #f5f5f7;
+      --text-muted: #a1a1a6;
+      --text-secondary: #a1a1a6;
+      --text-tertiary: #888;
+      --bg-body: #1d1d1f;
+      --bg-card: #2a2a2c;
+      --bg-surface: #2a2a2c;
+      --bg-tab-bar: #2a2a2c;
+      --border-color: #424245;
+      --border-light: #424245;
+      --input-border: #555555;
+      --divider-color: #424245;
+      --shadow: rgba(0,0,0,.3);
+      --toggle-off: #555;
+    }
+    html.dark h1 { color: #ff9500; }
+    html.dark .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.08); }
+    html.dark .tab-btn.active { background: #3a3a3c; }
+    html.dark .dev-list li.drag-over { background: #3a3a3c !important; }
+    html.dark #error-banner { background: #8b0000; }
+    html.dark .heater-card.heater-on { box-shadow: 0 0 20px rgba(255,149,0,0.15), 0 4px 16px rgba(0,0,0,0.3); }
+    html.dark .heater-card.sending::after { background: rgba(0,0,0,0.3); }
+    html.dark table th { color: var(--text-muted) !important; }
+    html.dark table td { color: var(--text-primary) !important; }
+    html.dark table tr { border-bottom-color: var(--border-light) !important; }
+    html.dark #cache-status { background: var(--bg-surface); color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -331,11 +357,11 @@
           </div>
         </div>
         <div style="margin-top:14px">
-          <div style="font-size:12px;color:#636366;margin-bottom:6px;font-weight:500">RECENT ACTIVITY</div>
-          <div id="log-container"><div class="log-entry" style="color:#aaa">No activity yet.</div></div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">RECENT ACTIVITY</div>
+          <div id="log-container"><div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div></div>
         </div>
         <div id="ev-section" style="display:none;margin-top:14px">
-          <div style="font-size:12px;color:#636366;margin-bottom:6px;font-weight:500">EV CHARGERS</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">EV CHARGERS</div>
           <div id="ev-grid" class="status-grid"></div>
         </div>
         <!-- Hidden sync element for s-enabled -->
@@ -366,7 +392,7 @@
           </div>
           <div class="control">
             <input type="number" id="s-powerLimitW" min="100" max="100000" step="500" value="10000">
-            <span style="font-size:12px;color:#636366">W</span>
+            <span style="font-size:12px;color:var(--text-muted)">W</span>
           </div>
         </div>
         <div class="row">
@@ -376,7 +402,7 @@
           </div>
           <div class="control">
             <input type="number" id="s-cooldownSeconds" min="5" max="300" step="5" value="30">
-            <span style="font-size:12px;color:#636366">s</span>
+            <span style="font-size:12px;color:var(--text-muted)">s</span>
           </div>
         </div>
         <div class="advanced-toggle" onclick="toggleAdvanced()">
@@ -385,15 +411,15 @@
         <div id="advanced-section">
           <div class="row" style="padding-top:12px">
             <div class="label-group"><label>Phase 1 limit (A)</label><span class="hint">0 = disabled</span></div>
-            <div class="control"><input type="number" id="s-phase1LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:#636366">A</span></div>
+            <div class="control"><input type="number" id="s-phase1LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:var(--text-muted)">A</span></div>
           </div>
           <div class="row">
             <div class="label-group"><label>Phase 2 limit (A)</label></div>
-            <div class="control"><input type="number" id="s-phase2LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:#636366">A</span></div>
+            <div class="control"><input type="number" id="s-phase2LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:var(--text-muted)">A</span></div>
           </div>
           <div class="row">
             <div class="label-group"><label>Phase 3 limit (A)</label></div>
-            <div class="control"><input type="number" id="s-phase3LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:#636366">A</span></div>
+            <div class="control"><input type="number" id="s-phase3LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:var(--text-muted)">A</span></div>
           </div>
           <div class="row">
             <div class="label-group"><label>Reaction speed</label><span class="hint">Readings to average. Lower = faster.</span></div>
@@ -469,14 +495,14 @@
           </div>
           <div class="control">
             <input type="number" id="s-mainCircuitA" min="10" max="100" step="1" value="25">
-            <span style="font-size:12px;color:#636366">A</span>
+            <span style="font-size:12px;color:var(--text-muted)">A</span>
           </div>
         </div>
         <div id="charger-details-list" style="font-size:12px;">
-          <span style="color:#636366">⏳ Loading chargers...</span>
+          <span style="color:var(--text-muted)">⏳ Loading chargers...</span>
         </div>
 
-        <div style="margin-top:12px; padding-top:12px; border-top:1px solid #e5e5ea;">
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
           <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px;">
             🔌 Test charger control
           </button>
@@ -499,29 +525,29 @@
 
       <div class="card">
         <h2>Power Consumption by Device</h2>
-        <div style="font-size:12px;color:#636366;margin-bottom:12px;font-weight:500">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:500">
           Device type filters
         </div>
         <div id="device-type-filters" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;">
           <!-- Filters will be populated here -->
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead style="border-bottom:2px solid #e5e5ea;">
+          <thead style="border-bottom:2px solid var(--border-color);">
             <tr>
-              <th style="text-align:left;padding:8px 0;color:#636366;font-weight:500;">Device</th>
-              <th style="text-align:right;padding:8px 0;color:#636366;font-weight:500;">Current</th>
-              <th style="text-align:right;padding:8px 0;color:#636366;font-weight:500;">Avg</th>
-              <th style="text-align:right;padding:8px 0;color:#636366;font-weight:500;">Peak</th>
-              <th style="text-align:right;padding:8px 0;color:#636366;font-weight:500;">Share</th>
+              <th style="text-align:left;padding:8px 0;color:var(--text-muted);font-weight:500;">Device</th>
+              <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Current</th>
+              <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Avg</th>
+              <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Peak</th>
+              <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Share</th>
             </tr>
           </thead>
           <tbody id="consumption-table">
             <tr>
-              <td colspan="5" style="text-align:center;padding:24px;color:#aaa;">Loading...</td>
+              <td colspan="5" style="text-align:center;padding:24px;color:var(--text-tertiary);">Loading...</td>
             </tr>
           </tbody>
         </table>
-        <div style="font-size:11px;color:#999;margin-top:12px;text-align:right;">
+        <div style="font-size:11px;color:var(--text-tertiary);margin-top:12px;text-align:right;">
           Last updated: <span id="consumption-time">–</span>
         </div>
       </div>
@@ -538,13 +564,13 @@
             <span style="font-size:14px;">↻</span> Refresh
           </button>
         </div>
-        <div style="font-size:12px;color:#636366;font-weight:500">
+        <div style="font-size:12px;color:var(--text-muted);font-weight:500">
           <span id="floorheater-count">–</span> thermostats detected · Auto-refreshes every 5s
         </div>
       </div>
 
       <div id="floorheater-grid" class="heater-grid">
-        <div class="card" style="grid-column: 1 / -1; text-align:center; padding:30px; color:#aaa;">
+        <div class="card" style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--text-tertiary);">
           Loading thermostats...
         </div>
       </div>
@@ -555,8 +581,8 @@
     <div id="tab-devices" style="display:none">
 
       <div class="card">
-        <div id="cache-status" style="font-size:12px; color:#636366; margin-bottom:12px; padding: 8px; background:#f5f5f7; border-radius:8px;">
-          <span id="cache-loading" style="color:#636366">⏳ Loading devices...</span>
+        <div id="cache-status" style="font-size:12px; color:var(--text-muted); margin-bottom:12px; padding: 8px; background:var(--bg-surface); border-radius:8px;">
+          <span id="cache-loading" style="color:var(--text-muted)">⏳ Loading devices...</span>
           <span id="cache-status-text" style="display:none; color:#34c759">✓</span>
           <span id="cache-refresh-btn" style="display:none; margin-left:12px;">
             <button class="btn-small btn-secondary" onclick="refreshDeviceCache()" style="padding:4px 10px; font-size:11px;">Refresh</button>
@@ -564,7 +590,7 @@
         </div>
 
         <h2>Device priority</h2>
-        <p style="font-size:13px;color:#636366;margin-bottom:4px;line-height:1.5">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;line-height:1.5">
           Toggle a device <b>on</b> to let Power Guard control it. Drag &#9776; to set the order —
           devices higher in the list are turned off first.
         </p>
@@ -572,7 +598,7 @@
       </div>
 
       <div class="save-row">
-        <span id="dev-save-status" style="font-size:12px;color:#636366;margin-right:auto"></span>
+        <span id="dev-save-status" style="font-size:12px;color:var(--text-muted);margin-right:auto"></span>
         <button class="btn-secondary" onclick="loadAll()">Discard</button>
         <button class="btn-primary"   onclick="saveAll()">Save</button>
       </div>
@@ -597,6 +623,52 @@
 </div>
 
 <script>
+  // ── Dark mode detection (silent) ─────────────────────────────────────────
+  // Primary: @media (prefers-color-scheme: dark) in CSS handles dark mode automatically.
+  // Backup: JS detection adds .dark class for environments where matchMedia works.
+  var _dmBusy = false;
+
+  function detectDarkMode() {
+    var homeyOnBody = document.body ? document.body.classList.contains('homey-dark-mode') : false;
+    var homeyOnHtml = document.documentElement.classList.contains('homey-dark-mode');
+    var osDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return homeyOnBody || homeyOnHtml || osDark;
+  }
+
+  function applyDarkMode() {
+    if (_dmBusy) return;
+    _dmBusy = true;
+    try {
+      if (detectDarkMode()) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    } finally { _dmBusy = false; }
+  }
+
+  applyDarkMode();
+
+  // React to OS preference changes
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() { applyDarkMode(); });
+  }
+
+  // Re-check when Homey injects attributes or stylesheets
+  new MutationObserver(function() { applyDarkMode(); }).observe(document.documentElement, { attributes: true });
+  new MutationObserver(function() { applyDarkMode(); }).observe(document.body, { attributes: true });
+  new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(n) {
+        if (n.nodeName === 'LINK') n.addEventListener('load', function() { applyDarkMode(); });
+      });
+    });
+  }).observe(document.head, { childList: true });
+
+  // Delayed re-check for late-loading Homey CSS
+  setTimeout(applyDarkMode, 500);
+  setTimeout(applyDarkMode, 2000);
+
   // ── Debug logging ──────────────────────────────────────────────────────────
   function dbg(msg) {
     // Debug panel disabled — re-enable by changing display:none to display:block on #debug-panel
@@ -729,7 +801,7 @@
       hanAge.style.color = ageSec < 10 ? '#34c759' : ageSec < 30 ? '#ff9500' : '#ff3b30';
     } else if (hanAge) {
       hanAge.textContent = s.hanDeviceName || (s.hanConnected ? '' : 'No readings');
-      hanAge.style.color = s.hanConnected ? '#636366' : '#ff3b30';
+      hanAge.style.color = s.hanConnected ? 'var(--text-muted)' : '#ff3b30';
     }
     var n = (s.mitigatedDevices || []).length;
     var m = document.getElementById('st-mitigation');
@@ -752,7 +824,7 @@
             (e.time ? new Date(e.time).toLocaleTimeString() : '') + '</span>' +
             escHtml(e.message || '') + '</div>';
         }).join('')
-      : '<div class="log-entry" style="color:#aaa">No activity yet.</div>';
+      : '<div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div>';
     var evChargers = Array.isArray(s.evChargers) ? s.evChargers : [];
     // Update cached charger status for the System tab table
     evChargers.forEach(function(c) {
@@ -771,7 +843,7 @@
                      c.status === 'charging' ? '#34c759' :
                      c.status === 'waiting' ? '#007aff' :
                      c.status === 'completed' ? '#34c759' :
-                     c.status === 'connected' ? '#636366' : '#8e8e93';
+                     c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
           var icon = c.status === 'paused' ? '\u23f8' :
                     c.status === 'dynamic' ? '\u26a1' :
                     c.status === 'charging' ? '\ud83d\udd0b' :
@@ -794,8 +866,8 @@
                            c.status === 'charging' ? '#34c759' :
                            c.status === 'waiting' ? '#007aff' :
                            c.status === 'completed' ? '#34c759' :
-                           c.status === 'connected' ? '#636366' : '#8e8e93';
-          return '<div class="stat-box">' +
+                           c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
+          return '<div class="stat-box">'  +
             '<div class="stat-label">' + escHtml(c.name || 'EV Charger') + '</div>' +
             '<div class="stat-value">' + Math.round(c.powerW || 0) + ' W</div>' +
             '<div class="stat-sub" style="color:' + statusColor + '">' + escHtml(c.statusLabel || 'Idle') + '</div>' +
@@ -864,7 +936,7 @@
     });
 
     if (chargers.length === 0) {
-      container.innerHTML = '<span style="color:#636366">No dynamic chargers configured</span>';
+      container.innerHTML = '<span style="color:var(--text-muted)">No dynamic chargers configured</span>';
       return;
     }
 
@@ -874,7 +946,7 @@
     var voltageMultiplier = voltageSystem === '230v-1phase' ? 230 : 692;
 
     var html = '<table style="width:100%; border-collapse:collapse;">';
-    html += '<thead><tr style="border-bottom:2px solid #e5e5ea;">' +
+    html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
             '<th style="text-align:left; padding:8px 4px;">Charger</th>' +
             '<th style="text-align:center; padding:8px 4px;">Status</th>' +
             '<th style="text-align:center; padding:8px 4px;">Phases</th>' +
@@ -903,7 +975,7 @@
                         liveStatus.status === 'charging' ? '#34c759' :
                         liveStatus.status === 'waiting' ? '#007aff' :
                         liveStatus.status === 'completed' ? '#34c759' :
-                        liveStatus.status === 'connected' ? '#636366' :
+                        liveStatus.status === 'connected' ? 'var(--text-muted)' :
                         '#8e8e93';
       var statusIcon = liveStatus.status === 'paused' ? '⏸' :
                        liveStatus.status === 'dynamic' ? '⚡' :
@@ -913,15 +985,15 @@
                        liveStatus.status === 'connected' ? '🔌' :
                        '➖';
 
-      var bgColor = idx % 2 === 0 ? 'transparent' : '#f5f5f7';
-      html += '<tr style="background:' + bgColor + '; border-bottom:1px solid #e5e5ea;">' +
+      var bgColor = idx % 2 === 0 ? 'transparent' : 'var(--bg-surface)';
+      html += '<tr style="background:' + bgColor + '; border-bottom:1px solid var(--border-color);">' +
               '<td style="padding:8px 4px;">' + escHtml(charger.name) + '</td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<span id="charger-status-' + charger.deviceId + '" style="font-size:11px; font-weight:600; color:' + statusColor + '; white-space:nowrap;">' +
               statusIcon + ' ' + escHtml(liveStatus.statusLabel) + '</span></td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<select onchange="updateChargerPhases(\'' + charger.deviceId + '\',this.value)" ' +
-              'style="font-size:12px; border:1px solid #e5e5ea; border-radius:4px; padding:2px 4px;">' +
+              'style="font-size:12px; border:1px solid var(--border-color); border-radius:4px; padding:2px 4px;">' +
               '<option value="1"' + (chargerPhases === 1 ? ' selected' : '') + '>1-phase</option>' +
               '<option value="3"' + (chargerPhases === 3 ? ' selected' : '') + '>3-phase</option>' +
               '</select>' +
@@ -929,15 +1001,15 @@
               '<td style="text-align:center; padding:8px 4px;">' +
               '<input type="number" min="6" max="32" value="' + circuitA + '" ' +
               'onchange="updateChargerCircuitFromSystem(\'' + charger.deviceId + '\',this.value)" ' +
-              'style="width:50px; font-size:12px; text-align:center; border:1px solid #e5e5ea; border-radius:4px; padding:2px 4px;">' +
-              '<span style="font-size:11px; color:#636366;"> A</span>' +
+              'style="width:50px; font-size:12px; text-align:center; border:1px solid var(--border-color); border-radius:4px; padding:2px 4px;">' +
+              '<span style="font-size:11px; color:var(--text-muted);"> A</span>' +
               '</td>' +
               '<td style="text-align:center; padding:8px 4px;">' + (maxPowerW / 1000).toFixed(1) + ' kW</td>' +
               '</tr>';
     });
 
     // Total summary row
-    html += '<tr style="border-top:2px solid #e5e5ea; font-weight:bold;">' +
+    html += '<tr style="border-top:2px solid var(--border-color); font-weight:bold;">' +
             '<td style="padding:8px 4px;">Total (' + chargers.length + ' charger' + (chargers.length > 1 ? 's' : '') + ')</td>' +
             '<td></td>' +
             '<td></td>' +
@@ -946,7 +1018,7 @@
             '</tr>';
 
     html += '</tbody></table>';
-    html += '<div style="font-size:11px; color:#636366; margin-top:8px; line-height:1.5;">' +
+    html += '<div style="font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;">' +
             '💡 Max Power per charger is capped by the main circuit breaker (' + mainCircuitA + 'A). ' +
             'Actual current will be reduced during overload mitigation.' +
             '</div>';
@@ -988,7 +1060,7 @@
   function testChargerControl() {
     var resultDiv = document.getElementById('charger-test-result');
     resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<span style="color:#636366">⏳ Testing charger control...</span>';
+    resultDiv.innerHTML = '<span style="color:var(--text-muted)">⏳ Testing charger control...</span>';
 
     hApi('POST', '/test-charger', {})
       .then(function(data) {
@@ -999,7 +1071,7 @@
         var html = '';
         data.steps.forEach(function(step) {
           var icon = step.ok ? '✅' : '❌';
-          html += '<div style="padding:3px 0; border-bottom:1px solid #e5e5ea;">' +
+          html += '<div style="padding:3px 0; border-bottom:1px solid var(--border-color);">' +
                   icon + ' <strong>' + step.step + '</strong>: ' +
                   '<span style="color:' + (step.ok ? '#34c759' : '#ff3b30') + ';">' + step.detail + '</span>' +
                   '</div>';
@@ -1019,7 +1091,7 @@
   function showDiagnostics() {
     var resultDiv = document.getElementById('charger-test-result');
     resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<span style="color:#636366">⏳ Loading diagnostics...</span>';
+    resultDiv.innerHTML = '<span style="color:var(--text-muted)">⏳ Loading diagnostics...</span>';
 
     hApi('GET', '/diagnostic', null)
       .then(function(data) {
@@ -1027,7 +1099,7 @@
           resultDiv.innerHTML = '<span style="color:#ff3b30">⚠ No data</span>';
           return;
         }
-        var html = '<div style="padding:4px 0; font-weight:600; border-bottom:2px solid #e5e5ea;">Power Guard Diagnostics</div>';
+        var html = '<div style="padding:4px 0; font-weight:600; border-bottom:2px solid var(--border-color);">Power Guard Diagnostics</div>';
         html += '<div style="padding:3px 0;">⚡ <strong>Power:</strong> ' + (data.currentPowerW || 0) + 'W / ' + (data.limitW || 0) + 'W limit</div>';
         html += '<div style="padding:3px 0;">📊 <strong>Over-limit count:</strong> ' + (data.overLimitCount || 0) + ' / ' + (data.hysteresisCount || 0) + ' needed</div>';
         html += '<div style="padding:3px 0;">🔌 <strong>HAN connected:</strong> ' + (data.hanConnected ? '✅ Yes' : '❌ No') + '</div>';
@@ -1053,7 +1125,7 @@
         if (logs.length) {
           html += '<div style="padding:3px 0; margin-top:4px;"><strong>Recent log:</strong></div>';
           logs.forEach(function(l) {
-            html += '<div style="padding:1px 0 1px 16px; font-size:11px; color:#636366;">' + l + '</div>';
+            html += '<div style="padding:1px 0 1px 16px; font-size:11px; color:var(--text-muted);">' + l + '</div>';
           });
         }
 
@@ -1217,7 +1289,7 @@
         if (!tbody)  return;
 
         if (devices.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#aaa;">No devices with power data found</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-tertiary);">No devices with power data found</td></tr>';
           document.getElementById('consumption-time').textContent = '–';
           document.getElementById('device-type-filters').innerHTML = '';
           return;
@@ -1236,7 +1308,7 @@
           var isChecked = _classFilters[cls] !== false;
           return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;">' +
             '<input type="checkbox" data-class-filter="' + cls + '" ' + (isChecked ? 'checked' : '') + ' onchange="toggleClassFilter(\'' + cls + '\')" style="cursor:pointer;accent-color:#e8441a;">' +
-            '<span style="font-size:13px;color:#1d1d1f;font-weight:500;">' + (cls.charAt(0).toUpperCase() + cls.slice(1)) + '</span>' +
+            '<span style="font-size:13px;color:var(--text-primary);font-weight:500;">' + (cls.charAt(0).toUpperCase() + cls.slice(1)) + '</span>' +
             '</label>';
         }).join('');
         document.getElementById('device-type-filters').innerHTML = filterHtml;
@@ -1246,11 +1318,11 @@
           var cls = d.class || 'unknown';
           var isVisible = _classFilters[cls] !== false;
           var display = isVisible ? '' : 'display:none;';
-          return '<tr style="border-bottom:1px solid #f0f0f0;' + display + '" class="consumption-row" data-device-class="' + cls + '">' +
-            '<td style="padding:10px 0;color:#1d1d1f;">' + (idx + 1) + '. ' + deviceName + '</td>' +
-            '<td style="text-align:right;padding:10px 0;color:#1d1d1f;font-weight:500;">' + d.current + ' W</td>' +
-            '<td style="text-align:right;padding:10px 0;color:#636366;">' + d.avg + ' W</td>' +
-            '<td style="text-align:right;padding:10px 0;color:#636366;">' + d.peak + ' W</td>' +
+          return '<tr style="border-bottom:1px solid var(--border-light);' + display + '" class="consumption-row" data-device-class="' + cls + '">' +
+            '<td style="padding:10px 0;color:var(--text-primary);">' + (idx + 1) + '. ' + deviceName + '</td>' +
+            '<td style="text-align:right;padding:10px 0;color:var(--text-primary);font-weight:500;">' + d.current + ' W</td>' +
+            '<td style="text-align:right;padding:10px 0;color:var(--text-muted);">' + d.avg + ' W</td>' +
+            '<td style="text-align:right;padding:10px 0;color:var(--text-muted);">' + d.peak + ' W</td>' +
             '<td style="text-align:right;padding:10px 0;color:#ff6b35;font-weight:500;">' + d.percent + '%</td>' +
             '</tr>';
         }).join('');
@@ -1288,7 +1360,7 @@
 
         if (floorHeaters.length === 0) {
           console.log('[FloorHeater] No floor heaters found, showing empty message');
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#aaa;">No floor heaters found</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-tertiary);">No floor heaters found</td></tr>';
           return;
         }
 
@@ -1305,11 +1377,11 @@
           var targetTemp = heater.currentTarget !== null ? heater.currentTarget.toFixed(1) + '°C' : '–';
           var deviceId = heater.deviceId;
           
-          return '<tr style="border-bottom:1px solid #f0f0f0;">' +
-            '<td style="padding:10px 0;color:#1d1d1f;font-weight:500;">' + heater.name + '<br><span style="font-size:11px;color:#999;">' + heater.zone + '</span></td>' +
+          return '<tr style="border-bottom:1px solid var(--border-light);">' +
+            '<td style="padding:10px 0;color:var(--text-primary);font-weight:500;">' + heater.name + '<br><span style="font-size:11px;color:var(--text-tertiary);">' + heater.zone + '</span></td>' +
             '<td style="text-align:center;padding:10px 0;"><span style="color:' + statusColor + ';font-weight:500;">' + statusText + '</span></td>' +
-            '<td style="text-align:center;padding:10px 0;color:#1d1d1f;">' + currentTemp + '</td>' +
-            '<td style="text-align:center;padding:10px 0;"><input type="number" id="temp-' + deviceId + '" value="' + (heater.currentTarget || 20) + '" min="5" max="30" step="0.5" style="width:60px;padding:4px;border:1px solid #d1d1d6;border-radius:4px;font-size:12px;"></td>' +
+            '<td style="text-align:center;padding:10px 0;color:var(--text-primary);">' + currentTemp + '</td>' +
+            '<td style="text-align:center;padding:10px 0;"><input type="number" id="temp-' + deviceId + '" value="' + (heater.currentTarget || 20) + '" min="5" max="30" step="0.5" style="width:60px;padding:4px;border:1px solid var(--input-border);border-radius:4px;font-size:12px;"></td>' +
             '<td style="text-align:center;padding:10px 0;"><button onclick="controlHeater(\'' + deviceId + '\', \'off\')" style="padding:4px 8px;background:#ff3b30;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Off</button>' +
             '<button onclick="setHeaterTemp(\'' + deviceId + '\')" style="padding:4px 8px;background:#007AFF;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Set</button>' +
             '<button onclick="controlHeater(\'' + deviceId + '\', \'on\')" style="padding:4px 8px;background:#34c759;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">On</button></td>' +
@@ -1458,7 +1530,7 @@
 
     if (!managed.length && !unmanaged.length) {
       var msg = document.createElement('p');
-      msg.style.cssText = 'color:#aaa;font-size:13px;padding:16px 0;text-align:center';
+      msg.style.cssText = 'color:var(--text-tertiary);font-size:13px;padding:16px 0;text-align:center';
       msg.textContent = availableDevices.length
         ? 'Toggle devices on to manage them.'
         : 'No devices found. The cache is loading \u2014 this will update automatically.';
@@ -1656,7 +1728,7 @@
           statusEl.style.color = '#ff9500';
         } else {
           statusEl.textContent = 'Cache loading...';
-          statusEl.style.color = '#636366';
+          statusEl.style.color = 'var(--text-muted)';
         }
       })
       .catch(function() {
@@ -1673,7 +1745,7 @@
   function refreshDeviceCache() {
     var statusEl = document.getElementById('cache-status-text');
     statusEl.textContent = 'Refreshing...';
-    statusEl.style.color = '#636366';
+    statusEl.style.color = 'var(--text-muted)';
     hApi('POST', '/device-cache-refresh', null)
       .then(function(data) {
         if (data.success) {
@@ -1711,10 +1783,8 @@
     _H = Homey;
     dbg('onHomeyReady called');
 
-    // Probe what methods are available (for debug visibility)
-    var methods = ['get','set','api','on','alert','confirm','ready','getLanguage','popup'];
-    var avail = methods.filter(function(m) { return typeof Homey[m] === 'function'; });
-    dbg('Homey methods: ' + avail.join(', '));
+    // Re-check dark mode now that Homey SDK is loaded
+    applyDarkMode();
 
     Homey.ready();
     dbg('Homey.ready() called, api=' + (typeof Homey.api));
