@@ -147,62 +147,6 @@
     .h-toggle input:checked + .h-track { background: #34c759; }
     .h-toggle .h-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .25s; }
     .h-toggle input:checked ~ .h-thumb { transform: translateX(16px); }
-    /* ── Dark mode: CSS media query fallback ─────────────────────────────
-       Catches cases where the browser CSS engine respects prefers-color-scheme
-       but JS matchMedia cannot see it (e.g. iframe sandboxing, simulator) */
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --text-primary: #f5f5f7;
-        --text-muted: #a1a1a6;
-        --text-secondary: #a1a1a6;
-        --text-tertiary: #888;
-        --bg-body: #1d1d1f;
-        --bg-card: #2a2a2c;
-        --bg-surface: #2a2a2c;
-        --bg-tab-bar: #2a2a2c;
-        --border-color: #424245;
-        --border-light: #424245;
-        --input-border: #555555;
-        --divider-color: #424245;
-        --shadow: rgba(0,0,0,.3);
-        --toggle-off: #555;
-      }
-      h1 { color: #ff9500; }
-      .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.08); }
-      .tab-btn.active { background: #3a3a3c; }
-      .dev-list li.drag-over { background: #3a3a3c !important; }
-      #error-banner { background: #8b0000; }
-      table th { color: var(--text-muted) !important; }
-      table td { color: var(--text-primary) !important; }
-      table tr { border-bottom-color: var(--border-light) !important; }
-      #cache-status { background: var(--bg-surface); color: var(--text-muted); }
-    }
-    /* ── Dark mode: JS-triggered .dark class ──────────────────────────── */
-    html.dark {
-      --text-primary: #f5f5f7;
-      --text-muted: #a1a1a6;
-      --text-secondary: #a1a1a6;
-      --text-tertiary: #888;
-      --bg-body: #1d1d1f;
-      --bg-card: #2a2a2c;
-      --bg-surface: #2a2a2c;
-      --bg-tab-bar: #2a2a2c;
-      --border-color: #424245;
-      --border-light: #424245;
-      --input-border: #555555;
-      --divider-color: #424245;
-      --shadow: rgba(0,0,0,.3);
-      --toggle-off: #555;
-    }
-    html.dark h1 { color: #ff9500; }
-    html.dark .tab-btn:hover:not(.active) { background: rgba(255,255,255,0.08); }
-    html.dark .tab-btn.active { background: #3a3a3c; }
-    html.dark .dev-list li.drag-over { background: #3a3a3c !important; }
-    html.dark #error-banner { background: #8b0000; }
-    html.dark table th { color: var(--text-muted) !important; }
-    html.dark table td { color: var(--text-primary) !important; }
-    html.dark table tr { border-bottom-color: var(--border-light) !important; }
-    html.dark #cache-status { background: var(--bg-surface); color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -542,51 +486,11 @@
 </div>
 
 <script>
-  // ── Dark mode detection (silent) ─────────────────────────────────────────
-  // Primary: @media (prefers-color-scheme: dark) in CSS handles dark mode automatically.
-  // Backup: JS detection adds .dark class for environments where matchMedia works.
-  var _dmBusy = false;
-
-  function detectDarkMode() {
-    var homeyOnBody = document.body ? document.body.classList.contains('homey-dark-mode') : false;
-    var homeyOnHtml = document.documentElement.classList.contains('homey-dark-mode');
-    var osDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return homeyOnBody || homeyOnHtml || osDark;
-  }
-
-  function applyDarkMode() {
-    if (_dmBusy) return;
-    _dmBusy = true;
-    try {
-      if (detectDarkMode()) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    } finally { _dmBusy = false; }
-  }
-
-  applyDarkMode();
-
-  // React to OS preference changes
-  if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() { applyDarkMode(); });
-  }
-
-  // Re-check when Homey injects attributes or stylesheets
-  new MutationObserver(function() { applyDarkMode(); }).observe(document.documentElement, { attributes: true });
-  new MutationObserver(function() { applyDarkMode(); }).observe(document.body, { attributes: true });
-  new MutationObserver(function(mutations) {
-    mutations.forEach(function(m) {
-      m.addedNodes.forEach(function(n) {
-        if (n.nodeName === 'LINK') n.addEventListener('load', function() { applyDarkMode(); });
-      });
-    });
-  }).observe(document.head, { childList: true });
-
-  // Delayed re-check for late-loading Homey CSS
-  setTimeout(applyDarkMode, 500);
-  setTimeout(applyDarkMode, 2000);
+  // ── Dark mode ──────────────────────────────────────────────────────────────
+  // All dark mode is handled in CSS only:
+  //   1. @media (prefers-color-scheme: dark) — OS-level dark mode
+  //   2. .homey-dark-mode selector — Homey's injected dark mode class
+  // No JavaScript needed.
 
   // ── Debug logging ──────────────────────────────────────────────────────────
   function dbg(msg) {
@@ -1515,7 +1419,7 @@
       var safeId = deviceId.replace(/[^a-z0-9]/gi, '_');
       var sel = document.getElementById('def-action-' + safeId);
       var action = sel ? sel.value : 'onoff';
-      var maxPriority = Math.max(0, ...priorityList.map(function(e) { return e.priority || 0; }));
+      var maxPriority = priorityList.reduce(function(m, e) { return Math.max(m, e.priority || 0); }, 0);
       priorityList.push({
         deviceId: deviceId, name: dev.name,
         priority: maxPriority + 1, action: action, enabled: true,
@@ -1695,9 +1599,6 @@
   function onHomeyReady(Homey) {
     _H = Homey;
     dbg('onHomeyReady called');
-
-    // Re-check dark mode now that Homey SDK is loaded
-    applyDarkMode();
 
     Homey.ready();
     dbg('Homey.ready() called, api=' + (typeof Homey.api));
