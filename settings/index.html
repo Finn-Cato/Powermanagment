@@ -412,18 +412,6 @@
         </div>
       </div>
 
-      <!-- Debug Log -->
-      <div class="card" style="margin-top:20px;">
-        <h2>Debug Log</h2>
-        <div style="font-size:12px;color:#636366;margin-bottom:12px;font-weight:500">
-          Live tracking log for power consumption
-        </div>
-        <button onclick="loadDebugLog()" style="padding:8px 16px;background:#007AFF;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:500;margin-bottom:12px;">
-          Refresh Log
-        </button>
-        <pre id="debug-log" style="background:#f5f5f5;padding:12px;border-radius:4px;font-size:11px;max-height:300px;overflow:auto;border:1px solid #e5e5ea;white-space:pre-wrap;word-wrap:break-word;color:#333;font-family:monospace;">Loading debug log...</pre>
-      </div>
-
     </div><!-- /#tab-consumption -->
 
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
@@ -1140,47 +1128,9 @@
       });
   }
 
-  // ── Load Debug Log ─────────────────────────────────────────────────────
-  function loadDebugLog() {
-    if (!_H) { showError('Not connected to Homey'); return; }
-    hApi('GET', '/debugLog', null)
-      .then(function(data) {
-        clearError();
-        var preElement = document.getElementById('debug-log');
-        if (!preElement) return;
-        
-        if (data.ok && data.log) {
-          // Show last 50 lines
-          var lines = data.log.split('\n');
-          var lastLines = lines.slice(-50).join('\n');
-          preElement.textContent = lastLines || '[Empty log]';
-          preElement.scrollTop = preElement.scrollHeight; // Scroll to bottom
-        } else {
-          preElement.textContent = data.log || '[Unable to read log]';
-        }
-      })
-      .catch(function(err) {
-        var preElement = document.getElementById('debug-log');
-        if (preElement) {
-          preElement.textContent = 'Error loading debug log: ' + err.message;
-        }
-      });
-  }
-
-  // Auto-load debug log when consumption tab is opened
+  // Auto-load consumption when tab opened
   var _lastTabName = '';
-  setInterval(function() {
-    var consumptionTab = document.getElementById('tab-consumption');
-    if (consumptionTab && consumptionTab.style.display === 'block') {
-      if (_lastTabName !== 'consumption') {
-        _lastTabName = 'consumption';
-        loadDebugLog();
-      }
-    } else {
-      _lastTabName = '';
-    }
-  }, 2000);
-
+  
   setInterval(function() {
     var consumptionTab = document.getElementById('tab-consumption');
     if (consumptionTab && consumptionTab.style.display === 'block') {
