@@ -1379,24 +1379,34 @@ class PowerGuardApp extends Homey.App {
     const allDevices = this.homey.settings.get('_deviceCache') || [];
     const floorHeaters = [];
     
-    // First, log all thermostats to help debug Futurehome
+    this.log(`[FloorHeater] ==== START FLOOR HEATER CHECK ====`);
+    this.log(`[FloorHeater] Total devices in cache: ${allDevices.length}`);
+    
+    // Log all devices
+    allDevices.forEach(d => {
+      if (d) {
+        this.log(`[FloorHeater] Device: "${d.name}" | Class: "${d.class}" | ID: ${d.id}`);
+      }
+    });
+    
+    // Log all thermostats to help debug Futurehome
     const allThermostats = allDevices.filter(d => d && d.class === 'thermostat');
+    this.log(`[FloorHeater] Found ${allThermostats.length} thermostat devices:`);
     if (allThermostats.length > 0) {
-      this.log(`[FloorHeater] DEBUG: Found ${allThermostats.length} thermostat devices:`);
       allThermostats.forEach(d => {
         const capsList = d.capabilitiesObj ? Object.keys(d.capabilitiesObj) : (Array.isArray(d.capabilities) ? d.capabilities : []);
-        this.log(`  Device: ${d.name}`);
-        this.log(`    Class: ${d.class}`);
-        this.log(`    Driver: ${d.driverUri || 'N/A'}`);
-        this.log(`    Capabilities: ${capsList.join(', ')}`);
+        this.log(`[FloorHeater] --- Thermostat: ${d.name} ---`);
+        this.log(`[FloorHeater]   Class: ${d.class}`);
+        this.log(`[FloorHeater]   Driver: ${d.driverUri || 'N/A'}`);
+        this.log(`[FloorHeater]   Capabilities (${capsList.length}): ${capsList.join(', ')}`);
         if (d.capabilitiesObj) {
           capsList.forEach(cap => {
             const val = d.capabilitiesObj[cap];
-            this.log(`      ${cap}: ${val && val.value !== undefined ? val.value : 'N/A'}`);
+            const capVal = val && val.value !== undefined ? val.value : 'N/A';
+            this.log(`[FloorHeater]     - ${cap}: ${capVal}`);
           });
         }
       });
-    }
     
     allDevices.forEach(device => {
       if (!device) return;
@@ -1420,7 +1430,14 @@ class PowerGuardApp extends Homey.App {
                             name.includes('värmepump') || // Swedish for heat pump
                             name.includes('futurehome'); // Explicitly check for Futurehome
       
-      if (!isFloorHeater) return;
+      this.log(`[FloorHeater] Checking device: "${device.name}" | Class: ${cls} | IsFloorHeater: ${isFloorHeater}`);
+      
+      if (!isFloorHeater) {
+        this.log(`[FloorHeater]   -> Skipped (not a floor heater)`);
+        return;
+      }
+      
+      this.log(`[FloorHeater]   -> Processing as floor heater`);
       
       // Check for target temperature capability (various names)
       let targetTempCapability = null;
@@ -1452,6 +1469,8 @@ class PowerGuardApp extends Homey.App {
       const hasOnOff = caps.includes('onoff');
       const canControl = hasTargetTemp; // Can be controlled if it has target_temperature (or variant)
       
+      this.log(`[FloorHeater]   HasTargetTemp: ${hasTargetTemp} | HasMeasureTemp: ${hasMeasureTemp} | HasOnOff: ${hasOnOff} | HasPower: ${hasMeasurePower}`);
+      
       // Get current values
       let currentTarget = null;
       let currentMeasure = null;
@@ -1461,13 +1480,18 @@ class PowerGuardApp extends Homey.App {
         if (device.capabilitiesObj) {
           if (targetTempCapability && device.capabilitiesObj[targetTempCapability]) {
             currentTarget = device.capabilitiesObj[targetTempCapability].value;
+            this.log(`[FloorHeater]   Reading ${targetTempCapability}: ${currentTarget}`);
           }
           if (measureTempCapability && device.capabilitiesObj[measureTempCapability]) {
             currentMeasure = device.capabilitiesObj[measureTempCapability].value;
+            this.log(`[FloorHeater]   Reading ${measureTempCapability}: ${currentMeasure}`);
           }
           if (device.capabilitiesObj.onoff) {
             isOn = device.capabilitiesObj.onoff.value;
+            this.log(`[FloorHeater]   Reading onoff: ${isOn}`);
           }
+        } else {
+          this.log(`[FloorHeater]   WARNING: capabilitiesObj is missing!`);
         }
       } catch (err) {
         this.log(`[FloorHeater] Error reading values for ${device.name}: ${err.message}`);
@@ -1493,6 +1517,11 @@ class PowerGuardApp extends Homey.App {
       });
       
       this.log(`[FloorHeater] Found: ${device.name} | Control: ${canControl} | TargetTemp: ${hasTargetTemp} (${targetTempCapability}) | MeasureTemp: ${hasMeasureTemp} (${measureTempCapability}) | CurrentTarget: ${currentTarget}°C | CurrentMeasure: ${currentMeasure}°C`);
+    });
+    
+    this.log(`[FloorHeater] ==== SUMMARY: Returning ${floorHeaters.length} floor heaters ====`);
+    floorHeaters.forEach(h => {
+      this.log(`[FloorHeater] > ${h.name} | Target: ${h.currentTarget}°C | Measure: ${h.currentMeasure}°C | CanControl: ${h.canControl}`);
     });
     
     return floorHeaters;

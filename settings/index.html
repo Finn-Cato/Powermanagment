@@ -1168,21 +1168,35 @@
   // ── Load Floor Heater Connections ─────────────────────────────────────────
   function loadFloorHeaters() {
     if (!_H) { showError('Not connected to Homey'); return; }
+    console.log('[FloorHeater] loadFloorHeaters called');
     hApi('GET', '/floorHeaters', null)
       .then(function(data) {
+        console.log('[FloorHeater] API response:', data);
         clearError();
         var floorHeaters = Array.isArray(data) ? data : [];
+        console.log('[FloorHeater] Parsed floor heaters array:', floorHeaters);
         var tbody = document.getElementById('floorheater-table');
-        if (!tbody) return;
+        if (!tbody) {
+          console.error('[FloorHeater] ERROR: floorheater-table element not found');
+          return;
+        }
 
         document.getElementById('floorheater-count').textContent = floorHeaters.length;
+        console.log('[FloorHeater] Found', floorHeaters.length, 'floor heaters');
 
         if (floorHeaters.length === 0) {
+          console.log('[FloorHeater] No floor heaters found, showing empty message');
           tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#aaa;">No floor heaters found</td></tr>';
           return;
         }
 
         var rows = floorHeaters.map(function(heater) {
+          console.log('[FloorHeater] Processing heater:', heater.name, {
+            isOn: heater.isOn,
+            currentMeasure: heater.currentMeasure,
+            currentTarget: heater.currentTarget,
+            canControl: heater.canControl
+          });
           var statusText = heater.isOn ? 'ON' : 'OFF';
           var statusColor = heater.isOn ? '#34c759' : '#999';
           var currentTemp = heater.currentMeasure !== null ? heater.currentMeasure.toFixed(1) + '°C' : '–';
@@ -1200,8 +1214,10 @@
             '</tr>';
         }).join('');
         tbody.innerHTML = rows;
+        console.log('[FloorHeater] Rendered', floorHeaters.length, 'heaters to table');
       })
       .catch(function(err) {
+        console.error('[FloorHeater] API ERROR:', err);
         showError('Failed to load floor heaters: ' + err.message);
         document.getElementById('floorheater-table').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#ff3b30;">Error loading floor heaters</td></tr>';
       });
