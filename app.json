@@ -1,9 +1,9 @@
 {
   "id": "no.powerguard",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "compatibility": ">=8.0.0",
   "sdk": 3,
-  "brandColor": "#E8441A",
+  "brandColor": "#1E4A72",
   "name": {
     "en": "Power Guard",
     "no": "Power Guard"
@@ -105,6 +105,10 @@
         "alarm_generic",
         "onoff"
       ],
+      "images": {
+        "large": "/drivers/power-guard/assets/large.png",
+        "small": "/drivers/power-guard/assets/small.png"
+      },
       "capabilitiesOptions": {
         "measure_power": {
           "title": { "en": "Current Power", "no": "Nåværende effekt" },
@@ -217,6 +221,10 @@
         "no": "EV-lader"
       },
       "class": "socket",
+      "images": {
+        "large": "/drivers/ev-charger/assets/large.png",
+        "small": "/drivers/ev-charger/assets/small.png"
+      },
       "capabilities": [
         "measure_power",
         "onoff"
@@ -250,6 +258,10 @@
         "no": "Termostat"
       },
       "class": "thermostat",
+      "images": {
+        "large": "/drivers/thermostat/assets/large.png",
+        "small": "/drivers/thermostat/assets/small.png"
+      },
       "capabilities": [
         "target_temperature",
         "measure_temperature",
