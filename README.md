@@ -176,12 +176,7 @@ The **Heaters** tab provides direct control over all detected thermostats in a c
 - **Zone/brand display** — Shows zone name or manufacturer/driver name when zone is unavailable
 - **Capability-based** — Uses live HomeyAPI (`device.setCapabilityValue()`) for reliable control
 
-Supported devices tracked:
-- ✅ Floor heaters and thermostats (Futurehome, etc.)
-- ✅ EV chargers (Easee, etc.)
-- ✅ Appliances with power monitoring
-- ✅ Any device with `measure_power` capability
-- ❌ Excluded: Lights, dimmers, sockets, meters, Power Guard app itself
+All devices with `measure_power` capability are available for tracking. You can choose which devices to include and sort them by priority in the Devices tab.
 
 ## Drivers
 
