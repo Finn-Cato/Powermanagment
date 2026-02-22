@@ -22,6 +22,8 @@ Power Guard monitors your household power consumption in real-time via a HAN met
 
 - **Real-time power monitoring** — Auto-detects and reads live power data from any HAN electricity meter (Frient, Futurehome, Tibber, Aidon, Kaifa, etc.)
 - **Multi-brand HAN support** — Automatically identifies connected meter brand and displays it in the System tab
+- **Power consumption dashboard** — New Consumption tab shows real-time power usage by device with current, average, and peak values
+- **Device power tracking** — Monitors all devices with power capabilities including Futurehome floor heaters, EV chargers, and appliances
 - **Dynamic EV charging control** — Automatically adjusts charger current based on available household power
 - **Priority-based device control** — Define which devices to turn off first via a drag-and-drop priority list
 - **Multiple protection profiles** — Normal and Strict (90% of limit) modes
@@ -30,6 +32,7 @@ Power Guard monitors your household power consumption in real-time via a HAN met
 - **Automatic restore** — Devices are restored once power drops back under the limit
 - **Flow card support** — Triggers, conditions, and actions for Homey's Flow automation engine
 - **Settings page** — Full in-app configuration with live status, device management, and mitigation log
+- **Debug logging** — Live log viewer for troubleshooting device detection and power tracking
 
 ## How It Works
 
@@ -79,6 +82,24 @@ In the **Devices** tab, drag and drop your controllable devices into a priority 
 - **Temperature** (`target_temperature`) — Lowers target temperature
 - **Charge Pause** (`charge_pause`) — Pauses EV charging
 - **Dynamic Current** (`dynamic_current`) — Adjusts charger current limit
+
+### Power Consumption Dashboard
+
+The **Consumption** tab provides real-time visibility into which devices are consuming power:
+
+- **Live power usage table** — Shows current, average, and peak power for each device
+- **Device ranking** — Devices sorted by current power consumption (highest first)
+- **Power share percentage** — See what percentage of total power each device uses
+- **Auto-refresh** — Updates every 2 seconds for real-time monitoring
+- **Smart filtering** — Automatically excludes lights, dimmers, Power Guard itself, and meters
+- **Debug log** — Live tracking log for troubleshooting device detection
+
+Supported devices tracked:
+- ✅ Futurehome floor heaters
+- ✅ EV chargers (Easee, etc.)
+- ✅ Appliances with power monitoring
+- ✅ Any device with `measure_power` capability
+- ❌ Excluded: Lights, dimmers, sockets, meters, Power Guard app itself
 
 ## Drivers
 
