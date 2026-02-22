@@ -1436,11 +1436,6 @@ class PowerGuardApp extends Homey.App {
         }
         if (!caps.includes('measure_power')) return;
         
-        // Skip lights and dimmers
-        if (deviceClass === 'light' || deviceClass === 'dimmer') {
-          return;
-        }
-        
         // Skip sockets that are lights (e.g., smart plugs with lights), but allow water heaters and other sockets
         if (deviceClass === 'socket' && (deviceName.includes('light') || deviceName.includes('lamp'))) {
           return;
