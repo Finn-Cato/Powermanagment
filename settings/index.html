@@ -127,98 +127,26 @@
       .header-top { flex-direction: column; align-items: flex-start; }
       input[type=number] { width: 90px; }
     }
-    /* ── Heater Card Styles ──────────────────────────────────────────────── */
-    .heater-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-    .heater-card {
-      background: var(--bg-card); border-radius: 16px; padding: 20px; border: 2px solid var(--border-color);
-      box-shadow: 0 2px 12px var(--shadow); transition: all 0.3s ease; position: relative; overflow: hidden;
+    /* ── Heater Row Styles ──────────────────────────────────────────────── */
+    .heater-list { display: flex; flex-direction: column; gap: 4px; }
+    .heater-row {
+      display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+      background: var(--bg-surface); border-radius: 8px; border: 1px solid var(--border-light);
     }
-    .heater-card.heater-on {
-      border-color: #ff9500; box-shadow: 0 0 20px rgba(255,149,0,0.1), 0 4px 16px rgba(0,0,0,0.08);
-    }
-    .heater-card.heater-on::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, #ff9500, #ff3b30); border-radius: 16px 16px 0 0;
-    }
-    .heater-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    .heater-title { flex: 1; min-width: 0; }
-    .heater-name { font-size: 15px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .heater-zone { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-    .heater-status-badge {
-      display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px;
-      font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; flex-shrink: 0;
-    }
-    .heater-status-badge.on { background: rgba(255,149,0,0.12); color: #ff9500; }
-    .heater-status-badge.off { background: rgba(142,142,147,0.12); color: #8e8e93; }
-    .heater-status-dot { width: 6px; height: 6px; border-radius: 50%; }
-    .heater-status-badge.on .heater-status-dot { background: #ff9500; animation: pulse-dot 2s ease-in-out infinite; }
-    .heater-status-badge.off .heater-status-dot { background: #8e8e93; }
-    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-    /* Temperature display ring */
-    .temp-display { display: flex; flex-direction: column; align-items: center; margin: 12px 0 16px; }
-    .temp-ring {
-      width: 130px; height: 130px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      background: conic-gradient(from 180deg, var(--border-color) 0%, var(--border-color) 100%); padding: 5px; transition: all 0.5s ease;
-    }
-    .temp-ring.heating {
-      background: conic-gradient(from 180deg, #ff9500 0%, #ff3b30 var(--heat-pct, 50%), var(--border-color) var(--heat-pct, 50%));
-    }
-    .temp-ring-inner {
-      width: 100%; height: 100%; border-radius: 50%; background: var(--bg-card); display: flex; flex-direction: column;
-      align-items: center; justify-content: center; position: relative;
-    }
-    .temp-current { font-size: 32px; font-weight: 800; color: var(--text-primary); line-height: 1; }
-    .temp-current-label { font-size: 10px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
-
-    /* Target temp controls */
-    .temp-target-row { display: flex; align-items: center; gap: 10px; justify-content: center; margin: 8px 0; }
-    .temp-adjust-btn {
-      width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border-color); background: var(--bg-surface);
-      font-size: 20px; font-weight: 700; color: var(--text-primary); cursor: pointer; display: flex; align-items: center;
-      justify-content: center; transition: all 0.15s ease; user-select: none; -webkit-tap-highlight-color: transparent;
-    }
-    .temp-adjust-btn:hover { background: var(--border-color); transform: scale(1.08); }
-    .temp-adjust-btn:active { transform: scale(0.92); }
-    .temp-target-display { text-align: center; min-width: 80px; }
-    .temp-target-value { font-size: 24px; font-weight: 700; color: #ff9500; }
-    .temp-target-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-
-    /* On/Off toggle */
-    .heater-toggle-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 12px 0 4px; }
-    .heater-toggle-label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
-    .heater-toggle-track {
-      width: 52px; height: 30px; border-radius: 15px; background: var(--toggle-off, #ccc); position: relative; cursor: pointer;
-      transition: background 0.3s ease; flex-shrink: 0;
-    }
-    .heater-toggle-track.on { background: #ff9500; }
-    .heater-toggle-thumb {
-      width: 26px; height: 26px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: transform 0.3s ease;
-    }
-    .heater-toggle-track.on .heater-toggle-thumb { transform: translateX(22px); }
-
-    /* Info row at bottom */
-    .heater-info-row { display: flex; justify-content: space-between; padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border-light); }
-    .heater-info-item { text-align: center; flex: 1; }
-    .heater-info-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
-    .heater-info-value { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 2px; }
-
-    /* Heater card sending state */
-    .heater-card.sending { opacity: 0.7; pointer-events: none; }
-    .heater-card.sending::after {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 16px;
-      background: rgba(255,255,255,0.3); z-index: 5;
-    }
-
-    @media (max-width: 600px) {
-      .heater-grid { grid-template-columns: 1fr; gap: 12px; }
-      .heater-card { padding: 16px; }
-      .temp-ring { width: 110px; height: 110px; }
-      .temp-current { font-size: 26px; }
-      .temp-target-value { font-size: 20px; }
-      .temp-adjust-btn { width: 36px; height: 36px; font-size: 18px; }
-    }
+    .heater-row.is-on { border: 2px solid #ff9500; padding: 5px 9px; }
+    .h-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .h-cur { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .h-cur b { color: var(--text-primary); font-weight: 600; }
+    .h-temp-input { width: 44px; padding: 1px 2px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; text-align: center; background: var(--bg-card); color: var(--text-primary); flex-shrink: 0; }
+    .h-set-btn { padding: 2px 7px; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600; color: #fff; background: #007AFF; flex-shrink: 0; }
+    .h-set-btn:active { opacity: .7; }
+    /* Slide toggle */
+    .h-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer; }
+    .h-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .h-toggle .h-track { position: absolute; inset: 0; border-radius: 10px; background: #ccc; transition: background .25s; }
+    .h-toggle input:checked + .h-track { background: #34c759; }
+    .h-toggle .h-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .25s; }
+    .h-toggle input:checked ~ .h-thumb { transform: translateX(16px); }
     /* ── Dark mode: CSS media query fallback ─────────────────────────────
        Catches cases where the browser CSS engine respects prefers-color-scheme
        but JS matchMedia cannot see it (e.g. iframe sandboxing, simulator) */
@@ -244,8 +172,6 @@
       .tab-btn.active { background: #3a3a3c; }
       .dev-list li.drag-over { background: #3a3a3c !important; }
       #error-banner { background: #8b0000; }
-      .heater-card.heater-on { box-shadow: 0 0 20px rgba(255,149,0,0.15), 0 4px 16px rgba(0,0,0,0.3); }
-      .heater-card.sending::after { background: rgba(0,0,0,0.3); }
       table th { color: var(--text-muted) !important; }
       table td { color: var(--text-primary) !important; }
       table tr { border-bottom-color: var(--border-light) !important; }
@@ -273,8 +199,6 @@
     html.dark .tab-btn.active { background: #3a3a3c; }
     html.dark .dev-list li.drag-over { background: #3a3a3c !important; }
     html.dark #error-banner { background: #8b0000; }
-    html.dark .heater-card.heater-on { box-shadow: 0 0 20px rgba(255,149,0,0.15), 0 4px 16px rgba(0,0,0,0.3); }
-    html.dark .heater-card.sending::after { background: rgba(0,0,0,0.3); }
     html.dark table th { color: var(--text-muted) !important; }
     html.dark table td { color: var(--text-primary) !important; }
     html.dark table tr { border-bottom-color: var(--border-light) !important; }
@@ -557,21 +481,16 @@
     <!-- ── Floor Heater Check tab ────────────────────────────────────────── -->
     <div id="tab-floorheater" style="display:none">
 
-      <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-          <h2 style="margin:0;">🌡️ Thermostat Control</h2>
-          <button onclick="loadFloorHeaters()" style="padding:6px 14px;background:#ff9500;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;transition:all 0.15s ease;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">
-            <span style="font-size:14px;">↻</span> Refresh
-          </button>
+      <div class="card" style="padding-bottom:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <h2 style="margin:0 0 2px;">Thermostats</h2>
+            <div style="font-size:11px;color:var(--text-muted);"><span id="floorheater-count">–</span> found · refreshes every 2 s</div>
+          </div>
+          <button onclick="loadFloorHeaters()" style="padding:5px 12px;background:#007AFF;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">↻ Refresh</button>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);font-weight:500">
-          <span id="floorheater-count">–</span> thermostats detected · Auto-refreshes every 5s
-        </div>
-      </div>
-
-      <div id="floorheater-grid" class="heater-grid">
-        <div class="card" style="grid-column: 1 / -1; text-align:center; padding:30px; color:var(--text-tertiary);">
-          Loading thermostats...
+        <div id="floorheater-list" class="heater-list">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Loading…</div>
         </div>
       </div>
 
@@ -1340,60 +1259,58 @@
   }
 
   // ── Load Floor Heater Connections ─────────────────────────────────────────
+  var _heaterRefreshTimer = null;
+
   function loadFloorHeaters() {
     if (!_H) { showError('Not connected to Homey'); return; }
-    console.log('[FloorHeater] loadFloorHeaters called');
     hApi('GET', '/floorHeaters', null)
       .then(function(data) {
-        console.log('[FloorHeater] API response:', data);
         clearError();
-        var floorHeaters = Array.isArray(data) ? data : [];
-        console.log('[FloorHeater] Parsed floor heaters array:', floorHeaters);
-        var tbody = document.getElementById('floorheater-table');
-        if (!tbody) {
-          console.error('[FloorHeater] ERROR: floorheater-table element not found');
+        var heaters = Array.isArray(data) ? data : [];
+        var list = document.getElementById('floorheater-list');
+        if (!list) return;
+
+        var countEl = document.getElementById('floorheater-count');
+        if (countEl) countEl.textContent = heaters.length;
+
+        if (heaters.length === 0) {
+          list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No thermostats found</div>';
           return;
         }
 
-        document.getElementById('floorheater-count').textContent = floorHeaters.length;
-        console.log('[FloorHeater] Found', floorHeaters.length, 'floor heaters');
+        list.innerHTML = heaters.map(function(h) {
+          var isOn = !!h.isOn;
+          var drawing = h.currentPowerW != null && Number(h.currentPowerW) > 0;
+          var cur = h.currentMeasure != null ? Number(h.currentMeasure).toFixed(1) + '°' : '–';
+          var id  = h.deviceId;
+          var tgtVal = h.currentTarget != null ? h.currentTarget : 20;
+          var chk = isOn ? ' checked' : '';
 
-        if (floorHeaters.length === 0) {
-          console.log('[FloorHeater] No floor heaters found, showing empty message');
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-tertiary);">No floor heaters found</td></tr>';
-          return;
-        }
-
-        var rows = floorHeaters.map(function(heater) {
-          console.log('[FloorHeater] Processing heater:', heater.name, {
-            isOn: heater.isOn,
-            currentMeasure: heater.currentMeasure,
-            currentTarget: heater.currentTarget,
-            canControl: heater.canControl
-          });
-          var statusText = heater.isOn ? 'ON' : 'OFF';
-          var statusColor = heater.isOn ? '#34c759' : '#999';
-          var currentTemp = heater.currentMeasure !== null ? heater.currentMeasure.toFixed(1) + '°C' : '–';
-          var targetTemp = heater.currentTarget !== null ? heater.currentTarget.toFixed(1) + '°C' : '–';
-          var deviceId = heater.deviceId;
-          
-          return '<tr style="border-bottom:1px solid var(--border-light);">' +
-            '<td style="padding:10px 0;color:var(--text-primary);font-weight:500;">' + heater.name + '<br><span style="font-size:11px;color:var(--text-tertiary);">' + heater.zone + '</span></td>' +
-            '<td style="text-align:center;padding:10px 0;"><span style="color:' + statusColor + ';font-weight:500;">' + statusText + '</span></td>' +
-            '<td style="text-align:center;padding:10px 0;color:var(--text-primary);">' + currentTemp + '</td>' +
-            '<td style="text-align:center;padding:10px 0;"><input type="number" id="temp-' + deviceId + '" value="' + (heater.currentTarget || 20) + '" min="5" max="30" step="0.5" style="width:60px;padding:4px;border:1px solid var(--input-border);border-radius:4px;font-size:12px;"></td>' +
-            '<td style="text-align:center;padding:10px 0;"><button onclick="controlHeater(\'' + deviceId + '\', \'off\')" style="padding:4px 8px;background:#ff3b30;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Off</button>' +
-            '<button onclick="setHeaterTemp(\'' + deviceId + '\')" style="padding:4px 8px;background:#007AFF;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Set</button>' +
-            '<button onclick="controlHeater(\'' + deviceId + '\', \'on\')" style="padding:4px 8px;background:#34c759;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">On</button></td>' +
-            '</tr>';
+          return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
+            '<span class="h-name" title="' + escHtml(h.name) + ' — ' + escHtml(h.zone || '') + '">' + escHtml(h.name) + '</span>' +
+            '<span class="h-cur"><b>' + cur + '</b></span>' +
+            (h.hasTargetTemp ? '<input type="number" id="temp-' + id + '" value="' + tgtVal + '" min="5" max="35" step="0.5" class="h-temp-input"><button class="h-set-btn" onclick="setHeaterTemp(\'' + id + '\')">Set</button>' : '') +
+            (h.hasOnOff ? '<label class="h-toggle"><input type="checkbox"' + chk + ' onchange="controlHeater(\'' + id + '\', this.checked?\'on\':\'off\')" /><span class="h-track"></span><span class="h-thumb"></span></label>' : '') +
+          '</div>';
         }).join('');
-        tbody.innerHTML = rows;
-        console.log('[FloorHeater] Rendered', floorHeaters.length, 'heaters to table');
+
+        // Start auto-refresh while heater tab is visible
+        if (!_heaterRefreshTimer) {
+          _heaterRefreshTimer = setInterval(function() {
+            var tab = document.getElementById('tab-floorheater');
+            if (tab && tab.style.display !== 'none') {
+              loadFloorHeaters();
+            } else {
+              clearInterval(_heaterRefreshTimer);
+              _heaterRefreshTimer = null;
+            }
+          }, 2000);
+        }
       })
       .catch(function(err) {
-        console.error('[FloorHeater] API ERROR:', err);
-        showError('Failed to load floor heaters: ' + err.message);
-        document.getElementById('floorheater-table').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#ff3b30;">Error loading floor heaters</td></tr>';
+        showError('Failed to load heaters: ' + err.message);
+        var list = document.getElementById('floorheater-list');
+        if (list) list.innerHTML = '<div style="text-align:center;padding:20px;color:#ff3b30;font-size:12px;">Error loading thermostats</div>';
       });
   }
 
@@ -1403,7 +1320,6 @@
       .then(function(data) {
         if (data.ok) {
           showToast(data.message || 'Control sent');
-          // Reload to show updated status
           setTimeout(loadFloorHeaters, 500);
         } else {
           showError('Control failed: ' + (data.error || 'Unknown error'));
@@ -1419,10 +1335,7 @@
     var tempInput = document.getElementById('temp-' + deviceId);
     if (!tempInput) return;
     var temp = parseFloat(tempInput.value);
-    if (isNaN(temp)) {
-      showError('Invalid temperature value');
-      return;
-    }
+    if (isNaN(temp)) { showError('Invalid temperature value'); return; }
     hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: temp })
       .then(function(data) {
         if (data.ok) {

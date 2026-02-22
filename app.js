@@ -1389,12 +1389,15 @@ class PowerGuardApp extends Homey.App {
       const name = (cached.name || '').toLowerCase();
       const cls = (cached.class || '').toLowerCase();
       
-      // Identify floor heaters
+      // Identify thermostats / heaters (works for all brands: Futurehome, Z-Wave, Zigbee, etc.)
       const isFloorHeater = cls === 'thermostat' || 
+                            cls === 'heater' ||
                             name.includes('floor') || 
                             name.includes('varme') || 
                             name.includes('heating') ||
-                            name.includes('gulv');
+                            name.includes('gulv') ||
+                            name.includes('termostat') ||
+                            name.includes('thermostat');
       
       if (!isFloorHeater) continue;
       
@@ -1449,13 +1452,15 @@ class PowerGuardApp extends Homey.App {
       
       this.log(`[FloorHeater]   targetTempCap: ${targetTempCap || 'NONE'} | measureTempCap: ${measureTempCap || 'NONE'} | onoff: ${hasOnOff}`);
       
-      // Read current values from live device (preferred) or cache
+      // Read current values from LIVE device (preferred) or cache
+      // The liveDevice from HomeyAPI getDevice() has fresh capabilitiesObj values
       let currentTarget = null;
       let currentMeasure = null;
+      let currentPowerW = null;
       let isOn = null;
       
-      const source = liveDevice || cached;
       try {
+        const source = liveDevice || cached;
         if (source && source.capabilitiesObj) {
           if (targetTempCap && source.capabilitiesObj[targetTempCap]) {
             const v = source.capabilitiesObj[targetTempCap];
@@ -1465,22 +1470,45 @@ class PowerGuardApp extends Homey.App {
             const v = source.capabilitiesObj[measureTempCap];
             currentMeasure = v.value !== undefined ? v.value : v;
           }
+          if (hasPower && source.capabilitiesObj.measure_power) {
+            const v = source.capabilitiesObj.measure_power;
+            currentPowerW = v.value !== undefined ? v.value : v;
+          }
           if (hasOnOff && source.capabilitiesObj.onoff) {
             const v = source.capabilitiesObj.onoff;
             isOn = v.value !== undefined ? v.value : v;
           }
+          this.log(`[FloorHeater]   Values from ${liveDevice ? 'LIVE' : 'CACHED'} device`);
         }
       } catch (err) {
         this.log(`[FloorHeater]   Value read error: ${err.message}`);
       }
       
-      this.log(`[FloorHeater]   Values -> Target: ${currentTarget}°C | Measure: ${currentMeasure}°C | On: ${isOn}`);
+      this.log(`[FloorHeater]   FINAL -> Target: ${currentTarget}°C | Measure: ${currentMeasure}°C | Power: ${currentPowerW}W | On: ${isOn}`);
       
+      // Get zone name - try live device first, then cached
+      let zoneName = '';
+      if (liveDevice && liveDevice.zoneName) {
+        zoneName = liveDevice.zoneName;
+      } else if (liveDevice && liveDevice.zone && typeof liveDevice.zone === 'object' && liveDevice.zone.name) {
+        zoneName = liveDevice.zone.name;
+      } else if (cached.zoneName) {
+        zoneName = cached.zoneName;
+      } else if (cached.zone && typeof cached.zone === 'object' && cached.zone.name) {
+        zoneName = cached.zone.name;
+      }
+      
+      // If no zone, use driver/brand name instead of "Unknown"
+      if (!zoneName) {
+        const driverStr = (liveDevice && liveDevice.driverUri) || cached.driverId || '';
+        zoneName = driverStr.replace(/^homey:app:/, '').replace(/[:.]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || '';
+      }
+
       floorHeaters.push({
         deviceId: cached.id,
         name: cached.name,
         class: cached.class,
-        zone: cached.zone ? cached.zone.name : 'Unknown',
+        zone: zoneName,
         hasTargetTemp: !!targetTempCap,
         hasMeasureTemp: !!measureTempCap,
         hasMeasurePower: hasPower,
@@ -1490,6 +1518,7 @@ class PowerGuardApp extends Homey.App {
         measureTempCapability: measureTempCap,
         currentTarget: currentTarget,
         currentMeasure: currentMeasure,
+        currentPowerW: currentPowerW,
         isOn: isOn,
         capabilities: caps,
         timestamp: new Date().toISOString()
