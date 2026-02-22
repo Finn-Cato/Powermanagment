@@ -686,6 +686,9 @@
     setRange('s-smoothingWindow', 'v-smoothingWindow', s.smoothingWindow, 5,   '');
     setRange('s-spikeMultiplier', 'v-spikeMultiplier', s.spikeMultiplier, 2.0, '\u00d7');
     setRange('s-hysteresisCount', 'v-hysteresisCount', s.hysteresisCount, 3,   '');
+    if (s.classFilters && typeof s.classFilters === 'object') {
+      _classFilters = s.classFilters;
+    }
     priorityList = Array.isArray(s.priorityList) ? s.priorityList : [];
     updatePhaseConfigVisibility();
   }
@@ -1015,6 +1018,7 @@
       voltageSystem:   getStringValue('s-voltageSystem', '230v-1phase'),
       phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
       mainCircuitA:    getNumValue('s-mainCircuitA', 25),
+      classFilters:    _classFilters,
       priorityList:    priorityList
     };
   }
@@ -1032,6 +1036,13 @@
       var isVisible = _classFilters[rowClass] !== false;
       row.style.display = isVisible ? '' : 'none';
     });
+    // Update the checkbox state in the filter area
+    var checkbox = document.querySelector('[data-class-filter="' + className + '"]');
+    if (checkbox) {
+      checkbox.checked = _classFilters[className] !== false;
+    }
+    // Save immediately
+    saveAll();
   }
   
   function loadConsumption() {
@@ -1063,7 +1074,7 @@
         var filterHtml = classes.map(function(cls) {
           var isChecked = _classFilters[cls] !== false;
           return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;">' +
-            '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleClassFilter(\'' + cls + '\')" style="cursor:pointer;accent-color:#e8441a;">' +
+            '<input type="checkbox" data-class-filter="' + cls + '" ' + (isChecked ? 'checked' : '') + ' onchange="toggleClassFilter(\'' + cls + '\')" style="cursor:pointer;accent-color:#e8441a;">' +
             '<span style="font-size:13px;color:#1d1d1f;font-weight:500;">' + (cls.charAt(0).toUpperCase() + cls.slice(1)) + '</span>' +
             '</label>';
         }).join('');
