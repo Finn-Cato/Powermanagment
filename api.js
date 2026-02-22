@@ -9,6 +9,10 @@ module.exports = {
     return homey.app.getPowerConsumption();
   },
 
+  async getDebugLog({ homey }) {
+    return homey.app.getDebugLog();
+  },
+
   async getSettings({ homey }) {
     const s = homey.settings;
     return {
@@ -123,6 +127,10 @@ module.exports = {
       cacheCount: cache.length,
       cacheReady: app._deviceCacheReady || false,
     };
+  },
+
+  async getPowerConsumption({ homey }) {
+    return homey.app.getPowerConsumption();
   },
 
   async testCharger({ homey, body }) {

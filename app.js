@@ -3,6 +3,9 @@
 const Homey = require('homey');
 const { HomeyAPI } = require('homey-api');
 const { Mutex } = require('async-mutex');
+const fs = require('fs');
+const fsPromises = require('fs').promises;
+const path = require('path');
 const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
 const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX } = require('./common/constants');
@@ -10,7 +13,10 @@ const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX } =
 class PowerGuardApp extends Homey.App {
 
   async onInit() {
+    this.log('========================================');
     this.log('Power Guard initialising...');
+    this.log('[Power Consumption] Tracking system initializing');
+    this.log('========================================');
 
     this._mutex = new Mutex();
     this._powerBuffer = [];
@@ -38,6 +44,9 @@ class PowerGuardApp extends Homey.App {
     this._evPowerData = {};
     this._evCapabilityInstances = {};
     this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
+    this._powerConsumptionLog = []; // In-memory log for debug
+    this._cachedDevices = null; // All devices from API (including non-controllable ones)
+    this.log('[Power Consumption] Data object initialized');
     this._lastEVAdjustTime = 0;
     this._deviceCacheReady = false;
     this._lastCacheTime = null;
@@ -69,6 +78,15 @@ class PowerGuardApp extends Homey.App {
       this._settings = Object.assign({}, DEFAULT_SETTINGS);
     }
 
+    // Restore cached devices from previous session
+    try {
+      const saved = this.homey.settings.get('_allDevicesCache');
+      if (Array.isArray(saved) && saved.length > 0) {
+        this._cachedDevices = saved;
+        this.log(`Restored ${saved.length} devices from cache`);
+      }
+    } catch (_) {}
+
     // Reload in-memory settings whenever the settings page writes via H.set().
     // Also re-broadcast priorityList so other open settings pages stay in sync.
     this.homey.settings.on('set', (key) => {
@@ -95,6 +113,7 @@ class PowerGuardApp extends Homey.App {
     try {
       this._api = await HomeyAPI.createAppAPI({ homey: this.homey });
       this.log('HomeyAPI ready');
+      this.log('[Power Consumption] API is ready for device tracking');
     } catch (err) {
       this.error('HomeyAPI init error:', err);
     }
@@ -126,6 +145,10 @@ class PowerGuardApp extends Homey.App {
     this._watchdogInterval  = setInterval(() => this._watchdog().catch(() => {}), 10000);
     this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(() => {}), 60000);
     this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(() => {}), 3000);
+
+    // Initialize power consumption tracking after API is ready (don't call on startup, it fails)
+    // It will populate when HAN readings arrive or when the tab is first opened
+    this._writeDebugLog('===== APP STARTED =====' );
 
     this.log('Power Guard ready (device cache: ' +
       (this._deviceCacheReady ? 'YES' : 'NO') + ')');
@@ -441,7 +464,13 @@ class PowerGuardApp extends Homey.App {
     const smoothed = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     this._updateVirtualDevice({ power: smoothed }).catch(() => {});
     this._checkLimits(smoothed).catch((err) => this.error('checkLimits error:', err));
-    this._updatePowerConsumption(smoothed); // Update power consumption tracking
+    
+    // Update power consumption for all devices
+    try {
+      this._updatePowerConsumption(smoothed);
+    } catch (err) {
+      this.error('[Power Consumption] Unexpected error:', err);
+    }
 
     // Cache status into settings so the settings page can read it via H.get()
     // No throttle — HAN readings already arrive ~1-2s apart, and settings page polls every 2s.
@@ -752,7 +781,12 @@ class PowerGuardApp extends Homey.App {
       const startTime = Date.now();
 
       const allDevices = await this._api.devices.getDevices();
-      this.log(`[Cache] Found ${Object.values(allDevices).length} total devices`);
+      const devicesList = Object.values(allDevices);
+      this.log(`[Cache] Found ${devicesList.length} total devices`);
+      
+      // Store all devices for power consumption tracking
+      this._cachedDevices = devicesList;
+      this.homey.settings.set('_allDevicesCache', devicesList);
 
       // Fetch zones for room grouping — best-effort, non-fatal
       let zoneMap = {};
@@ -1314,6 +1348,22 @@ class PowerGuardApp extends Homey.App {
     };
   }
 
+  // ─── Debug Logging ───────────────────────────────────────────────────────
+  _writeDebugLog(message) {
+    try {
+      const timestamp = new Date().toISOString();
+      const line = `[${timestamp}] ${message}`;
+      this._powerConsumptionLog.push(line);
+      
+      // Keep last 500 lines to avoid memory issues
+      if (this._powerConsumptionLog.length > 500) {
+        this._powerConsumptionLog.shift();
+      }
+    } catch (err) {
+      // Silently fail
+    }
+  }
+
   getDevicesForSettings() {
     // Return the startup cache populated by _cacheDevices() during onInit.
     // Calling _api.devices.getDevices() here hangs when invoked from an API
@@ -1328,75 +1378,178 @@ class PowerGuardApp extends Homey.App {
 
   _updatePowerConsumption(currentTotalW) {
     // Update power consumption tracking for all devices with measure_power
-    if (!this._api) return;
-    
     try {
-      const allDevices = this._api.devices.getDevices ? this._api.devices.getDevices() : {};
-      Object.values(allDevices).forEach(device => {
-        if (Array.isArray(device.capabilities) && device.capabilities.includes('measure_power')) {
-          const devId = device.id;
-          const capObj = device.capabilitiesObj || {};
-          const powerCap = capObj.measure_power;
-          const currentW = powerCap ? (typeof powerCap.value === 'number' ? powerCap.value : 0) : 0;
-          
-          if (!this._powerConsumptionData[devId]) {
-            this._powerConsumptionData[devId] = {
-              deviceId: devId,
-              name: device.name || 'Unknown',
-              class: device.class || '',
-              readings: [],
-              current: currentW,
-              avg: currentW,
-              peak: currentW,
-            };
+      let allDevices = [];
+      
+      // Method 1: Try to use already-cached devices from _cacheDevices
+      if (this._deviceCacheReady && Array.isArray(this._cachedDevices)) {
+        this._writeDebugLog(`Using cached devices: ${this._cachedDevices.length} devices`);
+        allDevices = this._cachedDevices;
+      }
+      // Method 2: Try to use the saved device cache from settings
+      else if (!allDevices.length) {
+        const savedCache = this.homey.settings.get('_deviceCache') || [];
+        if (Array.isArray(savedCache) && savedCache.length > 0) {
+          this._writeDebugLog(`Using saved device cache: ${savedCache.length} devices`);
+          allDevices = savedCache;
+        }
+      }
+      
+      // Method 3: Fall back to HomeyAPI (only if API is ready and has devices)
+      if (!allDevices.length && this._api && this._api.devices) {
+        try {
+          const apiDevices = this._api.devices.getDevices();
+          if (apiDevices && typeof apiDevices === 'object') {
+            allDevices = Object.values(apiDevices);
+            this._writeDebugLog(`HomeyAPI returned ${allDevices.length} devices`);
           }
-          
-          const data = this._powerConsumptionData[devId];
-          data.current = currentW;
-          
-          // Keep last 60 readings (30 seconds at 2s update interval)
-          data.readings.push(currentW);
-          if (data.readings.length > 60) data.readings.shift();
-          
-          // Calculate average and peak
-          if (data.readings.length > 0) {
-            data.avg = Math.round(data.readings.reduce((a, b) => a + b, 0) / data.readings.length);
-            data.peak = Math.max(...data.readings);
-          }
+        } catch (err) {
+          this._writeDebugLog(`HomeyAPI error: ${err.message}`);
+        }
+      }
+      
+      if (!allDevices.length) {
+        this._writeDebugLog('WARNING: No device sources available yet');
+        return;
+      }
+      
+      const beforeCount = Object.keys(this._powerConsumptionData).length;
+      let updateCount = 0;
+      
+      allDevices.forEach(device => {
+        if (!device) return;
+        
+        const deviceName = (device.name || '').toLowerCase();
+        const deviceClass = (device.class || '').toLowerCase();
+        const deviceDriver = (device.driverId || '').toLowerCase();
+        
+        // Skip Power Guard itself
+        if (deviceDriver === 'power-guard' || deviceName.includes('power guard')) return;
+        
+        // Skip meters and HAN devices
+        if (deviceClass === 'meter' || deviceName.includes('han') || deviceDriver.includes('meter')) return;
+        
+        // Get capabilities
+        let caps = [];
+        if (Array.isArray(device.capabilities)) {
+          caps = device.capabilities;
+        }
+        if (!caps.includes('measure_power')) return;
+        
+        // Skip lights and light-related devices
+        const lightClasses = ['light', 'dimmer', 'socket'];
+        if (lightClasses.includes(deviceClass)) {
+          return;
+        }
+        
+        updateCount++;
+        const devId = device.id;
+        
+        // Get power value
+        let currentW = 0;
+        if (device.capabilitiesObj?.measure_power?.value) {
+          currentW = device.capabilitiesObj.measure_power.value;
+        } else if (typeof device.getCapabilityValue === 'function') {
+          try {
+            currentW = device.getCapabilityValue('measure_power') || 0;
+          } catch (_) {}
+        }
+        
+        if (!this._powerConsumptionData[devId]) {
+          this._powerConsumptionData[devId] = {
+            deviceId: devId,
+            name: device.name || 'Unknown',
+            class: device.class || '',
+            readings: [],
+            current: currentW,
+            avg: currentW,
+            peak: currentW,
+          };
+          this._writeDebugLog(`NEW DEVICE: "${device.name}" (${device.class}) power=${currentW}W`);
+        }
+        
+        const data = this._powerConsumptionData[devId];
+        data.current = currentW;
+        data.readings.push(currentW);
+        if (data.readings.length > 60) data.readings.shift();
+        
+        if (data.readings.length > 0) {
+          data.avg = Math.round(data.readings.reduce((a, b) => a + b, 0) / data.readings.length);
+          data.peak = Math.max(...data.readings);
         }
       });
-    } catch (_) {}
+      
+      const afterCount = Object.keys(this._powerConsumptionData).length;
+      if (updateCount > 0 && afterCount > beforeCount) {
+        this._writeDebugLog(`STATUS: Found ${updateCount} devices with measure_power, tracking ${afterCount} total`);
+      }
+    } catch (err) {
+      this._writeDebugLog(`ERROR scanning devices: ${err.message}`);
+    }
   }
 
   getPowerConsumption() {
-    // Return devices sorted by current power, filtered for high-power devices
-    const devices = Object.values(this._powerConsumptionData || {})
-      .filter(d => {
-        // Exclude lights and low-power devices
-        const isLight = d.class && (d.class.includes('light') || d.class.includes('dimmer') || d.class.includes('socket'));
-        const isHighPower = d.current > 100 || d.peak > 100; // Only show devices with meaningful power draw
-        return !isLight && isHighPower;
-      })
-      .sort((a, b) => b.current - a.current); // Sort by current power (highest first)
+    // Return ALL devices with measure_power capability, sorted by current power
     
-    // Calculate total for percentage
-    const totalW = devices.reduce((sum, d) => sum + d.current, 0);
+    // If we have no devices yet, try to scan now (don't await, just trigger)
+    if (Object.keys(this._powerConsumptionData).length === 0) {
+      this._updatePowerConsumption(0);
+    }
     
-    // Add percentage to each device
-    const withPercent = devices.map(d => ({
+    const tracked = Object.values(this._powerConsumptionData || {});
+    
+    const msg = `GET request - ${tracked.length} tracked devices`;
+    this.log(`[Power Consumption] ${msg}`);
+    this._writeDebugLog(msg);
+    
+    // Log all tracked devices
+    if (tracked.length > 0) {
+      const devList = tracked.map(d => `"${d.name}"(${d.class})=${d.current}W`).join(' | ');
+      this._writeDebugLog(`Devices: ${devList}`);
+    } else {
+      this._writeDebugLog('No devices tracked');
+    }
+    
+    // Return all devices sorted by current power (highest first)
+    const sorted = tracked.sort((a, b) => b.current - a.current);
+    
+    // Calculate total power and add percentage to each device
+    const totalW = sorted.reduce((sum, d) => sum + d.current, 0);
+    const withPercent = sorted.map(d => ({
       deviceId: d.deviceId,
       name: d.name,
+      class: d.class,
       current: Math.round(d.current),
-      avg: d.avg,
-      peak: d.peak,
+      avg: Math.round(d.avg),
+      peak: Math.round(d.peak),
       percent: totalW > 0 ? Math.round((d.current / totalW) * 100) : 0,
     }));
     
     return {
       timestamp: Date.now(),
       totalW: Math.round(totalW),
+      deviceCount: withPercent.length,
       devices: withPercent,
     };
+  }
+
+  async getDebugLog() {
+    try {
+      const log = this._powerConsumptionLog.join('\n');
+      return {
+        ok: true,
+        log: log || '[No log entries yet]',
+        lines: this._powerConsumptionLog.length,
+        hasDevices: Object.keys(this._powerConsumptionData).length > 0,
+        deviceCount: Object.keys(this._powerConsumptionData).length,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err.message,
+        log: '[Error reading log]',
+      };
+    }
   }
 
   getStatus() {

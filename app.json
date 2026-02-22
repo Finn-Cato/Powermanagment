@@ -67,6 +67,14 @@
       "method": "POST",
       "path": "/device-cache-refresh"
     },
+    "getPowerConsumption": {
+      "method": "GET",
+      "path": "/powerConsumption"
+    },
+    "getDebugLog": {
+      "method": "GET",
+      "path": "/debugLog"
+    },
     "testCharger": {
       "method": "POST",
       "path": "/test-charger"
