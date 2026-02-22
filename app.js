@@ -37,6 +37,7 @@ class PowerGuardApp extends Homey.App {
     this._hanPollInterval = null;
     this._evPowerData = {};
     this._evCapabilityInstances = {};
+    this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
     this._lastEVAdjustTime = 0;
     this._deviceCacheReady = false;
     this._lastCacheTime = null;
@@ -440,6 +441,7 @@ class PowerGuardApp extends Homey.App {
     const smoothed = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     this._updateVirtualDevice({ power: smoothed }).catch(() => {});
     this._checkLimits(smoothed).catch((err) => this.error('checkLimits error:', err));
+    this._updatePowerConsumption(smoothed); // Update power consumption tracking
 
     // Cache status into settings so the settings page can read it via H.get()
     // No throttle — HAN readings already arrive ~1-2s apart, and settings page polls every 2s.
@@ -1323,6 +1325,79 @@ class PowerGuardApp extends Homey.App {
   }
 
   // ─── Public API (settings UI) ─────────────────────────────────────────────
+
+  _updatePowerConsumption(currentTotalW) {
+    // Update power consumption tracking for all devices with measure_power
+    if (!this._api) return;
+    
+    try {
+      const allDevices = this._api.devices.getDevices ? this._api.devices.getDevices() : {};
+      Object.values(allDevices).forEach(device => {
+        if (Array.isArray(device.capabilities) && device.capabilities.includes('measure_power')) {
+          const devId = device.id;
+          const capObj = device.capabilitiesObj || {};
+          const powerCap = capObj.measure_power;
+          const currentW = powerCap ? (typeof powerCap.value === 'number' ? powerCap.value : 0) : 0;
+          
+          if (!this._powerConsumptionData[devId]) {
+            this._powerConsumptionData[devId] = {
+              deviceId: devId,
+              name: device.name || 'Unknown',
+              class: device.class || '',
+              readings: [],
+              current: currentW,
+              avg: currentW,
+              peak: currentW,
+            };
+          }
+          
+          const data = this._powerConsumptionData[devId];
+          data.current = currentW;
+          
+          // Keep last 60 readings (30 seconds at 2s update interval)
+          data.readings.push(currentW);
+          if (data.readings.length > 60) data.readings.shift();
+          
+          // Calculate average and peak
+          if (data.readings.length > 0) {
+            data.avg = Math.round(data.readings.reduce((a, b) => a + b, 0) / data.readings.length);
+            data.peak = Math.max(...data.readings);
+          }
+        }
+      });
+    } catch (_) {}
+  }
+
+  getPowerConsumption() {
+    // Return devices sorted by current power, filtered for high-power devices
+    const devices = Object.values(this._powerConsumptionData || {})
+      .filter(d => {
+        // Exclude lights and low-power devices
+        const isLight = d.class && (d.class.includes('light') || d.class.includes('dimmer') || d.class.includes('socket'));
+        const isHighPower = d.current > 100 || d.peak > 100; // Only show devices with meaningful power draw
+        return !isLight && isHighPower;
+      })
+      .sort((a, b) => b.current - a.current); // Sort by current power (highest first)
+    
+    // Calculate total for percentage
+    const totalW = devices.reduce((sum, d) => sum + d.current, 0);
+    
+    // Add percentage to each device
+    const withPercent = devices.map(d => ({
+      deviceId: d.deviceId,
+      name: d.name,
+      current: Math.round(d.current),
+      avg: d.avg,
+      peak: d.peak,
+      percent: totalW > 0 ? Math.round((d.current / totalW) * 100) : 0,
+    }));
+    
+    return {
+      timestamp: Date.now(),
+      totalW: Math.round(totalW),
+      devices: withPercent,
+    };
+  }
 
   getStatus() {
     // Build per-charger status: idle / charging / dynamic / paused

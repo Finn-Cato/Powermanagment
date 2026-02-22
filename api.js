@@ -5,6 +5,10 @@ module.exports = {
     return homey.app.getStatus();
   },
 
+  async getPowerConsumption({ homey }) {
+    return homey.app.getPowerConsumption();
+  },
+
   async getSettings({ homey }) {
     const s = homey.settings;
     return {
