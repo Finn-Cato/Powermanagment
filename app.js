@@ -1374,200 +1374,193 @@ class PowerGuardApp extends Homey.App {
     return list;
   }
 
-  checkFloorHeaterConnections() {
+  async checkFloorHeaterConnections() {
     // Scan all devices and identify floor heaters with control capabilities
     const allDevices = this.homey.settings.get('_deviceCache') || [];
     const floorHeaters = [];
     
     this.log(`[FloorHeater] ==== START FLOOR HEATER CHECK ====`);
     this.log(`[FloorHeater] Total devices in cache: ${allDevices.length}`);
+    this.log(`[FloorHeater] HomeyAPI available: ${!!this._api}`);
     
-    // Log all devices
-    allDevices.forEach(d => {
-      if (d) {
-        this.log(`[FloorHeater] Device: "${d.name}" | Class: "${d.class}" | ID: ${d.id}`);
-      }
-    });
-    
-    // Log all thermostats to help debug Futurehome
-    const allThermostats = allDevices.filter(d => d && d.class === 'thermostat');
-    this.log(`[FloorHeater] Found ${allThermostats.length} thermostat devices:`);
-    if (allThermostats.length > 0) {
-      allThermostats.forEach(d => {
-        const capsList = d.capabilitiesObj ? Object.keys(d.capabilitiesObj) : (Array.isArray(d.capabilities) ? d.capabilities : []);
-        this.log(`[FloorHeater] --- Thermostat: ${d.name} ---`);
-        this.log(`[FloorHeater]   Class: ${d.class}`);
-        this.log(`[FloorHeater]   Driver: ${d.driverUri || 'N/A'}`);
-        this.log(`[FloorHeater]   Capabilities (${capsList.length}): ${capsList.join(', ')}`);
-        if (d.capabilitiesObj) {
-          capsList.forEach(cap => {
-            const val = d.capabilitiesObj[cap];
-            const capVal = val && val.value !== undefined ? val.value : 'N/A';
-            this.log(`[FloorHeater]     - ${cap}: ${capVal}`);
-          });
-        }
-      });
-    }
-    
-    allDevices.forEach(device => {
-      if (!device) return;
+    for (const cached of allDevices) {
+      if (!cached) continue;
       
-      const name = (device.name || '').toLowerCase();
-      const cls = (device.class || '').toLowerCase();
+      const name = (cached.name || '').toLowerCase();
+      const cls = (cached.class || '').toLowerCase();
       
-      // Get capabilities from either capabilitiesObj keys or capabilities array
-      let caps = [];
-      if (device.capabilitiesObj && typeof device.capabilitiesObj === 'object') {
-        caps = Object.keys(device.capabilitiesObj);
-      } else if (Array.isArray(device.capabilities)) {
-        caps = device.capabilities;
-      }
-      
-      // Identify floor heaters (usually thermostat class or names containing 'heat', 'floor', etc.)
+      // Identify floor heaters
       const isFloorHeater = cls === 'thermostat' || 
                             name.includes('floor') || 
-                            name.includes('varme') || // Norwegian for heat
+                            name.includes('varme') || 
                             name.includes('heating') ||
-                            name.includes('värmepump') || // Swedish for heat pump
-                            name.includes('futurehome'); // Explicitly check for Futurehome
+                            name.includes('gulv');
       
-      this.log(`[FloorHeater] Checking device: "${device.name}" | Class: ${cls} | IsFloorHeater: ${isFloorHeater}`);
+      if (!isFloorHeater) continue;
       
-      if (!isFloorHeater) {
-        this.log(`[FloorHeater]   -> Skipped (not a floor heater)`);
-        return;
+      this.log(`[FloorHeater] Processing: "${cached.name}" (class: ${cls})`);
+      
+      // Get LIVE device from HomeyAPI for real-time data and control
+      let liveDevice = null;
+      let caps = [];
+      try {
+        if (this._api) {
+          liveDevice = await this._api.devices.getDevice({ id: cached.id });
+          if (liveDevice && liveDevice.capabilitiesObj) {
+            caps = Object.keys(liveDevice.capabilitiesObj);
+            this.log(`[FloorHeater]   Live caps: ${caps.join(', ')}`);
+            // Log all capability values
+            caps.forEach(cap => {
+              const obj = liveDevice.capabilitiesObj[cap];
+              const val = obj && obj.value !== undefined ? obj.value : 'N/A';
+              this.log(`[FloorHeater]     ${cap} = ${val}`);
+            });
+          }
+        }
+      } catch (err) {
+        this.log(`[FloorHeater]   Live device error: ${err.message}`);
       }
       
-      this.log(`[FloorHeater]   -> Processing as floor heater`);
-      
-      // Check for target temperature capability (various names)
-      let targetTempCapability = null;
-      if (caps.includes('target_temperature')) {
-        targetTempCapability = 'target_temperature';
-      } else if (caps.includes('set_temperature')) {
-        targetTempCapability = 'set_temperature';
-      } else if (caps.includes('setpoint_temperature')) {
-        targetTempCapability = 'setpoint_temperature';
-      } else if (caps.includes('heating_setpoint')) {
-        targetTempCapability = 'heating_setpoint';
-      } else if (caps.includes('desired_temperature')) {
-        targetTempCapability = 'desired_temperature';
+      // Fallback to cached caps if live device not available
+      if (caps.length === 0) {
+        if (cached.capabilitiesObj) {
+          caps = Object.keys(cached.capabilitiesObj);
+        } else if (Array.isArray(cached.capabilities)) {
+          caps = cached.capabilities;
+        }
+        this.log(`[FloorHeater]   Cached caps: ${caps.join(', ')}`);
       }
       
-      // Check for measure temperature capability (various names)
-      let measureTempCapability = null;
-      if (caps.includes('measure_temperature')) {
-        measureTempCapability = 'measure_temperature';
-      } else if (caps.includes('temperature')) {
-        measureTempCapability = 'temperature';
-      } else if (caps.includes('current_temperature')) {
-        measureTempCapability = 'current_temperature';
+      // Check for target temperature capability (various names used by different brands)
+      let targetTempCap = null;
+      for (const candidate of ['target_temperature', 'set_temperature', 'setpoint_temperature', 'heating_setpoint', 'desired_temperature']) {
+        if (caps.includes(candidate)) { targetTempCap = candidate; break; }
       }
       
-      const hasTargetTemp = targetTempCapability !== null;
-      const hasMeasureTemp = measureTempCapability !== null;
-      const hasMeasurePower = caps.includes('measure_power');
+      // Check for measure temperature capability
+      let measureTempCap = null;
+      for (const candidate of ['measure_temperature', 'temperature', 'current_temperature']) {
+        if (caps.includes(candidate)) { measureTempCap = candidate; break; }
+      }
+      
       const hasOnOff = caps.includes('onoff');
-      const canControl = hasTargetTemp; // Can be controlled if it has target_temperature (or variant)
+      const hasPower = caps.includes('measure_power');
+      const canControl = targetTempCap !== null || hasOnOff;
       
-      this.log(`[FloorHeater]   HasTargetTemp: ${hasTargetTemp} | HasMeasureTemp: ${hasMeasureTemp} | HasOnOff: ${hasOnOff} | HasPower: ${hasMeasurePower}`);
+      this.log(`[FloorHeater]   targetTempCap: ${targetTempCap || 'NONE'} | measureTempCap: ${measureTempCap || 'NONE'} | onoff: ${hasOnOff}`);
       
-      // Get current values
+      // Read current values from live device (preferred) or cache
       let currentTarget = null;
       let currentMeasure = null;
       let isOn = null;
       
+      const source = liveDevice || cached;
       try {
-        if (device.capabilitiesObj) {
-          if (targetTempCapability && device.capabilitiesObj[targetTempCapability]) {
-            currentTarget = device.capabilitiesObj[targetTempCapability].value;
-            this.log(`[FloorHeater]   Reading ${targetTempCapability}: ${currentTarget}`);
+        if (source && source.capabilitiesObj) {
+          if (targetTempCap && source.capabilitiesObj[targetTempCap]) {
+            const v = source.capabilitiesObj[targetTempCap];
+            currentTarget = v.value !== undefined ? v.value : v;
           }
-          if (measureTempCapability && device.capabilitiesObj[measureTempCapability]) {
-            currentMeasure = device.capabilitiesObj[measureTempCapability].value;
-            this.log(`[FloorHeater]   Reading ${measureTempCapability}: ${currentMeasure}`);
+          if (measureTempCap && source.capabilitiesObj[measureTempCap]) {
+            const v = source.capabilitiesObj[measureTempCap];
+            currentMeasure = v.value !== undefined ? v.value : v;
           }
-          if (device.capabilitiesObj.onoff) {
-            isOn = device.capabilitiesObj.onoff.value;
-            this.log(`[FloorHeater]   Reading onoff: ${isOn}`);
+          if (hasOnOff && source.capabilitiesObj.onoff) {
+            const v = source.capabilitiesObj.onoff;
+            isOn = v.value !== undefined ? v.value : v;
           }
-        } else {
-          this.log(`[FloorHeater]   WARNING: capabilitiesObj is missing!`);
         }
       } catch (err) {
-        this.log(`[FloorHeater] Error reading values for ${device.name}: ${err.message}`);
+        this.log(`[FloorHeater]   Value read error: ${err.message}`);
       }
       
+      this.log(`[FloorHeater]   Values -> Target: ${currentTarget}°C | Measure: ${currentMeasure}°C | On: ${isOn}`);
+      
       floorHeaters.push({
-        deviceId: device.id,
-        name: device.name,
-        class: device.class,
-        zone: device.zone ? device.zone.name : 'Unknown',
-        hasTargetTemp: hasTargetTemp,
-        hasMeasureTemp: hasMeasureTemp,
-        hasMeasurePower: hasMeasurePower,
+        deviceId: cached.id,
+        name: cached.name,
+        class: cached.class,
+        zone: cached.zone ? cached.zone.name : 'Unknown',
+        hasTargetTemp: !!targetTempCap,
+        hasMeasureTemp: !!measureTempCap,
+        hasMeasurePower: hasPower,
         hasOnOff: hasOnOff,
         canControl: canControl,
-        controlCapability: targetTempCapability || 'none', // Use actual capability name
-        targetTempCapability: targetTempCapability,
-        measureTempCapability: measureTempCapability,
+        targetTempCapability: targetTempCap,
+        measureTempCapability: measureTempCap,
         currentTarget: currentTarget,
         currentMeasure: currentMeasure,
         isOn: isOn,
+        capabilities: caps,
         timestamp: new Date().toISOString()
       });
-      
-      this.log(`[FloorHeater] Found: ${device.name} | Control: ${canControl} | TargetTemp: ${hasTargetTemp} (${targetTempCapability}) | MeasureTemp: ${hasMeasureTemp} (${measureTempCapability}) | CurrentTarget: ${currentTarget}°C | CurrentMeasure: ${currentMeasure}°C`);
-    });
+    }
     
-    this.log(`[FloorHeater] ==== SUMMARY: Returning ${floorHeaters.length} floor heaters ====`);
+    this.log(`[FloorHeater] ==== RESULT: ${floorHeaters.length} floor heaters ====`);
     floorHeaters.forEach(h => {
-      this.log(`[FloorHeater] > ${h.name} | Target: ${h.currentTarget}°C | Measure: ${h.currentMeasure}°C | CanControl: ${h.canControl}`);
+      this.log(`[FloorHeater]  > ${h.name} | Target: ${h.currentTarget}°C | Measure: ${h.currentMeasure}°C | Control: ${h.canControl} | Caps: ${h.capabilities.join(', ')}`);
     });
     
     return floorHeaters;
   }
 
   async controlFloorHeater(deviceId, action, value) {
-    // Control a floor heater: action = 'on', 'off', 'setTarget'
+    // Control a floor heater using live HomeyAPI device (not cached data!)
     try {
-      const allDevices = this.homey.settings.get('_deviceCache') || [];
-      const device = allDevices.find(d => d && d.id === deviceId);
+      if (!this._api) {
+        this.log(`[FloorHeater] Control failed: HomeyAPI not available`);
+        return { ok: false, error: 'HomeyAPI not available' };
+      }
+      
+      // Get the LIVE device object from the API (has setCapabilityValue method)
+      const device = await this._api.devices.getDevice({ id: deviceId });
       
       if (!device) {
-        this.log(`[FloorHeater] Device not found: ${deviceId}`);
+        this.log(`[FloorHeater] Device not found via API: ${deviceId}`);
         return { ok: false, error: 'Device not found' };
       }
       
-      this.log(`[FloorHeater] Control action: ${action} on ${device.name}, value: ${value}`);
+      const caps = Object.keys(device.capabilitiesObj || {});
+      this.log(`[FloorHeater] Control: ${action} on "${device.name}" (value: ${value})`);
+      this.log(`[FloorHeater]   Available caps: ${caps.join(', ')}`);
       
-      // Get the floor heater info to find correct capability names
-      const floorHeaters = this.checkFloorHeaterConnections();
-      const heater = floorHeaters.find(h => h.deviceId === deviceId);
+      // Find correct target temperature capability
+      let targetTempCap = null;
+      for (const candidate of ['target_temperature', 'set_temperature', 'setpoint_temperature', 'heating_setpoint', 'desired_temperature']) {
+        if (caps.includes(candidate)) { targetTempCap = candidate; break; }
+      }
       
-      if (action === 'on' && device.capabilitiesObj?.onoff) {
-        await device.setCapabilityValue('onoff', true);
+      if (action === 'on') {
+        if (!caps.includes('onoff')) {
+          return { ok: false, error: `${device.name} has no on/off capability` };
+        }
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+        this.log(`[FloorHeater] ${device.name} turned ON`);
         return { ok: true, message: `${device.name} turned on` };
-      } else if (action === 'off' && device.capabilitiesObj?.onoff) {
-        await device.setCapabilityValue('onoff', false);
+        
+      } else if (action === 'off') {
+        if (!caps.includes('onoff')) {
+          return { ok: false, error: `${device.name} has no on/off capability` };
+        }
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+        this.log(`[FloorHeater] ${device.name} turned OFF`);
         return { ok: true, message: `${device.name} turned off` };
-      } else if (action === 'setTarget' && heater && heater.targetTempCapability) {
+        
+      } else if (action === 'setTarget') {
         const temp = parseFloat(value);
         if (isNaN(temp)) {
           return { ok: false, error: 'Invalid temperature value' };
         }
-        await device.setCapabilityValue(heater.targetTempCapability, temp);
-        return { ok: true, message: `${device.name} set to ${temp}°C` };
-      } else if (action === 'setTarget' && device.capabilitiesObj?.target_temperature) {
-        // Fallback to standard capability name if heater info not found
-        const temp = parseFloat(value);
-        if (isNaN(temp)) {
-          return { ok: false, error: 'Invalid temperature value' };
+        if (!targetTempCap) {
+          this.log(`[FloorHeater] No target temp cap found. Available: ${caps.join(', ')}`);
+          return { ok: false, error: `${device.name} has no temperature control capability` };
         }
-        await device.setCapabilityValue('target_temperature', temp);
+        await device.setCapabilityValue({ capabilityId: targetTempCap, value: temp });
+        this.log(`[FloorHeater] ${device.name} set to ${temp}°C via ${targetTempCap}`);
         return { ok: true, message: `${device.name} set to ${temp}°C` };
+        
       } else {
-        return { ok: false, error: 'Invalid action or capability not available' };
+        return { ok: false, error: `Unknown action: ${action}` };
       }
     } catch (err) {
       this.log(`[FloorHeater] Control error: ${err.message}`);

@@ -14,7 +14,7 @@ module.exports = {
   },
 
   async getFloorHeaters({ homey }) {
-    return homey.app.checkFloorHeaterConnections();
+    return await homey.app.checkFloorHeaterConnections();
   },
 
   async controlFloorHeater({ homey, body }) {
