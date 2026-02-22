@@ -32,8 +32,9 @@ This app is currently in **trial version**. Users install and use it **at their 
 - **Multi-brand HAN support** — Automatically identifies connected meter brand and displays it in the System tab
 - **Power consumption dashboard** — Power tab shows real-time power usage by device with current, average, and peak values
 - **Device power tracking** — Monitors all devices with power capabilities including floor heaters, EV chargers, and appliances
-- **Floor heater control** — Heaters tab with live thermostat detection, on/off control, and temperature adjustment via HomeyAPI
+- **Floor heater control** — Compact single-line thermostat rows with slide toggle, live temperature, and target temperature input
 - **Thermostat driver** — Dedicated driver to pair and control thermostats as Homey devices with real-time subscriptions
+- **Dark mode support** — Automatic dark mode via CSS `prefers-color-scheme` media query with JS fallback
 - **Dynamic EV charging control** — Automatically adjusts charger current based on available household power
 - **Priority-based device control** — Define which devices to turn off first via a drag-and-drop priority list
 - **Multiple protection profiles** — Normal and Strict (90% of limit) modes
@@ -163,13 +164,16 @@ The **Power** tab provides real-time visibility into which devices are consuming
 
 ### Floor Heater Control
 
-The **Heaters** tab provides direct control over all detected thermostats:
+The **Heaters** tab provides direct control over all detected thermostats in a compact single-line layout:
 
-- **Auto-detection** — Scans all devices for thermostat capabilities using live HomeyAPI
-- **Cross-brand support** — Works with Futurehome, and any thermostat brand by detecting capability name variants
-- **Live readings** — Shows current temperature, target temperature, and on/off state in real-time
-- **On/Off control** — Turn heaters on or off directly from the settings page
-- **Temperature control** — Set target temperature for any thermostat
+- **Auto-detection** — Scans all devices for thermostat capabilities using live HomeyAPI (class `thermostat`, `heater`, or name matching)
+- **Cross-brand support** — Works with Futurehome, Z-Wave, Zigbee, and any thermostat brand by detecting capability name variants
+- **Compact row design** — Each thermostat on one line: name, current temperature, target input, Set button, and slide on/off toggle
+- **Live readings** — Shows current temperature from the device in real-time (2s refresh)
+- **Slide toggle** — On/off control via a slide switch, same style as other Homey toggles
+- **Active power indicator** — Orange border highlights thermostats currently drawing power
+- **Temperature control** — Inline number input with Set button to change target temperature
+- **Zone/brand display** — Shows zone name or manufacturer/driver name when zone is unavailable
 - **Capability-based** — Uses live HomeyAPI (`device.setCapabilityValue()`) for reliable control
 
 Supported devices tracked:
