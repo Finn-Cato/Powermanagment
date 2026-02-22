@@ -347,7 +347,20 @@ class PowerGuardApp extends Homey.App {
 
     const hanDevice = Object.values(allDevices).find(d => {
       const hasPower = Array.isArray(d.capabilities) && d.capabilities.includes('measure_power');
-      return hasPower;
+      if (!hasPower) return false;
+      
+      // Must be identifiable as a meter/HAN device, not just any device with power measurement
+      const name = (d.name || '').toLowerCase();
+      const driver = (d.driverId || '').toLowerCase();
+      const deviceClass = (d.class || '').toLowerCase();
+      
+      const isMeterLike = deviceClass === 'meter' ||
+        name.includes('meter') || name.includes('frient') || name.includes('han') ||
+        name.includes('futurehome') || name.includes('tibber') ||
+        driver.includes('meter') || driver.includes('frient') || driver.includes('han') ||
+        driver.includes('futurehome') || driver.includes('tibber');
+      
+      return isMeterLike;
     });
 
     if (!hanDevice) {
