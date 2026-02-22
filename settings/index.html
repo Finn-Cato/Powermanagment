@@ -1028,7 +1028,13 @@
   var _classFilters = {}; // Track which device classes are visible
   
   function toggleClassFilter(className) {
-    _classFilters[className] = !(_classFilters[className] === false);
+    // Get the checkbox element first
+    var checkbox = document.querySelector('[data-class-filter="' + className + '"]');
+    if (!checkbox) return;
+    
+    // Use the checkbox's actual checked state (already changed by browser)
+    _classFilters[className] = checkbox.checked;
+    
     // Update visibility of all rows
     var rows = document.querySelectorAll('.consumption-row');
     rows.forEach(function(row) {
@@ -1036,11 +1042,7 @@
       var isVisible = _classFilters[rowClass] !== false;
       row.style.display = isVisible ? '' : 'none';
     });
-    // Update the checkbox state in the filter area
-    var checkbox = document.querySelector('[data-class-filter="' + className + '"]');
-    if (checkbox) {
-      checkbox.checked = _classFilters[className] !== false;
-    }
+    
     // Save immediately
     saveAll();
   }
