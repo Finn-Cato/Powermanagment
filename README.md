@@ -19,6 +19,10 @@ This app is currently in **trial version**. Users install and use it **at their 
   - ✅ Aidon HAN
   - ✅ Kaifa HAN
   - ✅ Any other meter with `measure_power` capability
+- **Thermostats:** Auto-detects any thermostat with temperature capabilities:
+  - ✅ Futurehome thermostats
+  - ✅ Any thermostat with `target_temperature` / `measure_temperature`
+  - ✅ Cross-brand support (auto-detects `set_temperature`, `setpoint_temperature`, `heating_setpoint`, etc.)
 
 *Additional chargers and HAN devices will be added in future releases.*
 
@@ -26,8 +30,10 @@ This app is currently in **trial version**. Users install and use it **at their 
 
 - **Real-time power monitoring** — Auto-detects and reads live power data from any HAN electricity meter (Frient, Futurehome, Tibber, Aidon, Kaifa, etc.)
 - **Multi-brand HAN support** — Automatically identifies connected meter brand and displays it in the System tab
-- **Power consumption dashboard** — New Consumption tab shows real-time power usage by device with current, average, and peak values
-- **Device power tracking** — Monitors all devices with power capabilities including Futurehome floor heaters, EV chargers, and appliances
+- **Power consumption dashboard** — Power tab shows real-time power usage by device with current, average, and peak values
+- **Device power tracking** — Monitors all devices with power capabilities including floor heaters, EV chargers, and appliances
+- **Floor heater control** — Heaters tab with live thermostat detection, on/off control, and temperature adjustment via HomeyAPI
+- **Thermostat driver** — Dedicated driver to pair and control thermostats as Homey devices with real-time subscriptions
 - **Dynamic EV charging control** — Automatically adjusts charger current based on available household power
 - **Priority-based device control** — Define which devices to turn off first via a drag-and-drop priority list
 - **Multiple protection profiles** — Normal and Strict (90% of limit) modes
@@ -36,6 +42,7 @@ This app is currently in **trial version**. Users install and use it **at their 
 - **Automatic restore** — Devices are restored once power drops back under the limit
 - **Flow card support** — Triggers, conditions, and actions for Homey's Flow automation engine
 - **Settings page** — Full in-app configuration with live status, device management, and mitigation log
+- **Pill-style tab navigation** — Wrapping tab bar with icons (⚙️ Settings, 📱 Devices, 📊 System, ⚡ Power, 🌡️ Heaters) — responsive on mobile
 - **Debug logging** — Live log viewer for troubleshooting device detection and power tracking
 
 ## How It Works
@@ -89,7 +96,7 @@ In the **Devices** tab, drag and drop your controllable devices into a priority 
 
 ### Power Consumption Dashboard
 
-The **Consumption** tab provides real-time visibility into which devices are consuming power:
+The **Power** tab provides real-time visibility into which devices are consuming power:
 
 - **Live power usage table** — Shows current, average, and peak power for each device
 - **Device ranking** — Devices sorted by current power consumption (highest first)
@@ -98,8 +105,19 @@ The **Consumption** tab provides real-time visibility into which devices are con
 - **Smart filtering** — Automatically excludes lights, dimmers, Power Guard itself, and meters
 - **Debug log** — Live tracking log for troubleshooting device detection
 
+### Floor Heater Control
+
+The **Heaters** tab provides direct control over all detected thermostats:
+
+- **Auto-detection** — Scans all devices for thermostat capabilities using live HomeyAPI
+- **Cross-brand support** — Works with Futurehome, and any thermostat brand by detecting capability name variants
+- **Live readings** — Shows current temperature, target temperature, and on/off state in real-time
+- **On/Off control** — Turn heaters on or off directly from the settings page
+- **Temperature control** — Set target temperature for any thermostat
+- **Capability-based** — Uses live HomeyAPI (`device.setCapabilityValue()`) for reliable control
+
 Supported devices tracked:
-- ✅ Futurehome floor heaters
+- ✅ Floor heaters and thermostats (Futurehome, etc.)
 - ✅ EV chargers (Easee, etc.)
 - ✅ Appliances with power monitoring
 - ✅ Any device with `measure_power` capability
@@ -117,6 +135,15 @@ A virtual device that exposes:
 Dedicated driver for EV chargers with:
 - `measure_power` — Charger power consumption
 - `onoff` — Charging state
+
+### Thermostat
+Dedicated driver for floor heaters and thermostats with:
+- `target_temperature` — Target temperature (5–35°C, step 0.5)
+- `measure_temperature` — Current measured temperature
+- `onoff` — Heater on/off state
+- `thermostat_mode` — Operating mode (heat, cool, auto, off)
+
+Auto-discovers thermostats during pairing via HomeyAPI. Supports any thermostat brand by auto-detecting capability name variants (`target_temperature`, `set_temperature`, `setpoint_temperature`, `heating_setpoint`, `desired_temperature`).
 
 ## Flow Cards
 
@@ -155,7 +182,10 @@ Powermanagment/
 │   ├── power-guard/        # Virtual Power Guard device driver
 │   │   ├── device.js
 │   │   └── driver.js
-│   └── ev-charger/         # EV Charger device driver
+│   ├── ev-charger/         # EV Charger device driver
+│   │   ├── device.js
+│   │   └── driver.js
+│   └── thermostat/         # Thermostat device driver (floor heaters, etc.)
 │       ├── device.js
 │       └── driver.js
 ├── locales/
