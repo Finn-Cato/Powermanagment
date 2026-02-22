@@ -1407,6 +1407,7 @@ class PowerGuardApp extends Homey.App {
           });
         }
       });
+    }
     
     allDevices.forEach(device => {
       if (!device) return;
