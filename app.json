@@ -66,6 +66,14 @@
     "refreshDeviceCache": {
       "method": "POST",
       "path": "/device-cache-refresh"
+    },
+    "testCharger": {
+      "method": "POST",
+      "path": "/test-charger"
+    },
+    "applyCircuitLimits": {
+      "method": "POST",
+      "path": "/apply-circuit-limits"
     }
   },
   "drivers": [

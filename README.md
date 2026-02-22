@@ -4,12 +4,20 @@
 
 Power Guard monitors your household power consumption in real-time via a HAN meter (e.g. Frient Electricity Meter) and automatically turns off or dims devices when you approach your grid connection limit — preventing costly peak penalties and tripped breakers.
 
+## Supported Hardware
+
+**Current Release:**
+- **EV Charger:** Easee charger only (Easee Home & Easee Pro)
+- **Power Meter:** Frient Electricity Meter (Zigbee HAN port)
+
+*Additional chargers and HAN devices will be added in future releases.*
+
 ## Features
 
-- **Real-time HAN meter monitoring** — Reads live power data from your HAN-connected meter
+- **Real-time power monitoring** — Reads live power data from your Frient HAN meter
+- **Dynamic EV charging control** — Automatically adjusts charger current based on available household power
 - **Priority-based device control** — Define which devices to turn off first via a drag-and-drop priority list
-- **Multiple protection profiles** — Normal, Strict (90% of limit), and Solar-friendly modes
-- **EV charger support** — Dedicated driver for EV chargers with dynamic current control
+- **Multiple protection profiles** — Normal and Strict (90% of limit) modes
 - **Per-phase current limits** — Optional ampere limits for individual phases (L1/L2/L3)
 - **Spike filtering** — Moving-average smoothing and spike detection to avoid false triggers
 - **Automatic restore** — Devices are restored once power drops back under the limit
@@ -47,7 +55,7 @@ Open the Power Guard settings page in the Homey app to configure:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | **Guard active** | ✅ On | Enable/disable power monitoring |
-| **Profile** | Normal | Protection mode: Normal, Strict (90%), Solar-friendly |
+| **Profile** | Normal | Protection mode: Normal or Strict (90% of limit) |
 | **Maximum power (W)** | 10,000 | Your grid connection limit in watts |
 | **Seconds before acting** | 30 | Cooldown between mitigation steps |
 | **Readings before acting** | 3 | Consecutive over-limit readings before mitigation |

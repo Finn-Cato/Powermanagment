@@ -18,12 +18,24 @@ class PowerGuardApp extends Homey.App {
     this._mitigatedDevices = [];
     this._lastMitigationTime = 0;
     this._mitigationLog = [];
+
+    // Restore mitigated devices from persistent storage
+    try {
+      const saved = this.homey.settings.get('_mitigatedDevices');
+      if (Array.isArray(saved) && saved.length > 0) {
+        this._mitigatedDevices = saved;
+        this.log(`Restored ${saved.length} mitigated device(s) from previous session`);
+      }
+    } catch (_) {}
     this._api = null;
     this._hanCapabilityInstance = null;
+    this._hanDevice = null;
     this._lastHanReading = null;
     this._hanDeviceId = null;
+    this._hanPollInterval = null;
     this._evPowerData = {};
     this._evCapabilityInstances = {};
+    this._lastEVAdjustTime = 0;
     this._deviceCacheReady = false;
     this._lastCacheTime = null;
     this._saveQueue = [];
@@ -64,6 +76,11 @@ class PowerGuardApp extends Homey.App {
         try { this.homey.api.realtime('priorityList', this.homey.settings.get('priorityList')); } catch (_) {}
         this._connectToEVChargers().catch(() => {});
       }
+      // When power limit or profile changes, immediately re-evaluate chargers
+      if (['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA'].includes(key)) {
+        this.log(`[Settings] ${key} changed, forcing charger re-evaluation`);
+        this._forceChargerRecheck().catch(err => this.error('Force re-check error:', err));
+      }
     });
 
     try {
@@ -97,15 +114,15 @@ class PowerGuardApp extends Homey.App {
       this.error('EV charger connection error (non-fatal):', err);
     }
 
+    try {
+      if (this._api) await this.applyCircuitLimitsToChargers();
+    } catch (err) {
+      this.error('Circuit limit push error (non-fatal):', err);
+    }
+
     this._watchdogInterval  = setInterval(() => this._watchdog().catch(() => {}), 10000);
     this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(() => {}), 60000);
     this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(() => {}), 3000);
-
-    try {
-      this.registerApiEndpoints();
-    } catch (err) {
-      this.error('Failed to register API endpoints:', err);
-    }
 
     this.log('Power Guard ready (device cache: ' +
       (this._deviceCacheReady ? 'YES' : 'NO') + ')');
@@ -189,92 +206,6 @@ class PowerGuardApp extends Homey.App {
     }
   }
 
-  // ─── API Endpoints for Settings Page ────────────────────────────────────
-  registerApiEndpoints() {
-    // POST /save-settings - Enhanced settings save with validation & retry queue
-    this.homey.api.register('POST', '/save-settings', async (req, res) => {
-      try {
-        const settings = req.body;
-        if (!settings || typeof settings !== 'object') {
-          return res.json({
-            success: false,
-            error: 'Invalid settings object'
-          });
-        }
-
-        this.log(`[API] Saving ${Object.keys(settings).length} settings...`);
-
-        // Save each setting
-        const results = {};
-        for (const [key, value] of Object.entries(settings)) {
-          try {
-            this.homey.settings.set(key, value);
-            results[key] = 'success';
-            this.log(`[API] ✓ ${key}`);
-          } catch (err) {
-            results[key] = 'error';
-            this.log(`[API] ✗ ${key}: ${err.message}`);
-            // Queue failed save for retry
-            this._enqueueSettingsSave(key, value);
-          }
-        }
-
-        // Persist to file as backup
-        await this._saveSettingsToFile();
-
-        res.json({ success: true, saved: results });
-      } catch (err) {
-        this.error('API save-settings error:', err);
-        res.json({ success: false, error: err.message });
-      }
-    });
-
-    // GET /cache-status - Get device cache status for UI
-    this.homey.api.register('GET', '/cache-status', async (req, res) => {
-      try {
-        const cache = this.homey.settings.get('_deviceCache') || [];
-        const ageMs = this._lastCacheTime ? Date.now() - this._lastCacheTime : null;
-        res.json({
-          cacheReady: this._deviceCacheReady,
-          cacheCount: cache.length,
-          cacheAgeSeconds: ageMs ? Math.round(ageMs / 1000) : null,
-          apiAvailable: !!this._api,
-          hanConnected: !!this._hanDeviceId
-        });
-      } catch (err) {
-        this.error('API cache-status error:', err);
-        res.json({
-          cacheReady: false,
-          cacheCount: 0,
-          apiAvailable: !!this._api,
-          error: err.message
-        });
-      }
-    });
-
-    // POST /device-cache-refresh - Manual cache refresh
-    this.homey.api.register('POST', '/device-cache-refresh', async (req, res) => {
-      try {
-        this.log('[API] Manual device cache refresh requested');
-        await this._cacheDevices();
-        const cache = this.homey.settings.get('_deviceCache') || [];
-        res.json({
-          success: true,
-          cacheCount: cache.length,
-          cacheReady: this._deviceCacheReady
-        });
-      } catch (err) {
-        this.error('API device-cache-refresh error:', err);
-        res.json({
-          success: false,
-          error: err.message
-        });
-      }
-    });
-
-    this.log('API endpoints registered');
-  }
-
   // ─── Settings Persistence via File ────────────────────────────────────────
   _getSettingsFilePath() {
     return this.homey.app.dir + '/settings.json';
@@ -321,17 +252,20 @@ class PowerGuardApp extends Homey.App {
   _loadSettings() {
     const s = this.homey.settings;
     this._settings = {
-      enabled:          s.get('enabled')          ?? DEFAULT_SETTINGS.enabled,
-      profile:          s.get('profile')          ?? DEFAULT_SETTINGS.profile,
-      powerLimitW:      s.get('powerLimitW')      ?? DEFAULT_SETTINGS.powerLimitW,
-      phase1LimitA:     s.get('phase1LimitA')     ?? DEFAULT_SETTINGS.phase1LimitA,
-      phase2LimitA:     s.get('phase2LimitA')     ?? DEFAULT_SETTINGS.phase2LimitA,
-      phase3LimitA:     s.get('phase3LimitA')     ?? DEFAULT_SETTINGS.phase3LimitA,
-      smoothingWindow:  s.get('smoothingWindow')  ?? DEFAULT_SETTINGS.smoothingWindow,
-      spikeMultiplier:  s.get('spikeMultiplier')  ?? DEFAULT_SETTINGS.spikeMultiplier,
-      hysteresisCount:  s.get('hysteresisCount')  ?? DEFAULT_SETTINGS.hysteresisCount,
-      cooldownSeconds:  s.get('cooldownSeconds')  ?? DEFAULT_SETTINGS.cooldownSeconds,
-      priorityList:     s.get('priorityList')     ?? DEFAULT_SETTINGS.priorityList,
+      enabled:           s.get('enabled')           ?? DEFAULT_SETTINGS.enabled,
+      profile:           s.get('profile')           ?? DEFAULT_SETTINGS.profile,
+      powerLimitW:       s.get('powerLimitW')       ?? DEFAULT_SETTINGS.powerLimitW,
+      phase1LimitA:      s.get('phase1LimitA')      ?? DEFAULT_SETTINGS.phase1LimitA,
+      phase2LimitA:      s.get('phase2LimitA')      ?? DEFAULT_SETTINGS.phase2LimitA,
+      phase3LimitA:      s.get('phase3LimitA')      ?? DEFAULT_SETTINGS.phase3LimitA,
+      smoothingWindow:   s.get('smoothingWindow')   ?? DEFAULT_SETTINGS.smoothingWindow,
+      spikeMultiplier:   s.get('spikeMultiplier')   ?? DEFAULT_SETTINGS.spikeMultiplier,
+      hysteresisCount:   s.get('hysteresisCount')   ?? DEFAULT_SETTINGS.hysteresisCount,
+      cooldownSeconds:   s.get('cooldownSeconds')   ?? DEFAULT_SETTINGS.cooldownSeconds,
+      voltageSystem:     s.get('voltageSystem')     ?? DEFAULT_SETTINGS.voltageSystem,
+      phaseDistribution: s.get('phaseDistribution') ?? DEFAULT_SETTINGS.phaseDistribution,
+      mainCircuitA:      s.get('mainCircuitA')      ?? DEFAULT_SETTINGS.mainCircuitA,
+      priorityList:      s.get('priorityList')      ?? DEFAULT_SETTINGS.priorityList,
     };
   }
 
@@ -345,6 +279,50 @@ class PowerGuardApp extends Homey.App {
   _getEffectiveLimit() {
     const factor = PROFILE_LIMIT_FACTOR[this._settings.profile] || 1.0;
     return this._settings.powerLimitW * factor;
+  }
+
+  /**
+   * Persist the mitigated devices list so it survives app restarts.
+   * Called after every mutation of _mitigatedDevices.
+   */
+  _persistMitigatedDevices() {
+    try {
+      this.homey.settings.set('_mitigatedDevices', this._mitigatedDevices);
+    } catch (err) {
+      this.error('Failed to persist mitigated devices:', err);
+    }
+  }
+
+  /**
+   * Force an immediate re-evaluation of all chargers against current power usage and limits.
+   * Called when powerLimitW or profile changes — bypasses cooldowns.
+   */
+  async _forceChargerRecheck() {
+    if (!this._settings.enabled) return;
+
+    // Use the latest known power value
+    const currentPower = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
+    if (!currentPower && currentPower !== 0) return;
+
+    const limit = this._getEffectiveLimit();
+    this.log(`[ForceRecheck] Power: ${Math.round(currentPower)}W, Limit: ${Math.round(limit)}W`);
+
+    // Reset the EV adjust cooldown so adjustment happens immediately
+    this._lastEVAdjustTime = 0;
+
+    // Run the EV charger adjustment
+    await this._adjustEVChargersForPower(currentPower).catch(err => this.error('Force EV adjust error:', err));
+
+    // Also re-check regular mitigation
+    const overLimit = currentPower > limit;
+    if (overLimit) {
+      this._overLimitCount = this._settings.hysteresisCount; // Skip hysteresis for immediate action
+      await this._triggerMitigation(currentPower).catch(err => this.error('Force mitigation error:', err));
+    } else if (this._mitigatedDevices.length > 0) {
+      await this._triggerRestore().catch(err => this.error('Force restore error:', err));
+    }
+
+    this._cacheStatus();
   }
 
   // ─── HAN Port integration ──────────────────────────────────────────────────
@@ -368,6 +346,7 @@ class PowerGuardApp extends Homey.App {
     }
 
     this._hanDeviceId = hanDevice.id;
+    this._hanDevice = hanDevice;
     this.log(`HAN device found: "${hanDevice.name}" (${hanDevice.id})`);
 
     // makeCapabilityInstance is the correct homey-api v3 way to subscribe to capability changes
@@ -380,6 +359,37 @@ class PowerGuardApp extends Homey.App {
       if (Array.isArray(hanDevice.capabilities) && hanDevice.capabilities.includes(phase)) {
         hanDevice.makeCapabilityInstance(phase, (value) => this._onPhaseReading(phase, value));
       }
+    }
+
+    // Active polling fallback: read HAN value every 10 seconds
+    // Some Frient HAN firmware only fires events when the value changes significantly.
+    // This ensures we always have fresh data for mitigation decisions.
+    if (this._hanPollInterval) clearInterval(this._hanPollInterval);
+    this._hanPollInterval = setInterval(() => this._pollHANPower().catch(() => {}), 10000);
+    this.log('HAN active polling started (10s interval)');
+  }
+
+  async _pollHANPower() {
+    if (!this._hanDevice) return;
+    try {
+      // Re-fetch the device to get the latest capability values
+      const device = await this._api.devices.getDevice({ id: this._hanDeviceId });
+      if (!device) return;
+
+      const capObj = device.capabilitiesObj;
+      if (capObj && capObj.measure_power && capObj.measure_power.value != null) {
+        const value = capObj.measure_power.value;
+        const timeSinceLastReading = this._lastHanReading ? Date.now() - this._lastHanReading : Infinity;
+
+        // Only process if we haven't had an event-based reading in the last 8 seconds
+        // This avoids double-processing when events ARE working
+        if (timeSinceLastReading > 8000) {
+          this.log(`[HAN Poll] Fallback reading: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
+          this._onPowerReading(value);
+        }
+      }
+    } catch (err) {
+      this.log('[HAN Poll] Error: ' + (err.message || err));
     }
   }
 
@@ -420,6 +430,15 @@ class PowerGuardApp extends Homey.App {
     const limit = this._getEffectiveLimit();
     const overLimit = smoothedPower > limit;
 
+    // EV charger dynamic adjustment runs on EVERY reading — fast response
+    // No hysteresis delay, only a short 5-second cooldown between adjustments
+    if (overLimit) {
+      await this._adjustEVChargersForPower(smoothedPower).catch(err => this.error('EV adjust error:', err));
+    } else if (!overLimit && this._mitigatedDevices.some(m => m.action === 'dynamic_current')) {
+      // Under limit: try to restore EV chargers gradually
+      await this._adjustEVChargersForPower(smoothedPower).catch(err => this.error('EV restore error:', err));
+    }
+
     if (overLimit) {
       this._overLimitCount++;
       if (this._overLimitCount === this._settings.hysteresisCount) {
@@ -446,8 +465,7 @@ class PowerGuardApp extends Homey.App {
       if (now - this._lastMitigationTime < this._settings.cooldownSeconds * 1000) return;
 
       // First, try to mitigate by adjusting EV chargers (least disruptive)
-      await this._mitigateEVChargers().catch(() => {});
-      await this._mitigateEaseeChargers().catch(() => {});
+      await this._mitigateEaseeChargers().catch((err) => this.error('Easee mitigation error:', err));
 
       const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
       const mitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
@@ -469,6 +487,7 @@ class PowerGuardApp extends Homey.App {
           this._mitigatedDevices.push({ deviceId: entry.deviceId, action: entry.action, previousState, mitigatedAt: now });
           this._lastMitigationTime = now;
           this._addLog(`Mitigated: ${device.name} (${entry.action})`);
+          this._persistMitigatedDevices();
           this._fireTrigger('mitigation_applied', { device_name: device.name, action: entry.action });
           await this._updateVirtualDevice({ alarm: true });
           break;
@@ -502,12 +521,13 @@ class PowerGuardApp extends Homey.App {
 
       try {
         const device = await this._api.devices.getDevice({ id: toRestore.deviceId });
-        if (!device) { this._mitigatedDevices.pop(); return; }
+        if (!device) { this._mitigatedDevices.pop(); this._persistMitigatedDevices(); return; }
 
         const restored = await restoreDevice(device, toRestore.action, toRestore.previousState);
         if (restored) {
           this._mitigatedDevices.pop();
           this._addLog(`Restored: ${device.name}`);
+          this._persistMitigatedDevices();
           if (this._mitigatedDevices.length === 0) {
             this._fireTrigger('mitigation_cleared', {});
             await this._updateVirtualDevice({ alarm: false });
@@ -623,7 +643,9 @@ class PowerGuardApp extends Homey.App {
       onoff:              obj.onoff              ? obj.onoff.value              : undefined,
       dim:                obj.dim                ? obj.dim.value                : undefined,
       target_temperature: obj.target_temperature ? obj.target_temperature.value : undefined,
-      target_current:     obj.target_current     ? obj.target_current.value     : undefined,
+      target_current:          obj.target_current          ? obj.target_current.value          : undefined,
+      target_charger_current:  obj.target_charger_current  ? obj.target_charger_current.value  : undefined,
+      target_circuit_current:  obj.target_circuit_current  ? obj.target_circuit_current.value  : undefined,
     };
   }
 
@@ -637,8 +659,31 @@ class PowerGuardApp extends Homey.App {
       if (!devices.length) return;
       const vd = devices[0];
 
-      if (!this._hanDeviceId) return;
       const silentMs = this._lastHanReading ? Date.now() - this._lastHanReading : Infinity;
+
+      if (!this._hanDeviceId || silentMs > 60000) {
+        // HAN not found or no readings for 60s → try to reconnect
+        this.log('[Watchdog] HAN silent for ' + Math.round(silentMs / 1000) + 's, attempting reconnect...');
+        try {
+          if (this._hanCapabilityInstance) {
+            try { this._hanCapabilityInstance.destroy(); } catch (_) {}
+            this._hanCapabilityInstance = null;
+          }
+          if (this._hanPollInterval) {
+            clearInterval(this._hanPollInterval);
+            this._hanPollInterval = null;
+          }
+          this._hanDevice = null;
+          await this._connectToHAN();
+          if (this._hanDeviceId) {
+            this.log('[Watchdog] HAN reconnected successfully');
+          }
+        } catch (e) {
+          this.log('[Watchdog] HAN reconnect failed: ' + e.message);
+        }
+      }
+
+      if (!this._hanDeviceId) return;
       if (silentMs > 30000) {
         await vd.setUnavailable(this.homey.__('errors.hanTimeout')).catch(() => {});
       } else {
@@ -696,6 +741,10 @@ class PowerGuardApp extends Homey.App {
             caps.includes('dim') ||
             caps.includes('target_temperature') ||
             caps.includes('target_current') ||
+            caps.includes('target_charger_current') ||
+            caps.includes('dynamic_charger_current') ||
+            caps.includes('dynamicChargerCurrent') ||
+            caps.includes('target_circuit_current') ||
             caps.includes('charge_pause');
 
           // Check for known controllable device classes
@@ -719,7 +768,8 @@ class PowerGuardApp extends Homey.App {
           const includedReason =
             caps.some(c =>
               c === 'onoff' || c === 'dim' || c === 'target_temperature' ||
-              c === 'target_current' || c === 'charge_pause')
+              c === 'target_current' || c === 'target_charger_current' || c === 'dynamic_charger_current' ||
+              c === 'target_circuit_current' || c === 'charge_pause')
               ? 'capability'
               : ['light', 'socket', 'charger', 'thermostat', 'appliance'].includes(d.class)
               ? 'class'
@@ -755,6 +805,63 @@ class PowerGuardApp extends Homey.App {
     }
   }
 
+  /**
+   * Push the configured circuit limits from the priority list to each
+   * Easee charger's target_charger_current capability (Ladegrense).
+   * This sets the permanent max charging limit — NOT the dynamic/temporary limit.
+   * Called on init, when system settings are saved, and when a
+   * per-charger circuit limit is changed in the System tab.
+   */
+  async applyCircuitLimitsToChargers() {
+    if (!this._api) return { ok: false, reason: 'No API' };
+
+    const entries = (this._settings.priorityList || []).filter(
+      e => e.action === 'dynamic_current' && e.enabled !== false
+    );
+    if (!entries.length) return { ok: true, results: [] };
+
+    const results = [];
+    for (const entry of entries) {
+      const circuitA = entry.circuitLimitA || 32;
+      try {
+        const device = await this._api.devices.getDevice({ id: entry.deviceId });
+        if (!device) {
+          results.push({ name: entry.name, ok: false, detail: 'Device not found' });
+          continue;
+        }
+
+        const caps = device.capabilities || [];
+        const obj = device.capabilitiesObj || {};
+        const details = [];
+
+        // Push to target_charger_current only (Easee "Ladegrense" / permanent charging limit)
+        // Do NOT touch target_circuit_current (Sikringsgrense) — that's the fuse/circuit breaker setting
+        if (caps.includes('target_charger_current')) {
+          const currentVal = obj.target_charger_current?.value;
+          if (currentVal !== circuitA) {
+            await device.setCapabilityValue({ capabilityId: 'target_charger_current', value: circuitA });
+            this.log(`[CircuitLimit] ${entry.name}: Ladegrense ${currentVal}A → ${circuitA}A`);
+            details.push(`Ladegrense: ${circuitA}A`);
+          } else {
+            details.push(`Ladegrense: already ${circuitA}A`);
+          }
+        }
+
+        if (details.length > 0) {
+          results.push({ name: entry.name, ok: true, detail: details.join(', ') });
+        } else {
+          results.push({ name: entry.name, ok: false, detail: 'No target_charger_current capability found' });
+        }
+      } catch (err) {
+        this.error(`[CircuitLimit] Failed for ${entry.name}:`, err);
+        results.push({ name: entry.name, ok: false, detail: err.message });
+      }
+    }
+
+    this._addLog(`Circuit limits applied: ${results.filter(r => r.ok).length}/${results.length} chargers`);
+    return { ok: true, results };
+  }
+
   async _connectToEVChargers() {
     if (!this._api) return;
     // Tear down old instances
@@ -774,26 +881,159 @@ class PowerGuardApp extends Homey.App {
         const caps = device.capabilities || [];
         const obj  = device.capabilitiesObj || {};
 
-        // Store initial snapshot
+        // Store initial snapshot with full state
         this._evPowerData[entry.deviceId] = {
-          name:       entry.name || device.name,
-          powerW:     obj.measure_power ? (obj.measure_power.value || 0) : 0,
-          isCharging: obj.onoff ? obj.onoff.value !== false : true,
+          name:           entry.name || device.name,
+          powerW:         obj.measure_power ? (obj.measure_power.value || 0) : 0,
+          isCharging:     obj.onoff ? obj.onoff.value !== false : false,
+          chargerStatus:  obj.charger_status ? obj.charger_status.value : null,
+          offeredCurrent: obj['measure_current.offered'] ? obj['measure_current.offered'].value : null,
+          isConnected:    null,  // derived below
         };
 
-        if (caps.includes('measure_power')) {
-          this._evCapabilityInstances[entry.deviceId] =
-            device.makeCapabilityInstance('measure_power', (value) => {
-              if (this._evPowerData[entry.deviceId]) {
-                this._evPowerData[entry.deviceId].powerW = typeof value === 'number' ? value : 0;
-              }
-            });
+        // Derive connected state from charger_status or power
+        const cs = this._evPowerData[entry.deviceId].chargerStatus;
+        if (cs !== null && cs !== undefined) {
+          // Easee statuses: 1=disconnected, 2=awaiting_start, 3=charging, 4=completed, 5=error
+          // Also may be string values like 'disconnected', 'awaiting_start', 'charging', 'completed'
+          const disconnected = (cs === 1 || cs === 'disconnected' || cs === 'DISCONNECTED');
+          this._evPowerData[entry.deviceId].isConnected = !disconnected;
+        } else {
+          // Fallback: if power > 0, probably connected
+          this._evPowerData[entry.deviceId].isConnected = (this._evPowerData[entry.deviceId].powerW > 0);
         }
+
+        // Listen to measure_power changes
+        if (caps.includes('measure_power')) {
+          const pwrInst = device.makeCapabilityInstance('measure_power', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].powerW = typeof value === 'number' ? value : 0;
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_power'] = pwrInst;
+        }
+
+        // Listen to charger_status changes (Easee specific)
+        if (caps.includes('charger_status')) {
+          const csInst = device.makeCapabilityInstance('charger_status', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].chargerStatus = value;
+              const disconnected = (value === 1 || value === 'disconnected' || value === 'DISCONNECTED');
+              this._evPowerData[entry.deviceId].isConnected = !disconnected;
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_status'] = csInst;
+        }
+
+        // Listen to onoff changes
+        if (caps.includes('onoff')) {
+          const onInst = device.makeCapabilityInstance('onoff', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].isCharging = value !== false;
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_onoff'] = onInst;
+        }
+
+        // Listen to offered current
+        if (caps.includes('measure_current.offered')) {
+          const offInst = device.makeCapabilityInstance('measure_current.offered', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].offeredCurrent = typeof value === 'number' ? value : null;
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_offered'] = offInst;
+        }
+
       } catch (err) {
         this.error(`EV connect error for ${entry.deviceId}:`, err);
       }
     }
     this.log(`EV charger tracking: ${Object.keys(this._evCapabilityInstances).length} device(s)`);
+  }
+
+  // ─── Fast EV Charger Adjustment (runs on every power reading) ──────────────
+
+  /**
+   * Rapidly adjust EV chargers to stay under the power limit.
+   * Called on every HAN reading — bypasses the main mitigation cooldown.
+   * Has its own short 5-second cooldown to avoid hammering the API.
+   */
+  async _adjustEVChargersForPower(smoothedPower) {
+    const now = Date.now();
+    // Short cooldown: only 5 seconds between EV adjustments
+    if (now - (this._lastEVAdjustTime || 0) < 5000) return;
+
+    const easeeEntries = (this._settings.priorityList || []).filter(e =>
+      e.enabled !== false && e.action === 'dynamic_current'
+    );
+    if (!easeeEntries.length) return;
+
+    const limit = this._getEffectiveLimit();
+    const totalOverload = Math.max(0, smoothedPower - limit);
+
+    for (const entry of easeeEntries) {
+      const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
+      const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
+
+      // Skip if target hasn't changed (within 1A)
+      if (alreadyTracked && targetCurrent !== null &&
+          Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) < 1) {
+        continue;
+      }
+      // Skip if already at full and target is full
+      if (!alreadyTracked && targetCurrent !== null && targetCurrent >= (entry.circuitLimitA || 32)) {
+        continue;
+      }
+
+      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
+      if (!success) continue;
+
+      this._lastEVAdjustTime = now;
+
+      if (targetCurrent !== null && targetCurrent < (entry.circuitLimitA || 32)) {
+        // Charger is being limited
+        if (!alreadyTracked) {
+          this._mitigatedDevices.push({
+            deviceId: entry.deviceId,
+            action: 'dynamic_current',
+            previousState: { targetCurrent: entry.circuitLimitA || 32 },
+            mitigatedAt: now,
+            currentTargetA: targetCurrent
+          });
+          this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
+          await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+        } else {
+          alreadyTracked.currentTargetA = targetCurrent;
+        }
+        this._persistMitigatedDevices();
+      } else if (targetCurrent === null) {
+        // Pause charger
+        if (!alreadyTracked) {
+          this._mitigatedDevices.push({
+            deviceId: entry.deviceId,
+            action: 'dynamic_current',
+            previousState: { targetCurrent: entry.circuitLimitA || 32 },
+            mitigatedAt: now,
+            currentTargetA: 0
+          });
+          this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
+          await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+        } else {
+          alreadyTracked.currentTargetA = 0;
+        }
+        this._persistMitigatedDevices();
+      } else if (alreadyTracked && targetCurrent >= (entry.circuitLimitA || 32)) {
+        // Charger restored to full
+        this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== entry.deviceId);
+        this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
+        this._persistMitigatedDevices();
+        this._fireTrigger('mitigation_cleared', { device_name: entry.name });
+        if (this._mitigatedDevices.length === 0) {
+          await this._updateVirtualDevice({ alarm: false }).catch(() => {});
+        }
+      }
+    }
   }
 
   // ─── Dynamic EV Charger Control ────────────────────────────────────────────
@@ -806,7 +1046,7 @@ class PowerGuardApp extends Homey.App {
    * @returns {number} Target current in amps (6-32), or null to pause
    */
   _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
-    const circuitLimitA = chargerEntry.circuitLimitA || 32;  // Use circuit limit if set
+    const circuitLimitA = chargerEntry.circuitLimitA || 32;
 
     if (!totalOverloadW || totalOverloadW <= 0) {
       // No overload, charge at maximum (but respect circuit limit)
@@ -817,24 +1057,31 @@ class PowerGuardApp extends Homey.App {
     const currentUsage = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     const chargerPowerW = this._evPowerData[chargerEntry.deviceId]?.powerW || 0;
 
-    // Available power without charger
-    const availablePowerW = limit - (currentUsage - chargerPowerW);
+    // Available power = limit minus everything else (non-charger usage)
+    // Add a 200W safety margin to get definitively under the limit
+    const nonChargerUsage = currentUsage - chargerPowerW;
+    const availablePowerW = limit - nonChargerUsage - 200;
 
-    if (availablePowerW <= 500) {
-      // Less than 500W available, pause charger
+    // Use per-charger phase setting: 1-fas = 230V, 3-fas = 692V
+    const chargerPhases = chargerEntry.chargerPhases || 3;
+    const voltage = chargerPhases === 1 ? 230 : 692;
+    const minCurrent = 6;
+    const maxCurrent = Math.min(32, circuitLimitA);
+
+    if (availablePowerW <= 0) {
+      this.log(`EV calc: usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W → PAUSE (no headroom)`);
       return null;
     }
 
-    // Convert power to current (230V single-phase, simplified)
-    const voltage = 230;
-    const availableCurrentA = Math.round(availablePowerW / voltage);
+    const availableCurrentA = Math.floor(availablePowerW / voltage);  // floor instead of round for safety
 
-    // Clamp to min/max, but also respect circuit limit
-    const minCurrent = 6;
-    const maxCurrent = Math.min(32, circuitLimitA);  // Never exceed circuit limit
+    if (availableCurrentA < minCurrent) {
+      this.log(`EV calc: available=${Math.round(availablePowerW)}W → ${availableCurrentA}A < min ${minCurrent}A → PAUSE`);
+      return null;
+    }
+
     const targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
-
-    this.log(`EV calc: overload=${totalOverloadW}W, available=${availablePowerW}W, circuit=${circuitLimitA}A → ${targetCurrent}A`);
+    this.log(`EV calc: usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W, circuit=${circuitLimitA}A → ${targetCurrent}A`);
     return targetCurrent;
   }
 
@@ -854,8 +1101,9 @@ class PowerGuardApp extends Homey.App {
       const caps = device.capabilities || [];
       const obj = device.capabilitiesObj || {};
 
-      // Find which current capability is supported
-      const currentCapability = ['target_current', 'dynamicCircuitCurrentP1', 'dynamic_current']
+      // Use dynamic_charger_current ("Midlertidig Ladegrense") as primary for load balancing
+      // Falls back to other capabilities if not available
+      const currentCapability = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
         .find(cap => caps.includes(cap));
 
       if (!currentCapability) return false;
@@ -914,20 +1162,18 @@ class PowerGuardApp extends Homey.App {
         return false;
       }
 
-      // For Easee, use the setCapabilityValue API if available, but also try direct call
-      // Check if device has a method to set current (Easee may expose it)
-      const dynCap = ['target_current', 'dynamicCircuitCurrentP1', 'dynamic_current']
+      // Use dynamic_charger_current ("Midlertidig Ladegrense") as primary for Power Guard control
+      // This is the temporary/dynamic limit meant for load balancing — does NOT change the permanent Ladegrense
+      const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
         .find(cap => (device.capabilities || []).includes(cap));
 
       if (dynCap) {
         await device.setCapabilityValue({ capabilityId: dynCap, value: currentA });
-        this._addLog(`Easee adjusted: ${device.name} → ${currentA}A`);
+        this._addLog(`Easee ${dynCap === 'target_charger_current' ? 'Ladegrense' : 'Midlertidig'}: ${device.name} → ${currentA}A`);
         return true;
       }
 
-      // If no direct capability, try calling Easee app method via homey-api
-      // This is a fallback if the Easee app exposes methods
-      this.log(`[Easee] Device ${deviceId} doesn't expose direct current capability, may need flow automation`);
+      this.log(`[Easee] Device ${deviceId} doesn't expose dynamic current capability, available: ${(device.capabilities || []).join(', ')}`);
       return false;
     } catch (err) {
       this.error(`Failed to set Easee current for ${deviceId}:`, err);
@@ -951,7 +1197,56 @@ class PowerGuardApp extends Homey.App {
 
     for (const entry of easeeEntries) {
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
-      await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => {});
+      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
+
+      if (success) {
+        // Track in mitigatedDevices so the UI shows it as "controlled"
+        const alreadyTracked = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
+        if (targetCurrent !== null && targetCurrent < (entry.circuitLimitA || 32)) {
+          // Charger is being limited
+          if (!alreadyTracked) {
+            this._mitigatedDevices.push({
+              deviceId: entry.deviceId,
+              action: 'dynamic_current',
+              previousState: { targetCurrent: entry.circuitLimitA || 32 },
+              mitigatedAt: Date.now(),
+              currentTargetA: targetCurrent
+            });
+            this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
+            await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+          } else {
+            // Update the tracked current
+            const tracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
+            if (tracked) tracked.currentTargetA = targetCurrent;
+          }
+          this._persistMitigatedDevices();
+          this._lastMitigationTime = Date.now();
+        } else if (targetCurrent === null) {
+          // Charger paused
+          if (!alreadyTracked) {
+            this._mitigatedDevices.push({
+              deviceId: entry.deviceId,
+              action: 'dynamic_current',
+              previousState: { targetCurrent: entry.circuitLimitA || 32 },
+              mitigatedAt: Date.now(),
+              currentTargetA: 0
+            });
+            this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
+            await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+          }
+          this._persistMitigatedDevices();
+          this._lastMitigationTime = Date.now();
+        } else if (alreadyTracked) {
+          // Charger restored to full — remove from mitigated
+          this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== entry.deviceId);
+          this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
+          this._persistMitigatedDevices();
+          this._fireTrigger('mitigation_cleared', { device_name: entry.name });
+          if (this._mitigatedDevices.length === 0) {
+            await this._updateVirtualDevice({ alarm: false }).catch(() => {});
+          }
+        }
+      }
     }
   }
 
@@ -960,7 +1255,29 @@ class PowerGuardApp extends Homey.App {
   getDiagnosticInfo() {
     const hasApi = !!this._api;
     const cache  = this.homey.settings.get('_deviceCache') || [];
-    return { hasApi, cacheCount: cache.length };
+    const smoothed = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
+    const limit = this._getEffectiveLimit();
+    return {
+      hasApi,
+      cacheCount: cache.length,
+      enabled: this._settings.enabled,
+      currentPowerW: Math.round(smoothed),
+      limitW: limit,
+      overLimitCount: this._overLimitCount,
+      hysteresisCount: this._settings.hysteresisCount,
+      mitigatedDevices: this._mitigatedDevices.map(m => ({
+        deviceId: m.deviceId, action: m.action, currentTargetA: m.currentTargetA
+      })),
+      powerBufferLen: this._powerBuffer.length,
+      hanConnected: !!this._hanDeviceId,
+      lastHanReading: this._lastHanReading ? new Date(this._lastHanReading).toISOString() : null,
+      cooldownSeconds: this._settings.cooldownSeconds,
+      lastMitigationTime: this._lastMitigationTime ? new Date(this._lastMitigationTime).toISOString() : null,
+      easeeChargers: (this._settings.priorityList || []).filter(e => e.action === 'dynamic_current').map(e => ({
+        name: e.name, deviceId: e.deviceId, circuitLimitA: e.circuitLimitA, enabled: e.enabled !== false
+      })),
+      recentLog: this._mitigationLog.slice(-5),
+    };
   }
 
   getDevicesForSettings() {
@@ -976,6 +1293,80 @@ class PowerGuardApp extends Homey.App {
   // ─── Public API (settings UI) ─────────────────────────────────────────────
 
   getStatus() {
+    // Build per-charger status: idle / charging / dynamic / paused
+    const evChargerStatus = (this._settings.priorityList || [])
+      .filter(e => e.action === 'dynamic_current' && e.enabled !== false)
+      .map(entry => {
+        const evData = this._evPowerData[entry.deviceId] || {};
+        const mitigated = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
+        let status = 'idle';
+        let statusLabel = 'Idle';
+        let currentA = 0;
+
+        // First check: is a car even connected?
+        const isConnected = evData.isConnected !== false && evData.isConnected !== null;
+        const chargerStatus = evData.chargerStatus;
+
+        // Check for disconnected / idle states
+        const isDisconnected = (
+          evData.isConnected === false ||
+          chargerStatus === 1 || chargerStatus === 'disconnected' || chargerStatus === 'DISCONNECTED'
+        );
+
+        if (isDisconnected) {
+          status = 'idle';
+          statusLabel = 'No car connected';
+          currentA = 0;
+        } else if (mitigated) {
+          // Power Guard is controlling this charger
+          if (mitigated.currentTargetA === 0 || mitigated.currentTargetA === null) {
+            status = 'paused';
+            statusLabel = 'Paused by Power Guard';
+            currentA = 0;
+          } else {
+            status = 'dynamic';
+            statusLabel = 'Dynamic (' + mitigated.currentTargetA + 'A)';
+            currentA = mitigated.currentTargetA;
+          }
+        } else if (evData.powerW > 100) {
+          // Drawing meaningful power = actually charging
+          status = 'charging';
+          const offeredA = evData.offeredCurrent || (entry.circuitLimitA || 32);
+          statusLabel = 'Charging (' + Math.round(offeredA) + 'A)';
+          currentA = offeredA;
+        } else if (isConnected && (chargerStatus === 2 || chargerStatus === 'awaiting_start' || chargerStatus === 'AWAITING_START')) {
+          status = 'waiting';
+          statusLabel = 'Waiting to start';
+          currentA = 0;
+        } else if (isConnected && (chargerStatus === 4 || chargerStatus === 'completed' || chargerStatus === 'COMPLETED')) {
+          status = 'completed';
+          statusLabel = 'Completed';
+          currentA = 0;
+        } else if (isConnected) {
+          // Connected but not drawing power — could be full, or scheduled
+          status = 'connected';
+          statusLabel = 'Connected';
+          currentA = 0;
+        } else {
+          // Unknown state
+          status = 'idle';
+          statusLabel = 'Idle';
+          currentA = 0;
+        }
+
+        return {
+          deviceId: entry.deviceId,
+          name: entry.name || evData.name || 'Charger',
+          powerW: evData.powerW || 0,
+          isCharging: status === 'charging' || status === 'dynamic',
+          status: status,
+          statusLabel: statusLabel,
+          currentA: currentA,
+          circuitLimitA: entry.circuitLimitA || 32,
+          chargerStatus: chargerStatus,
+        };
+      });
+
     return {
       enabled:          this._settings.enabled,
       profile:          this._settings.profile,
@@ -986,19 +1377,109 @@ class PowerGuardApp extends Homey.App {
       hanConnected:     !!this._hanDeviceId,
       hanLastSeen:      this._lastHanReading,
       log:              this._mitigationLog.slice(-20),
-      evChargers:       Object.values(this._evPowerData),
+      evChargers:       evChargerStatus,
     };
   }
 
   async onUninit() {
     if (this._watchdogInterval)     clearInterval(this._watchdogInterval);
     if (this._cacheRefreshInterval) clearInterval(this._cacheRefreshInterval);
+    if (this._hanPollInterval)      clearInterval(this._hanPollInterval);
     if (this._hanCapabilityInstance) {
       try { this._hanCapabilityInstance.destroy(); } catch (_) {}
     }
     for (const inst of Object.values(this._evCapabilityInstances || {})) {
       try { inst.destroy(); } catch (_) {}
     }
+  }
+
+  /**
+   * Test Easee charger control — probes capabilities and tries a small adjustment.
+   * Called from the settings UI test button.
+   */
+  async testEaseeCharger(deviceId) {
+    const results = { steps: [], success: false };
+
+    try {
+      // Step 1: Check API
+      if (!this._api) {
+        results.steps.push({ step: 'API check', ok: false, detail: 'HomeyAPI not available' });
+        return results;
+      }
+      results.steps.push({ step: 'API check', ok: true, detail: 'HomeyAPI connected' });
+
+      // Step 2: Find charger(s)
+      const priorityList = this._settings.priorityList || [];
+      const easeeEntries = priorityList.filter(e => e.action === 'dynamic_current' && e.enabled !== false);
+
+      if (!easeeEntries.length) {
+        results.steps.push({ step: 'Find chargers', ok: false, detail: 'No dynamic_current chargers in priority list' });
+        return results;
+      }
+      results.steps.push({ step: 'Find chargers', ok: true, detail: `Found ${easeeEntries.length} charger(s): ${easeeEntries.map(e => e.name).join(', ')}` });
+
+      // Use specified device or first one
+      const targetEntry = deviceId
+        ? easeeEntries.find(e => e.deviceId === deviceId) || easeeEntries[0]
+        : easeeEntries[0];
+
+      // Step 3: Get device from API
+      let device;
+      try {
+        device = await this._api.devices.getDevice({ id: targetEntry.deviceId });
+      } catch (err) {
+        results.steps.push({ step: 'Get device', ok: false, detail: `Cannot get device ${targetEntry.name}: ${err.message}` });
+        return results;
+      }
+      results.steps.push({ step: 'Get device', ok: true, detail: `Got device: ${device.name}` });
+
+      // Step 4: List capabilities
+      const caps = device.capabilities || [];
+      const obj = device.capabilitiesObj || {};
+      const relevantCaps = ['target_charger_current', 'target_circuit_current', 'target_current',
+                            'dynamic_charger_current', 'dynamicChargerCurrent',
+                            'dynamicCircuitCurrentP1', 'dynamic_current',
+                            'measure_current', 'measure_power', 'onoff', 'charger_status',
+                            'measure_current.p1', 'measure_current.p2', 'measure_current.p3',
+                            'measure_current.offered', 'measure_voltage'];
+      const found = {};
+      for (const cap of relevantCaps) {
+        if (caps.includes(cap)) {
+          found[cap] = obj[cap] ? obj[cap].value : 'no value';
+        }
+      }
+      results.steps.push({ step: 'Capabilities', ok: true, detail: JSON.stringify(found) });
+
+      // Step 5: Find the dynamic current control capability (Midlertidig Ladegrense)
+      const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
+        .find(cap => caps.includes(cap));
+
+      if (!dynCap) {
+        results.steps.push({ step: 'Current capability', ok: false, detail: `No current control capability found. Available: ${caps.join(', ')}` });
+        return results;
+      }
+
+      const currentVal = obj[dynCap] ? obj[dynCap].value : null;
+      results.steps.push({ step: 'Current capability', ok: true, detail: `${dynCap} = ${currentVal}A` });
+
+      // Also list ALL capabilities for debugging
+      results.steps.push({ step: 'All capabilities', ok: true, detail: caps.join(', ') });
+
+      // Step 6: Test write — set to current value (no actual change, just test the API call)
+      try {
+        const testVal = currentVal || 16;
+        await device.setCapabilityValue({ capabilityId: dynCap, value: testVal });
+        results.steps.push({ step: 'Write test', ok: true, detail: `Successfully wrote ${dynCap} = ${testVal}A (same value, safe test)` });
+        results.success = true;
+      } catch (err) {
+        results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write ${dynCap}: ${err.message}` });
+      }
+
+    } catch (err) {
+      results.steps.push({ step: 'Unexpected error', ok: false, detail: err.message });
+    }
+
+    return results;
   }
 }
 

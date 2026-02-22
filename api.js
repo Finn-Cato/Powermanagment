@@ -8,17 +8,20 @@ module.exports = {
   async getSettings({ homey }) {
     const s = homey.settings;
     return {
-      enabled:         s.get('enabled')         ?? true,
-      profile:         s.get('profile')         ?? 'normal',
-      powerLimitW:     s.get('powerLimitW')     ?? 10000,
-      phase1LimitA:    s.get('phase1LimitA')    ?? 0,
-      phase2LimitA:    s.get('phase2LimitA')    ?? 0,
-      phase3LimitA:    s.get('phase3LimitA')    ?? 0,
-      smoothingWindow: s.get('smoothingWindow') ?? 5,
-      spikeMultiplier: s.get('spikeMultiplier') ?? 2.0,
-      hysteresisCount: s.get('hysteresisCount') ?? 3,
-      cooldownSeconds: s.get('cooldownSeconds') ?? 30,
-      priorityList:    s.get('priorityList')    ?? [],
+      enabled:           s.get('enabled')           ?? true,
+      profile:           s.get('profile')           ?? 'normal',
+      powerLimitW:       s.get('powerLimitW')       ?? 10000,
+      phase1LimitA:      s.get('phase1LimitA')      ?? 0,
+      phase2LimitA:      s.get('phase2LimitA')      ?? 0,
+      phase3LimitA:      s.get('phase3LimitA')      ?? 0,
+      smoothingWindow:   s.get('smoothingWindow')   ?? 5,
+      spikeMultiplier:   s.get('spikeMultiplier')   ?? 2.0,
+      hysteresisCount:   s.get('hysteresisCount')   ?? 3,
+      cooldownSeconds:   s.get('cooldownSeconds')   ?? 30,
+      voltageSystem:     s.get('voltageSystem')     ?? '230v-1phase',
+      phaseDistribution: s.get('phaseDistribution') ?? 'balanced',
+      mainCircuitA:      s.get('mainCircuitA')      ?? 25,
+      priorityList:      s.get('priorityList')      ?? [],
     };
   },
 
@@ -34,17 +37,20 @@ module.exports = {
     const s = homey.settings;
     return {
       settings: {
-        enabled:         s.get('enabled')         ?? true,
-        profile:         s.get('profile')         ?? 'normal',
-        powerLimitW:     s.get('powerLimitW')     ?? 10000,
-        phase1LimitA:    s.get('phase1LimitA')    ?? 0,
-        phase2LimitA:    s.get('phase2LimitA')    ?? 0,
-        phase3LimitA:    s.get('phase3LimitA')    ?? 0,
-        smoothingWindow: s.get('smoothingWindow') ?? 5,
-        spikeMultiplier: s.get('spikeMultiplier') ?? 2.0,
-        hysteresisCount: s.get('hysteresisCount') ?? 3,
-        cooldownSeconds: s.get('cooldownSeconds') ?? 30,
-        priorityList:    s.get('priorityList')    ?? [],
+        enabled:           s.get('enabled')           ?? true,
+        profile:           s.get('profile')           ?? 'normal',
+        powerLimitW:       s.get('powerLimitW')       ?? 10000,
+        phase1LimitA:      s.get('phase1LimitA')      ?? 0,
+        phase2LimitA:      s.get('phase2LimitA')      ?? 0,
+        phase3LimitA:      s.get('phase3LimitA')      ?? 0,
+        smoothingWindow:   s.get('smoothingWindow')   ?? 5,
+        spikeMultiplier:   s.get('spikeMultiplier')   ?? 2.0,
+        hysteresisCount:   s.get('hysteresisCount')   ?? 3,
+        cooldownSeconds:   s.get('cooldownSeconds')   ?? 30,
+        voltageSystem:     s.get('voltageSystem')     ?? '230v-1phase',
+        phaseDistribution: s.get('phaseDistribution') ?? 'balanced',
+        mainCircuitA:      s.get('mainCircuitA')      ?? 25,
+        priorityList:      s.get('priorityList')      ?? [],
       },
       status:  homey.app.getStatus(),
       devices: homey.app.getDevicesForSettings(),
@@ -70,13 +76,23 @@ module.exports = {
       'enabled', 'profile', 'powerLimitW',
       'phase1LimitA', 'phase2LimitA', 'phase3LimitA',
       'smoothingWindow', 'spikeMultiplier', 'hysteresisCount', 'cooldownSeconds',
+      'voltageSystem', 'phaseDistribution', 'mainCircuitA',
     ];
+    const changed = [];
     for (const key of allowed) {
-      if (body[key] !== undefined) homey.settings.set(key, body[key]);
+      if (body[key] !== undefined) {
+        homey.settings.set(key, body[key]);
+        changed.push(key);
+      }
     }
     // Reload in-memory settings immediately so the profile etc. take effect now
     if (homey.app && typeof homey.app._loadSettings === 'function') {
       homey.app._loadSettings();
+    }
+    // If power limit or profile changed, force immediate charger re-evaluation
+    const limitKeys = ['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA'];
+    if (changed.some(k => limitKeys.includes(k)) && homey.app._forceChargerRecheck) {
+      homey.app._forceChargerRecheck().catch(() => {});
     }
     return { ok: true };
   },
@@ -103,5 +119,15 @@ module.exports = {
       cacheCount: cache.length,
       cacheReady: app._deviceCacheReady || false,
     };
+  },
+
+  async testCharger({ homey, body }) {
+    const app = homey.app;
+    return app.testEaseeCharger(body ? body.deviceId : null);
+  },
+
+  async applyCircuitLimits({ homey }) {
+    const app = homey.app;
+    return app.applyCircuitLimitsToChargers();
   },
 };

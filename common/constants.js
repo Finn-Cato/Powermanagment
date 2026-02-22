@@ -24,6 +24,9 @@ const DEFAULT_SETTINGS = {
   spikeMultiplier: 2.0,     // reading > avg * this is ignored
   hysteresisCount: 3,       // consecutive readings over limit before acting
   cooldownSeconds: 30,      // min seconds between mitigation steps
+  voltageSystem: '230v-1phase',   // '230v-1phase' or '400v-3phase'
+  phaseDistribution: 'balanced',  // charger phase distribution
+  mainCircuitA: 25,               // main circuit breaker amperage
   priorityList: [],         // [{deviceId, name, priority, action, minRuntimeSeconds, minOffTimeSeconds}]
 };
 
