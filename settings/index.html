@@ -430,10 +430,10 @@
           <thead style="border-bottom:2px solid #e5e5ea;">
             <tr>
               <th style="text-align:left;padding:8px 0;color:#636366;font-weight:500;">Device</th>
-              <th style="text-align:left;padding:8px 0;color:#636366;font-weight:500;">Zone</th>
-              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Control</th>
-              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Temp</th>
-              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Power</th>
+              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Status</th>
+              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Current</th>
+              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Target</th>
+              <th style="text-align:center;padding:8px 0;color:#636366;font-weight:500;">Controls</th>
             </tr>
           </thead>
           <tbody id="floorheater-table">
@@ -1183,17 +1183,20 @@
         }
 
         var rows = floorHeaters.map(function(heater) {
-          var controlStatus = heater.canControl ? '✓ Yes' : '✗ No';
-          var controlColor = heater.canControl ? '#34c759' : '#ff3b30';
-          var tempStatus = heater.hasMeasureTemp ? '✓' : '✗';
-          var powerStatus = heater.hasMeasurePower ? '✓' : '✗';
+          var statusText = heater.isOn ? 'ON' : 'OFF';
+          var statusColor = heater.isOn ? '#34c759' : '#999';
+          var currentTemp = heater.currentMeasure !== null ? heater.currentMeasure.toFixed(1) + '°C' : '–';
+          var targetTemp = heater.currentTarget !== null ? heater.currentTarget.toFixed(1) + '°C' : '–';
+          var deviceId = heater.deviceId;
           
           return '<tr style="border-bottom:1px solid #f0f0f0;">' +
-            '<td style="padding:10px 0;color:#1d1d1f;font-weight:500;">' + heater.name + '</td>' +
-            '<td style="padding:10px 0;color:#636366;">' + heater.zone + '</td>' +
-            '<td style="text-align:center;padding:10px 0;color:' + controlColor + ';font-weight:500;">' + controlStatus + '</td>' +
-            '<td style="text-align:center;padding:10px 0;color:#1d1d1f;">' + tempStatus + '</td>' +
-            '<td style="text-align:center;padding:10px 0;color:#1d1d1f;">' + powerStatus + '</td>' +
+            '<td style="padding:10px 0;color:#1d1d1f;font-weight:500;">' + heater.name + '<br><span style="font-size:11px;color:#999;">' + heater.zone + '</span></td>' +
+            '<td style="text-align:center;padding:10px 0;"><span style="color:' + statusColor + ';font-weight:500;">' + statusText + '</span></td>' +
+            '<td style="text-align:center;padding:10px 0;color:#1d1d1f;">' + currentTemp + '</td>' +
+            '<td style="text-align:center;padding:10px 0;"><input type="number" id="temp-' + deviceId + '" value="' + (heater.currentTarget || 20) + '" min="5" max="30" step="0.5" style="width:60px;padding:4px;border:1px solid #d1d1d6;border-radius:4px;font-size:12px;"></td>' +
+            '<td style="text-align:center;padding:10px 0;"><button onclick="controlHeater(\'' + deviceId + '\', \'off\')" style="padding:4px 8px;background:#ff3b30;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Off</button>' +
+            '<button onclick="setHeaterTemp(\'' + deviceId + '\')" style="padding:4px 8px;background:#007AFF;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">Set</button>' +
+            '<button onclick="controlHeater(\'' + deviceId + '\', \'on\')" style="padding:4px 8px;background:#34c759;color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px;margin:2px;">On</button></td>' +
             '</tr>';
         }).join('');
         tbody.innerHTML = rows;
@@ -1201,6 +1204,46 @@
       .catch(function(err) {
         showError('Failed to load floor heaters: ' + err.message);
         document.getElementById('floorheater-table').innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#ff3b30;">Error loading floor heaters</td></tr>';
+      });
+  }
+
+  function controlHeater(deviceId, action) {
+    if (!_H) { showError('Not connected to Homey'); return; }
+    hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: action, value: null })
+      .then(function(data) {
+        if (data.ok) {
+          showToast(data.message || 'Control sent');
+          // Reload to show updated status
+          setTimeout(loadFloorHeaters, 500);
+        } else {
+          showError('Control failed: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(function(err) {
+        showError('Control error: ' + err.message);
+      });
+  }
+
+  function setHeaterTemp(deviceId) {
+    if (!_H) { showError('Not connected to Homey'); return; }
+    var tempInput = document.getElementById('temp-' + deviceId);
+    if (!tempInput) return;
+    var temp = parseFloat(tempInput.value);
+    if (isNaN(temp)) {
+      showError('Invalid temperature value');
+      return;
+    }
+    hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: temp })
+      .then(function(data) {
+        if (data.ok) {
+          showToast(data.message || 'Temperature set');
+          setTimeout(loadFloorHeaters, 500);
+        } else {
+          showError('Failed: ' + (data.error || 'Unknown error'));
+        }
+      })
+      .catch(function(err) {
+        showError('Error: ' + err.message);
       });
   }
 

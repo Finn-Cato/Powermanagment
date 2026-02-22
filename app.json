@@ -79,6 +79,10 @@
       "method": "GET",
       "path": "/floorHeaters"
     },
+    "controlFloorHeater": {
+      "method": "POST",
+      "path": "/floorHeater-control"
+    },
     "testCharger": {
       "method": "POST",
       "path": "/test-charger"

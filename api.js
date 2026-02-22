@@ -17,6 +17,11 @@ module.exports = {
     return homey.app.checkFloorHeaterConnections();
   },
 
+  async controlFloorHeater({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request' };
+    return await homey.app.controlFloorHeater(body.deviceId, body.action, body.value);
+  },
+
   async getSettings({ homey }) {
     const s = homey.settings;
     return {

@@ -1397,7 +1397,29 @@ class PowerGuardApp extends Homey.App {
       const hasTargetTemp = caps.includes('target_temperature');
       const hasMeasureTemp = caps.includes('measure_temperature');
       const hasMeasurePower = caps.includes('measure_power');
+      const hasOnOff = caps.includes('onoff');
       const canControl = hasTargetTemp; // Can be controlled if it has target_temperature
+      
+      // Get current values
+      let currentTarget = null;
+      let currentMeasure = null;
+      let isOn = null;
+      
+      try {
+        if (device.capabilitiesObj) {
+          if (device.capabilitiesObj.target_temperature) {
+            currentTarget = device.capabilitiesObj.target_temperature.value;
+          }
+          if (device.capabilitiesObj.measure_temperature) {
+            currentMeasure = device.capabilitiesObj.measure_temperature.value;
+          }
+          if (device.capabilitiesObj.onoff) {
+            isOn = device.capabilitiesObj.onoff.value;
+          }
+        }
+      } catch (err) {
+        this.log(`[FloorHeater] Error reading values for ${device.name}: ${err.message}`);
+      }
       
       floorHeaters.push({
         deviceId: device.id,
@@ -1407,15 +1429,54 @@ class PowerGuardApp extends Homey.App {
         hasTargetTemp: hasTargetTemp,
         hasMeasureTemp: hasMeasureTemp,
         hasMeasurePower: hasMeasurePower,
+        hasOnOff: hasOnOff,
         canControl: canControl,
         controlCapability: canControl ? 'target_temperature' : 'none',
+        currentTarget: currentTarget,
+        currentMeasure: currentMeasure,
+        isOn: isOn,
         timestamp: new Date().toISOString()
       });
       
-      this.log(`[FloorHeater] Found: ${device.name} | Control: ${canControl} | Power: ${hasMeasurePower}`);
+      this.log(`[FloorHeater] Found: ${device.name} | Control: ${canControl} | Power: ${hasMeasurePower} | Target: ${currentTarget}°C | Measure: ${currentMeasure}°C`);
     });
     
     return floorHeaters;
+  }
+
+  async controlFloorHeater(deviceId, action, value) {
+    // Control a floor heater: action = 'on', 'off', 'setTarget'
+    try {
+      const allDevices = this.homey.settings.get('_deviceCache') || [];
+      const device = allDevices.find(d => d && d.id === deviceId);
+      
+      if (!device) {
+        this.log(`[FloorHeater] Device not found: ${deviceId}`);
+        return { ok: false, error: 'Device not found' };
+      }
+      
+      this.log(`[FloorHeater] Control action: ${action} on ${device.name}, value: ${value}`);
+      
+      if (action === 'on' && device.capabilitiesObj?.onoff) {
+        await device.setCapabilityValue('onoff', true);
+        return { ok: true, message: `${device.name} turned on` };
+      } else if (action === 'off' && device.capabilitiesObj?.onoff) {
+        await device.setCapabilityValue('onoff', false);
+        return { ok: true, message: `${device.name} turned off` };
+      } else if (action === 'setTarget' && device.capabilitiesObj?.target_temperature) {
+        const temp = parseFloat(value);
+        if (isNaN(temp)) {
+          return { ok: false, error: 'Invalid temperature value' };
+        }
+        await device.setCapabilityValue('target_temperature', temp);
+        return { ok: true, message: `${device.name} set to ${temp}°C` };
+      } else {
+        return { ok: false, error: 'Invalid action or capability not available' };
+      }
+    } catch (err) {
+      this.log(`[FloorHeater] Control error: ${err.message}`);
+      return { ok: false, error: err.message };
+    }
   }
 
   // ─── Public API (settings UI) ─────────────────────────────────────────────
