@@ -1039,7 +1039,7 @@
           var timeStr = new Date(data.timestamp).toLocaleTimeString();
           var deviceName = (d.name || 'Unknown') + (d.class ? ' (' + d.class + ')' : '');
           var deviceId = d.deviceId || idx;
-          var isChecked = localStorage.getItem('consumption-device-' + deviceId) !== 'false';
+          var isChecked = _deviceVisibility[deviceId] !== false; // Default to checked
           var display = isChecked ? '' : 'display:none;';
           return '<tr style="border-bottom:1px solid #f0f0f0;' + display + '" class="consumption-row" data-device-id="' + deviceId + '">' +
             '<td style="padding:10px 0;text-align:center;"><input type="checkbox" ' + (isChecked ? 'checked' : '') + ' class="device-toggle" onchange="toggleDevice(this, \'' + deviceId + '\')" style="cursor:pointer;accent-color:#e8441a;"></td>' +
@@ -1061,8 +1061,9 @@
   }
 
   // ── Toggle Device Visibility ───────────────────────────────────────────────
+  var _deviceVisibility = {}; // In-memory storage for device visibility
   function toggleDevice(checkbox, deviceId) {
-    localStorage.setItem('consumption-device-' + deviceId, checkbox.checked ? 'true' : 'false');
+    _deviceVisibility[deviceId] = checkbox.checked;
     // Find the row and hide/show it
     var row = document.querySelector('[data-device-id="' + deviceId + '"]');
     if (row) {
