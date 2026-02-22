@@ -386,12 +386,14 @@
       <div class="card">
         <h2>Power Consumption by Device</h2>
         <div style="font-size:12px;color:#636366;margin-bottom:12px;font-weight:500">
-          Top power-consuming devices (check/uncheck to show/hide)
+          Device type filters
+        </div>
+        <div id="device-type-filters" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;">
+          <!-- Filters will be populated here -->
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead style="border-bottom:2px solid #e5e5ea;">
             <tr>
-              <th style="text-align:left;padding:8px 0;color:#636366;font-weight:500;width:30px;"></th>
               <th style="text-align:left;padding:8px 0;color:#636366;font-weight:500;">Device</th>
               <th style="text-align:right;padding:8px 0;color:#636366;font-weight:500;">Current</th>
               <th style="text-align:right;padding:8px 0;color:#636366;font-weight:500;">Avg</th>
@@ -1019,6 +1021,19 @@
 
   // ── Load Power Consumption ─────────────────────────────────────────────────
   var _consumptionRefresh = null;
+  var _classFilters = {}; // Track which device classes are visible
+  
+  function toggleClassFilter(className) {
+    _classFilters[className] = !(_classFilters[className] === false);
+    // Update visibility of all rows
+    var rows = document.querySelectorAll('.consumption-row');
+    rows.forEach(function(row) {
+      var rowClass = row.getAttribute('data-device-class');
+      var isVisible = _classFilters[rowClass] !== false;
+      row.style.display = isVisible ? '' : 'none';
+    });
+  }
+  
   function loadConsumption() {
     if (!_H) { showError('Not connected to Homey'); return; }
     hApi('GET', '/powerConsumption', null)
@@ -1032,17 +1047,34 @@
         if (devices.length === 0) {
           tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#aaa;">No devices with power data found</td></tr>';
           document.getElementById('consumption-time').textContent = '–';
+          document.getElementById('device-type-filters').innerHTML = '';
           return;
         }
 
+        // Collect unique device classes
+        var classesSet = {};
+        devices.forEach(function(d) {
+          var cls = d.class || 'unknown';
+          classesSet[cls] = true;
+        });
+        var classes = Object.keys(classesSet).sort();
+
+        // Create filter checkboxes
+        var filterHtml = classes.map(function(cls) {
+          var isChecked = _classFilters[cls] !== false;
+          return '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;">' +
+            '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' onchange="toggleClassFilter(\'' + cls + '\')" style="cursor:pointer;accent-color:#e8441a;">' +
+            '<span style="font-size:13px;color:#1d1d1f;font-weight:500;">' + (cls.charAt(0).toUpperCase() + cls.slice(1)) + '</span>' +
+            '</label>';
+        }).join('');
+        document.getElementById('device-type-filters').innerHTML = filterHtml;
+
         var rows = devices.map(function(d, idx) {
-          var timeStr = new Date(data.timestamp).toLocaleTimeString();
           var deviceName = (d.name || 'Unknown') + (d.class ? ' (' + d.class + ')' : '');
-          var deviceId = d.deviceId || idx;
-          var isChecked = _deviceVisibility[deviceId] !== false; // Default to checked
-          var display = isChecked ? '' : 'display:none;';
-          return '<tr style="border-bottom:1px solid #f0f0f0;' + display + '" class="consumption-row" data-device-id="' + deviceId + '">' +
-            '<td style="padding:10px 0;text-align:center;"><input type="checkbox" ' + (isChecked ? 'checked' : '') + ' class="device-toggle" onchange="toggleDevice(this, \'' + deviceId + '\')" style="cursor:pointer;accent-color:#e8441a;"></td>' +
+          var cls = d.class || 'unknown';
+          var isVisible = _classFilters[cls] !== false;
+          var display = isVisible ? '' : 'display:none;';
+          return '<tr style="border-bottom:1px solid #f0f0f0;' + display + '" class="consumption-row" data-device-class="' + cls + '">' +
             '<td style="padding:10px 0;color:#1d1d1f;">' + (idx + 1) + '. ' + deviceName + '</td>' +
             '<td style="text-align:right;padding:10px 0;color:#1d1d1f;font-weight:500;">' + d.current + ' W</td>' +
             '<td style="text-align:right;padding:10px 0;color:#636366;">' + d.avg + ' W</td>' +
@@ -1058,17 +1090,6 @@
       .catch(function(err) {
         showError('Failed to load power consumption: ' + err.message);
       });
-  }
-
-  // ── Toggle Device Visibility ───────────────────────────────────────────────
-  var _deviceVisibility = {}; // In-memory storage for device visibility
-  function toggleDevice(checkbox, deviceId) {
-    _deviceVisibility[deviceId] = checkbox.checked;
-    // Find the row and hide/show it
-    var row = document.querySelector('[data-device-id="' + deviceId + '"]');
-    if (row) {
-      row.style.display = checkbox.checked ? '' : 'none';
-    }
   }
 
   // ── Load Debug Log ─────────────────────────────────────────────────────
