@@ -38,6 +38,36 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - Spike filtering and configurable reaction speed
 - Flow cards for Homey automations
 
+## Getting Started
+
+Before Power Guard can protect your home, complete these steps:
+
+### 1. Set Your Power Limit
+
+Go to the **Settings** tab and enter your grid connection limit in watts (e.g. 10 000 W). This is the maximum power your household is allowed to draw.
+
+### 2. Enable Devices
+
+Go to the **Devices** tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the bottom are turned off first during overload.
+
+### 3. Set Up EV Chargers (if applicable)
+
+For EV chargers, set the action to **Dynamic Current** on the Devices tab. This enables smart current control and makes the charger visible on the System tab.
+
+Then go to the **System** tab to configure your chargers under **Managed Chargers**:
+
+- **Main circuit breaker** — Set the max amperage for your charger circuit (e.g. 25 A or 32 A). This caps how much current each charger can draw.
+- **Per-charger phase configuration** — Each charger can be set independently to **1-phase** or **3-phase**. For example, if you have two chargers and one is wired for single-phase while the other uses three-phase, you can configure them individually.
+- **Per-charger circuit limit** — Set the circuit breaker limit for each charger (6–32 A).
+- **Max power calculation** — The app automatically calculates the maximum power each charger can use based on its phase setting and circuit limit. A 3-phase charger at 32 A gives ~22.1 kW, while a 1-phase charger at 16 A gives ~3.7 kW.
+- **Total summary** — See the combined amperage and power capacity of all your chargers at a glance.
+
+This setup ensures Power Guard knows exactly how much power your chargers can use, so it can distribute available capacity correctly during dynamic current control.
+
+### 4. Activate the Guard
+
+On the **Settings** tab, make sure "Guard active" is turned on. Choose a protection profile (Normal or Strict) and you're ready to go.
+
 ## Settings Page
 
 The app has five tabs in the settings page:
@@ -74,8 +104,6 @@ Drag and drop devices to set priority order. Devices at the **bottom** are turne
 | Temperature | Lowers target temperature |
 | Charge Pause | Pauses EV charging |
 | Dynamic Current | Adjusts charger current limit |
-
-> **⚡ EV Charger Setup:** To use EV charger features, go to the **Devices** tab, enable your charger, and set its action to **Dynamic Current**. Only then will it appear on the Settings and System tabs.
 
 ### Power Tab
 
