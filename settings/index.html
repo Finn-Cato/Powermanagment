@@ -63,10 +63,10 @@
     .log-time  { color: var(--text-tertiary); margin-right: 6px; }
     .save-row  { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
     /* Tabs */
-    .tab-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; padding: 4px; background: var(--bg-tab-bar); border-radius: 12px; }
-    .tab-btn { background: none; border: none; padding: 8px 14px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.2s ease; display: flex; align-items: center; gap: 5px; white-space: nowrap; flex: 1 1 auto; justify-content: center; min-width: 0; }
-    .tab-btn .tab-icon { font-size: 14px; flex-shrink: 0; }
-    .tab-btn .tab-label { overflow: hidden; text-overflow: ellipsis; }
+    .tab-bar { display: flex; flex-wrap: nowrap; gap: 0; margin-bottom: 16px; padding: 3px; background: var(--bg-tab-bar); border-radius: 10px; }
+    .tab-btn { background: none; border: none; padding: 8px 4px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; flex: 1 1 0; justify-content: center; min-width: 0; -webkit-tap-highlight-color: transparent; }
+    .tab-btn .tab-icon { font-size: 18px; line-height: 1; }
+    .tab-btn .tab-label { font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
     .tab-btn.active { color: var(--text-primary); background: var(--bg-card); font-weight: 600; box-shadow: 0 1px 3px var(--shadow); }
     .tab-btn:hover:not(.active) { color: var(--text-primary); background: rgba(255,255,255,0.5); }
     /* Device list */
@@ -119,9 +119,10 @@
       .dev-list li.managed .priority-num { font-size: 11px; }
       .dev-list li.managed select { font-size: 11px; }
       .dev-list select { max-width: 100px; font-size: 10px; }
-      .tab-btn { padding: 6px 6px; font-size: 10px; gap: 3px; }
-      .tab-btn .tab-icon { font-size: 13px; }
-      .tab-bar { gap: 4px; padding: 3px; margin-bottom: 10px; }
+      .tab-btn { padding: 6px 2px; }
+      .tab-btn .tab-icon { font-size: 16px; }
+      .tab-btn .tab-label { font-size: 9px; }
+      .tab-bar { padding: 2px; margin-bottom: 10px; border-radius: 8px; }
       .status-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
       .stat-box { padding: 8px 8px; }
       .header-top { flex-direction: column; align-items: flex-start; }
@@ -647,7 +648,9 @@
           status: c.status || 'charging',
           statusLabel: c.statusLabel || 'Charging',
           currentA: c.currentA || 0,
-          powerW: c.powerW || 0
+          powerW: c.powerW || 0,
+          chargerStatus: c.chargerStatus,
+          isCharging: c.isCharging
         };
         // Live-update the status badge in the System tab table without full re-render
         var badge = document.getElementById('charger-status-' + c.deviceId);
@@ -830,6 +833,21 @@
             '💡 Max Power per charger is capped by the main circuit breaker (' + mainCircuitA + 'A). ' +
             'Actual current will be reduced during overload mitigation.' +
             '</div>';
+
+    // Debug: show raw charger_status values from the Easee API
+    html += '<div style="margin-top:12px; padding:8px; background:var(--bg-surface); border-radius:6px; font-size:11px; font-family:monospace; color:var(--text-muted); line-height:1.6;">';
+    html += '<div style="font-weight:600; margin-bottom:4px;">🔍 Raw charger status (debug)</div>';
+    chargers.forEach(function(charger) {
+      var live = _lastChargerStatus[charger.deviceId] || {};
+      html += '<div>' + escHtml(charger.name) + ': ' +
+              'charger_status=' + (live.chargerStatus !== undefined && live.chargerStatus !== null ? live.chargerStatus : 'N/A') +
+              ' | status=' + (live.status || '?') +
+              ' | label=' + (live.statusLabel || '?') +
+              ' | power=' + (live.powerW || 0) + 'W' +
+              ' | isCharging=' + (live.isCharging !== undefined ? live.isCharging : '?') +
+              '</div>';
+    });
+    html += '</div>';
 
     container.innerHTML = html;
   }

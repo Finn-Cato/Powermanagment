@@ -454,8 +454,28 @@ class PowerGuardApp extends Homey.App {
     const avg = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     if (this._powerBuffer.length >= this._settings.smoothingWindow
         && isSpike(rawValue, avg, this._settings.spikeMultiplier)) {
-      this.log(`Spike ignored: ${rawValue} W (avg ${avg.toFixed(0)} W)`);
-      return;
+      // Don't filter out legitimate load changes from EV chargers.
+      // Calculate max expected charger load from all connected chargers.
+      let maxChargerW = 0;
+      const evEntries = (this._settings.priorityList || []).filter(e =>
+        e.action === 'dynamic_current' && e.enabled !== false
+      );
+      for (const entry of evEntries) {
+        const evData = this._evPowerData[entry.deviceId];
+        if (evData && evData.isConnected !== false) {
+          const phases = entry.chargerPhases || 3;
+          const voltage = phases === 1 ? 230 : 692;
+          const circuitA = entry.circuitLimitA || 32;
+          maxChargerW += voltage * circuitA;
+        }
+      }
+      // If the jump is within charger capacity, allow it
+      if (rawValue <= avg + maxChargerW + 500) {
+        this.log(`Spike allowed (charger capacity ${Math.round(maxChargerW)}W): ${rawValue} W (avg ${avg.toFixed(0)} W)`);
+      } else {
+        this.log(`Spike ignored: ${rawValue} W (avg ${avg.toFixed(0)} W, charger headroom ${Math.round(maxChargerW)}W)`);
+        return;
+      }
     }
 
     this._powerBuffer.push(rawValue);
@@ -491,13 +511,14 @@ class PowerGuardApp extends Homey.App {
     const limit = this._getEffectiveLimit();
     const overLimit = smoothedPower > limit;
 
-    // EV charger dynamic adjustment runs on EVERY reading — fast response
-    // No hysteresis delay, only a short 5-second cooldown between adjustments
-    if (overLimit) {
+    // EV charger dynamic adjustment runs on EVERY reading — continuously optimizes
+    // charger current based on available headroom, not just when over limit.
+    // This keeps chargers charging as much as possible while staying under the limit.
+    const hasEVChargers = (this._settings.priorityList || []).some(
+      e => e.enabled !== false && e.action === 'dynamic_current'
+    );
+    if (hasEVChargers) {
       await this._adjustEVChargersForPower(smoothedPower).catch(err => this.error('EV adjust error:', err));
-    } else if (!overLimit && this._mitigatedDevices.some(m => m.action === 'dynamic_current')) {
-      // Under limit: try to restore EV chargers gradually
-      await this._adjustEVChargersForPower(smoothedPower).catch(err => this.error('EV restore error:', err));
     }
 
     if (overLimit) {
@@ -930,6 +951,34 @@ class PowerGuardApp extends Homey.App {
     return { ok: true, results };
   }
 
+  /**
+   * Check if a car is physically connected to a charger.
+   * Uses WHITELIST approach: only returns true when we have positive evidence.
+   * Easee statuses: 1=disconnected, 2=awaiting_start, 3=charging, 4=completed, 5=error
+   * If status is unknown/null/unrecognized → assume NOT connected (safe default).
+   */
+  _isCarConnected(deviceId) {
+    const evData = this._evPowerData[deviceId];
+    if (!evData) return false;  // No data at all → skip
+
+    const cs = evData.chargerStatus;
+
+    // Whitelist: statuses that mean a car IS physically connected
+    const connectedStatuses = [
+      2, 'awaiting_start', 'AWAITING_START', 'AwaitingStart',
+      3, 'charging', 'CHARGING', 'Charging',
+      4, 'completed', 'COMPLETED', 'Completed',
+    ];
+
+    if (connectedStatuses.includes(cs)) return true;
+
+    // Secondary check: if charger is drawing meaningful power, something is connected
+    if (evData.powerW > 100) return true;
+
+    // Everything else (status 1/disconnected, 5/error, null, unknown strings) → not connected
+    return false;
+  }
+
   async _connectToEVChargers() {
     if (!this._api) return;
     // Tear down old instances
@@ -959,17 +1008,8 @@ class PowerGuardApp extends Homey.App {
           isConnected:    null,  // derived below
         };
 
-        // Derive connected state from charger_status or power
-        const cs = this._evPowerData[entry.deviceId].chargerStatus;
-        if (cs !== null && cs !== undefined) {
-          // Easee statuses: 1=disconnected, 2=awaiting_start, 3=charging, 4=completed, 5=error
-          // Also may be string values like 'disconnected', 'awaiting_start', 'charging', 'completed'
-          const disconnected = (cs === 1 || cs === 'disconnected' || cs === 'DISCONNECTED');
-          this._evPowerData[entry.deviceId].isConnected = !disconnected;
-        } else {
-          // Fallback: if power > 0, probably connected
-          this._evPowerData[entry.deviceId].isConnected = (this._evPowerData[entry.deviceId].powerW > 0);
-        }
+        // Derive connected state using whitelist approach
+        this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
 
         // Listen to measure_power changes
         if (caps.includes('measure_power')) {
@@ -986,8 +1026,8 @@ class PowerGuardApp extends Homey.App {
           const csInst = device.makeCapabilityInstance('charger_status', (value) => {
             if (this._evPowerData[entry.deviceId]) {
               this._evPowerData[entry.deviceId].chargerStatus = value;
-              const disconnected = (value === 1 || value === 'disconnected' || value === 'DISCONNECTED');
-              this._evPowerData[entry.deviceId].isConnected = !disconnected;
+              this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
+              this.log(`[EV] ${entry.name} charger_status changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_status'] = csInst;
@@ -1018,19 +1058,67 @@ class PowerGuardApp extends Homey.App {
       }
     }
     this.log(`EV charger tracking: ${Object.keys(this._evCapabilityInstances).length} device(s)`);
+
+    // Active polling fallback for charger data (some Easee firmware doesn't push events reliably)
+    if (this._evPollInterval) clearInterval(this._evPollInterval);
+    this._evPollInterval = setInterval(() => this._pollEVChargerData().catch(() => {}), 5000);
+    this.log('EV charger polling started (5s interval)');
+  }
+
+  /**
+   * Poll all tracked EV chargers for fresh capability values.
+   * Ensures power/status updates even if the Easee driver doesn't fire events.
+   */
+  async _pollEVChargerData() {
+    if (!this._api) return;
+    const entries = (this._settings.priorityList || []).filter(e =>
+      e.action === 'dynamic_current' && e.enabled !== false
+    );
+    for (const entry of entries) {
+      try {
+        const device = await this._api.devices.getDevice({ id: entry.deviceId });
+        if (!device) continue;
+        const obj = device.capabilitiesObj || {};
+        const data = this._evPowerData[entry.deviceId];
+        if (!data) continue;
+
+        // Update power
+        if (obj.measure_power && obj.measure_power.value != null) {
+          data.powerW = typeof obj.measure_power.value === 'number' ? obj.measure_power.value : 0;
+        }
+        // Update charger_status
+        if (obj.charger_status && obj.charger_status.value != null) {
+          data.chargerStatus = obj.charger_status.value;
+          data.isConnected = this._isCarConnected(entry.deviceId);
+        }
+        // Update onoff
+        if (obj.onoff && obj.onoff.value != null) {
+          data.isCharging = obj.onoff.value !== false;
+        }
+        // Update offered current
+        if (obj['measure_current.offered'] && obj['measure_current.offered'].value != null) {
+          data.offeredCurrent = typeof obj['measure_current.offered'].value === 'number' ? obj['measure_current.offered'].value : null;
+        }
+      } catch (err) {
+        // Silently ignore per-charger poll errors
+      }
+    }
   }
 
   // ─── Fast EV Charger Adjustment (runs on every power reading) ──────────────
 
   /**
-   * Rapidly adjust EV chargers to stay under the power limit.
+   * Continuously adjust EV chargers to optimize charging within the power limit.
    * Called on every HAN reading — bypasses the main mitigation cooldown.
-   * Has its own short 5-second cooldown to avoid hammering the API.
+   * Normal throttle: 30s between adjustments. Emergency (>500W over): 5s.
+   * Key behaviors:
+   *  - Keeps charger at minimum 6A instead of pausing (keeps car charging)
+   *  - Only pauses charger in true emergency (household alone exceeds limit)
+   *  - Start threshold prevents restarting paused charger until enough headroom (8A+)
+   *  - Main fuse protection caps power allocation at the physical fuse limit
    */
   async _adjustEVChargersForPower(smoothedPower) {
     const now = Date.now();
-    // Short cooldown: only 5 seconds between EV adjustments
-    if (now - (this._lastEVAdjustTime || 0) < 5000) return;
 
     const easeeEntries = (this._settings.priorityList || []).filter(e =>
       e.enabled !== false && e.action === 'dynamic_current'
@@ -1040,7 +1128,29 @@ class PowerGuardApp extends Homey.App {
     const limit = this._getEffectiveLimit();
     const totalOverload = Math.max(0, smoothedPower - limit);
 
+    // Detect emergency: power is significantly over limit (>500W)
+    // Emergency bypasses the charger toggle throttle for immediate response
+    const isEmergency = totalOverload > 500;
+
+    // Charger toggle throttle
+    // Normal: 30 seconds between adjustments to avoid hammering the charger API
+    // Emergency: 5 seconds (fast response when significantly over limit)
+    const throttleMs = isEmergency ? 5000 : 30000;
+    if (now - (this._lastEVAdjustTime || 0) < throttleMs) return;
+
     for (const entry of easeeEntries) {
+      // Skip chargers with no car connected — no point adjusting them
+      if (!this._isCarConnected(entry.deviceId)) {
+        // Clean up any stale mitigation for this charger
+        const stale = this._mitigatedDevices.findIndex(m => m.deviceId === entry.deviceId);
+        if (stale >= 0) {
+          this._mitigatedDevices.splice(stale, 1);
+          this._persistMitigatedDevices();
+          this.log(`[EV] Removed stale mitigation for disconnected charger: ${entry.name}`);
+        }
+        continue;
+      }
+
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
       const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
@@ -1054,13 +1164,30 @@ class PowerGuardApp extends Homey.App {
         continue;
       }
 
+      // Charger start threshold: only START a paused charger when enough power is available
+      // This prevents rapid on/off cycling when hovering near the limit
+      const isCurrentlyPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
+      if (isCurrentlyPaused && targetCurrent !== null && targetCurrent <= 6) {
+        // Don't restart at minimum — wait until we have headroom for at least 8A
+        const chargerPhases = entry.chargerPhases || 3;
+        const voltage = chargerPhases === 1 ? 230 : 692;
+        const startThresholdW = 8 * voltage;  // ~1840W for 1-phase, ~5536W for 3-phase
+        const chargerPowerW = this._evPowerData[entry.deviceId]?.powerW || 0;
+        const nonChargerUsage = smoothedPower - chargerPowerW;
+        const availableForStart = limit - nonChargerUsage - 200;
+        if (availableForStart < startThresholdW) {
+          this.log(`EV throttle: not restarting ${entry.name}, need ${Math.round(startThresholdW)}W but only ${Math.round(availableForStart)}W available`);
+          continue;
+        }
+      }
+
       const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
       if (!success) continue;
 
       this._lastEVAdjustTime = now;
 
       if (targetCurrent !== null && targetCurrent < (entry.circuitLimitA || 32)) {
-        // Charger is being limited
+        // Charger is being limited (but still charging)
         if (!alreadyTracked) {
           this._mitigatedDevices.push({
             deviceId: entry.deviceId,
@@ -1076,7 +1203,7 @@ class PowerGuardApp extends Homey.App {
         }
         this._persistMitigatedDevices();
       } else if (targetCurrent === null) {
-        // Pause charger
+        // Pause charger (only on true emergency — household alone exceeds limit)
         if (!alreadyTracked) {
           this._mitigatedDevices.push({
             deviceId: entry.deviceId,
@@ -1115,41 +1242,58 @@ class PowerGuardApp extends Homey.App {
    */
   _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
-
-    if (!totalOverloadW || totalOverloadW <= 0) {
-      // No overload, charge at maximum (but respect circuit limit)
-      return Math.min(32, circuitLimitA);
-    }
+    const chargerPhases = chargerEntry.chargerPhases || 3;
+    const voltage = chargerPhases === 1 ? 230 : 692;
+    const minCurrent = 6;  // Minimum EV charging current per IEC 61851
+    const maxCurrent = Math.min(32, circuitLimitA);
 
     const limit = this._getEffectiveLimit();
     const currentUsage = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     const chargerPowerW = this._evPowerData[chargerEntry.deviceId]?.powerW || 0;
 
-    // Available power = limit minus everything else (non-charger usage)
-    // Add a 200W safety margin to get definitively under the limit
+    // Calculate household usage without this charger
     const nonChargerUsage = currentUsage - chargerPowerW;
-    const availablePowerW = limit - nonChargerUsage - 200;
 
-    // Use per-charger phase setting: 1-fas = 230V, 3-fas = 692V
-    const chargerPhases = chargerEntry.chargerPhases || 3;
-    const voltage = chargerPhases === 1 ? 230 : 692;
-    const minCurrent = 6;
-    const maxCurrent = Math.min(32, circuitLimitA);
+    // Cap available power at main fuse limit
+    // This prevents allocating more power than the physical fuse can handle
+    const mainFuseA = this._settings.mainCircuitA || 25;
+    const systemPhases = (this._settings.voltageSystem || '').includes('3phase') ? 3 : 1;
+    const systemVoltage = 230;
+    const maxFuseDrainW = Math.round((systemPhases === 3 ? 1.732 : 1) * systemVoltage * mainFuseA);
 
-    if (availablePowerW <= 0) {
-      this.log(`EV calc: usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W → PAUSE (no headroom)`);
+    // Available power for charger = minimum of (limit headroom) and (fuse headroom)
+    // Safety margin of 200W below the limit to avoid oscillating at the boundary
+    const limitHeadroomW = limit - nonChargerUsage - 200;
+    const fuseHeadroomW = maxFuseDrainW - nonChargerUsage - 200;
+    const availablePowerW = Math.min(limitHeadroomW, fuseHeadroomW);
+
+    // Check if household alone (without charger) exceeds the limit
+    // Only then is it a true emergency → pause the charger
+    const householdAloneExceedsLimit = nonChargerUsage > (limit - 200);
+
+    if (householdAloneExceedsLimit) {
+      // TRUE emergency: household alone exceeds limit, must pause charger entirely
+      this.log(`EV calc: household=${Math.round(nonChargerUsage)}W > limit=${Math.round(limit)}W → PAUSE (emergency)`);
       return null;
     }
 
-    const availableCurrentA = Math.floor(availablePowerW / voltage);  // floor instead of round for safety
+    if (availablePowerW <= 0) {
+      // No headroom but household isn't over limit → keep at minimum current
+      // This keeps the car charging slowly instead of stopping completely
+      this.log(`EV calc: usage=${Math.round(currentUsage)}W, available=${Math.round(availablePowerW)}W → KEEP MIN ${minCurrent}A`);
+      return minCurrent;
+    }
+
+    const availableCurrentA = Math.floor(availablePowerW / voltage);
 
     if (availableCurrentA < minCurrent) {
-      this.log(`EV calc: available=${Math.round(availablePowerW)}W → ${availableCurrentA}A < min ${minCurrent}A → PAUSE`);
-      return null;
+      // Not enough for desired current, but keep at minimum instead of pausing
+      this.log(`EV calc: available=${Math.round(availablePowerW)}W → ${availableCurrentA}A < min → KEEP MIN ${minCurrent}A`);
+      return minCurrent;
     }
 
     const targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
-    this.log(`EV calc: usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W, circuit=${circuitLimitA}A → ${targetCurrent}A`);
+    this.log(`EV calc: usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W, fuse=${maxFuseDrainW}W, circuit=${circuitLimitA}A → ${targetCurrent}A`);
     return targetCurrent;
   }
 
@@ -1161,6 +1305,9 @@ class PowerGuardApp extends Homey.App {
    */
   async _adjustEVChargerCurrent(deviceId, targetCurrentA) {
     if (!this._api) return false;
+
+    // Skip if charger has no car connected
+    if (!this._isCarConnected(deviceId)) return false;
 
     try {
       const device = await this._api.devices.getDevice({ id: deviceId });
@@ -1216,6 +1363,9 @@ class PowerGuardApp extends Homey.App {
   async _setEaseeChargerCurrent(deviceId, currentA) {
     if (!this._api) return false;
 
+    // Skip if charger has no car connected
+    if (!this._isCarConnected(deviceId)) return false;
+
     try {
       const device = await this._api.devices.getDevice({ id: deviceId });
       if (!device) return false;
@@ -1264,6 +1414,9 @@ class PowerGuardApp extends Homey.App {
     const totalOverload = Math.max(0, currentPower - limit);
 
     for (const entry of easeeEntries) {
+      // Skip chargers with no car connected
+      if (!this._isCarConnected(entry.deviceId)) continue;
+
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
       const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
 
@@ -1785,17 +1938,11 @@ class PowerGuardApp extends Homey.App {
         let statusLabel = 'Idle';
         let currentA = 0;
 
-        // First check: is a car even connected?
-        const isConnected = evData.isConnected !== false && evData.isConnected !== null;
+        // Use centralized whitelist check
+        const isConnected = this._isCarConnected(entry.deviceId);
         const chargerStatus = evData.chargerStatus;
 
-        // Check for disconnected / idle states
-        const isDisconnected = (
-          evData.isConnected === false ||
-          chargerStatus === 1 || chargerStatus === 'disconnected' || chargerStatus === 'DISCONNECTED'
-        );
-
-        if (isDisconnected) {
+        if (!isConnected) {
           status = 'idle';
           statusLabel = 'No car connected';
           currentA = 0;
