@@ -128,18 +128,25 @@
       input[type=number] { width: 90px; }
     }
     /* ── Heater Row Styles ──────────────────────────────────────────────── */
-    .heater-list { display: flex; flex-direction: column; gap: 4px; }
+    .heater-list { display: flex; flex-direction: column; gap: 6px; }
     .heater-row {
-      display: flex; align-items: center; gap: 6px; padding: 6px 10px;
-      background: var(--bg-surface); border-radius: 8px; border: 1px solid var(--border-light);
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      background: var(--bg-surface); border-radius: 10px; border: 1px solid var(--border-light);
     }
-    .heater-row.is-on { border: 2px solid #ff9500; padding: 5px 9px; }
-    .h-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .h-cur { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+    .heater-row.is-on { border: 2px solid #ff9500; padding: 7px 9px; }
+    .h-info { flex: 1; min-width: 0; }
+    .h-name { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; word-break: break-word; }
+    .h-cur { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
     .h-cur b { color: var(--text-primary); font-weight: 600; }
-    .h-temp-input { width: 44px; padding: 1px 2px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; text-align: center; background: var(--bg-card); color: var(--text-primary); flex-shrink: 0; }
-    .h-set-btn { padding: 2px 7px; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 600; color: #fff; background: #007AFF; flex-shrink: 0; }
+    .h-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .h-stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; height: 28px; background: var(--bg-card); }
+    .h-step-btn { width: 28px; height: 28px; border: none; background: transparent; color: var(--text-primary); font-size: 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+    .h-step-btn:active { background: var(--border-color); }
+    .h-temp-val { min-width: 32px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-primary); border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); padding: 0 2px; }
+    .h-temp-val.is-dirty { color: #007AFF; }
+    .h-set-btn { padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; color: #fff; background: #007AFF; flex-shrink: 0; }
     .h-set-btn:active { opacity: .7; }
+    .h-set-btn.is-hidden { display: none; }
     /* Slide toggle */
     .h-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer; }
     .h-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
@@ -426,12 +433,9 @@
     <div id="tab-floorheater" style="display:none">
 
       <div class="card" style="padding-bottom:8px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <div>
-            <h2 style="margin:0 0 2px;">Thermostats</h2>
-            <div style="font-size:11px;color:var(--text-muted);"><span id="floorheater-count">–</span> found · refreshes every 2 s</div>
-          </div>
-          <button onclick="loadFloorHeaters()" style="padding:5px 12px;background:#007AFF;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">↻ Refresh</button>
+        <div style="margin-bottom:10px;">
+          <h2 style="margin:0 0 2px;">Thermostats</h2>
+          <div style="font-size:11px;color:var(--text-muted);"><span id="floorheater-count">–</span> found · auto-refreshes</div>
         </div>
         <div id="floorheater-list" class="heater-list">
           <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Loading…</div>
@@ -507,6 +511,8 @@
   var _touchDragIdx   = null;
   var _touchTargetIdx = null;
   var _touchDragLi    = null;
+  var _heaterFocusId  = null;
+  var _heaterDirty    = {};  // deviceId → edited temp value
 
   // ── Homey.api() wrappers (return Promises) ────────────────────────────────
   // Per official docs: Homey.api(method, path, body, callback)
@@ -1187,14 +1193,20 @@
           var drawing = h.currentPowerW != null && Number(h.currentPowerW) > 0;
           var cur = h.currentMeasure != null ? Number(h.currentMeasure).toFixed(1) + '°' : '–';
           var id  = h.deviceId;
-          var tgtVal = h.currentTarget != null ? h.currentTarget : 20;
+          var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
           var chk = isOn ? ' checked' : '';
+          var isDirty = _heaterDirty.hasOwnProperty(id);
+          var displayVal = isDirty ? Number(_heaterDirty[id]).toFixed(1) : tgtVal;
 
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
-            '<span class="h-name" title="' + escHtml(h.name) + ' — ' + escHtml(h.zone || '') + '">' + escHtml(h.name) + '</span>' +
-            '<span class="h-cur"><b>' + cur + '</b></span>' +
-            (h.hasTargetTemp ? '<input type="number" id="temp-' + id + '" value="' + tgtVal + '" min="5" max="35" step="0.5" class="h-temp-input"><button class="h-set-btn" onclick="setHeaterTemp(\'' + id + '\')">Set</button>' : '') +
-            (h.hasOnOff ? '<label class="h-toggle"><input type="checkbox"' + chk + ' onchange="controlHeater(\'' + id + '\', this.checked?\'on\':\'off\')" /><span class="h-track"></span><span class="h-thumb"></span></label>' : '') +
+            '<div class="h-info">' +
+              '<div class="h-name">' + escHtml(h.name) + '</div>' +
+              '<div class="h-cur">Now <b>' + cur + '</b>' + (h.hasTargetTemp ? ' · Target ' + tgtVal + '°' : '') + '</div>' +
+            '</div>' +
+            '<div class="h-controls">' +
+              (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn' + (isDirty ? '' : ' is-hidden') + '" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')">Set</button>' : '') +
+              (h.hasOnOff ? '<label class="h-toggle"><input type="checkbox"' + chk + ' onchange="controlHeater(\'' + id + '\', this.checked?\'on\':\'off\')" /><span class="h-track"></span><span class="h-thumb"></span></label>' : '') +
+            '</div>' +
           '</div>';
         }).join('');
 
@@ -1234,15 +1246,31 @@
       });
   }
 
+  function stepTemp(deviceId, delta) {
+    var el = document.getElementById('temp-' + deviceId);
+    if (!el) return;
+    var cur = _heaterDirty.hasOwnProperty(deviceId) ? parseFloat(_heaterDirty[deviceId]) : parseFloat(el.textContent);
+    var val = cur + delta;
+    val = Math.round(val * 2) / 2;
+    if (val < 5) val = 5;
+    if (val > 35) val = 35;
+    _heaterDirty[deviceId] = val;
+    el.textContent = val.toFixed(1);
+    el.classList.add('is-dirty');
+    var setBtn = document.getElementById('set-' + deviceId);
+    if (setBtn) setBtn.classList.remove('is-hidden');
+  }
+
   function setHeaterTemp(deviceId) {
     if (!_H) { showError('Not connected to Homey'); return; }
-    var tempInput = document.getElementById('temp-' + deviceId);
-    if (!tempInput) return;
-    var temp = parseFloat(tempInput.value);
+    var tempEl = document.getElementById('temp-' + deviceId);
+    if (!tempEl) return;
+    var temp = parseFloat(_heaterDirty[deviceId] || tempEl.textContent);
     if (isNaN(temp)) { showError('Invalid temperature value'); return; }
     hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: temp })
       .then(function(data) {
         if (data.ok) {
+          delete _heaterDirty[deviceId];
           showToast(data.message || 'Temperature set');
           setTimeout(loadFloorHeaters, 500);
         } else {

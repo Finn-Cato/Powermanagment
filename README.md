@@ -32,9 +32,8 @@ This app is currently in **trial version**. Users install and use it **at their 
 - **Multi-brand HAN support** — Automatically identifies connected meter brand and displays it in the System tab
 - **Power consumption dashboard** — Power tab shows real-time power usage by device with current, average, and peak values
 - **Device power tracking** — Monitors all devices with power capabilities including floor heaters, EV chargers, and appliances
-- **Floor heater control** — Compact single-line thermostat rows with slide toggle, live temperature, and target temperature input
+- **Floor heater control** — Compact thermostat rows with stepper controls, live temperature, and target temperature adjustment
 - **Thermostat driver** — Dedicated driver to pair and control thermostats as Homey devices with real-time subscriptions
-- **Dark mode support** — Automatic dark mode via CSS `prefers-color-scheme` media query with JS fallback
 - **Dynamic EV charging control** — Automatically adjusts charger current based on available household power
 - **Priority-based device control** — Define which devices to turn off first via a drag-and-drop priority list
 - **Multiple protection profiles** — Normal and Strict (90% of limit) modes
@@ -150,6 +149,9 @@ In the **Devices** tab, drag and drop your controllable devices into a priority 
 - **Temperature** (`target_temperature`) — Lowers target temperature
 - **Charge Pause** (`charge_pause`) — Pauses EV charging
 - **Dynamic Current** (`dynamic_current`) — Adjusts charger current limit
+
+> **⚡ Important — EV Charger Setup:**
+> For EV chargers to appear on the Settings tab status panel and System tab, you **must** first enable them on the **Devices** tab and set their action to **Dynamic Current** (`dynamic_current`). Without this, the chargers will not be visible or controllable by Power Guard. Toggle the charger **on** in the device list and select "Dynamic Current" from the action dropdown.
 
 ### Power Consumption Dashboard
 
