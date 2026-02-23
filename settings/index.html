@@ -344,21 +344,6 @@
             </select>
           </div>
         </div>
-        <div class="row" id="phase-config-row" style="display:none">
-          <div class="label-group">
-            <label>Phase configuration</label>
-            <span class="hint">For 3-phase systems, specify how chargers are distributed.</span>
-          </div>
-          <div class="control">
-            <select id="s-phaseDistribution">
-              <option value="balanced">Balanced (chargers on all 3 phases)</option>
-              <option value="single-phase-a">Single Phase A only</option>
-              <option value="single-phase-b">Single Phase B only</option>
-              <option value="single-phase-c">Single Phase C only</option>
-              <option value="two-phases">Two phases (custom)</option>
-            </select>
-          </div>
-        </div>
       </div>
 
       <div class="card">
@@ -715,7 +700,6 @@
     document.getElementById('s-enabled-toggle').checked = s.enabled !== false;
     document.getElementById('s-profile').value   = s.profile || 'normal';
     document.getElementById('s-voltageSystem').value = s.voltageSystem || '230v-1phase';
-    document.getElementById('s-phaseDistribution').value = s.phaseDistribution || 'balanced';
     setNum('s-powerLimitW',     s.powerLimitW,    10000);
     setNum('s-cooldownSeconds', s.cooldownSeconds, 30);
     setNum('s-phase1LimitA',    s.phase1LimitA,   0);
@@ -743,11 +727,6 @@
 
   // ── System configuration ────────────────────────────────────────────────────
   function updatePhaseConfigVisibility() {
-    var voltageSystem = document.getElementById('s-voltageSystem').value;
-    var phaseRow = document.getElementById('phase-config-row');
-    if (phaseRow) {
-      phaseRow.style.display = (voltageSystem === '400v-3phase') ? 'flex' : 'none';
-    }
     renderAllDevices();  // Refresh device list to update power calculations
     renderChargerDetails();  // Update charger power details based on voltage system
   }
