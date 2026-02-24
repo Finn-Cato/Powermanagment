@@ -409,6 +409,7 @@ class PowerGuardApp extends Homey.App {
     if (name.includes('frient') || mfg.includes('frient') || driver.includes('frient')) return 'Frient Electricity Meter';
     if (name.includes('futurehome') || mfg.includes('futurehome') || driver.includes('futurehome')) return 'Futurehome HAN';
     if (name.includes('tibber') || mfg.includes('tibber') || driver.includes('tibber')) return 'Tibber Pulse';
+    if (name.includes('easee') || driver === 'equalizer') return 'Easee Equalizer';
     if (name.includes('aidon') || mfg.includes('aidon')) return 'Aidon HAN';
     if (name.includes('kaifa') || mfg.includes('kaifa')) return 'Kaifa HAN';
     return this._hanDeviceName || 'Unknown meter';
@@ -426,9 +427,13 @@ class PowerGuardApp extends Homey.App {
       const driver = (d.driverId || '').toLowerCase();
       const deviceClass = (d.class || '').toLowerCase();
       
-      const isMeterLike = deviceClass === 'meter' ||
+      // Easee Equalizer: class 'other', driver 'equalizer', app 'no.easee'
+      const isEaseeEqualizer = driver === 'equalizer' &&
+        d.driver && d.driver.owner_uri === 'homey:app:no.easee';
+
+      const isMeterLike = deviceClass === 'meter' || isEaseeEqualizer ||
         name.includes('meter') || name.includes('frient') || name.includes('han') ||
-        name.includes('futurehome') || name.includes('tibber') ||
+        name.includes('futurehome') || name.includes('tibber') || name.includes('easee') ||
         driver.includes('meter') || driver.includes('frient') || driver.includes('han') ||
         driver.includes('futurehome') || driver.includes('tibber');
       
@@ -457,7 +462,14 @@ class PowerGuardApp extends Homey.App {
     });
 
     // Phase values (optional — only if the HAN device reports them)
-    for (const phase of ['measure_power.phase1', 'measure_power.phase2', 'measure_power.phase3']) {
+    // Standard HAN meters use measure_power.phase1/phase2/phase3
+    // Easee Equalizer uses measure_current.L1/L2/L3 and measure_voltage.L1/L2/L3
+    const phaseCapabilities = [
+      'measure_power.phase1', 'measure_power.phase2', 'measure_power.phase3',
+      'measure_current.L1', 'measure_current.L2', 'measure_current.L3',
+      'measure_voltage.L1', 'measure_voltage.L2', 'measure_voltage.L3',
+    ];
+    for (const phase of phaseCapabilities) {
       if (Array.isArray(hanDevice.capabilities) && hanDevice.capabilities.includes(phase)) {
         hanDevice.makeCapabilityInstance(phase, (value) => this._onPhaseReading(phase, value));
       }
@@ -1124,13 +1136,15 @@ class PowerGuardApp extends Homey.App {
             caps.includes('dynamic_charger_current') ||
             caps.includes('dynamicChargerCurrent') ||
             caps.includes('target_circuit_current') ||
-            caps.includes('charge_pause');
+            caps.includes('charge_pause') ||
+            caps.includes('charging_button');
 
           // Check for known controllable device classes
           const isControllableClass =
             d.class === 'light' ||
             d.class === 'socket' ||
             d.class === 'charger' ||
+            d.class === 'evcharger' ||
             d.class === 'thermostat' ||
             d.class === 'kettle' ||
             d.class === 'heater' ||
@@ -1148,9 +1162,9 @@ class PowerGuardApp extends Homey.App {
             caps.some(c =>
               c === 'onoff' || c === 'dim' || c === 'target_temperature' ||
               c === 'target_current' || c === 'target_charger_current' || c === 'dynamic_charger_current' ||
-              c === 'target_circuit_current' || c === 'charge_pause')
+              c === 'target_circuit_current' || c === 'charge_pause' || c === 'charging_button')
               ? 'capability'
-              : ['light', 'socket', 'charger', 'thermostat', 'appliance'].includes(d.class)
+              : ['light', 'socket', 'charger', 'evcharger', 'thermostat', 'appliance'].includes(d.class)
               ? 'class'
               : 'other';
 
@@ -1165,6 +1179,7 @@ class PowerGuardApp extends Homey.App {
             zoneName:     zoneMap[d.zone] || 'Other',
             driverId:     d.driverId,
             isEasee:      (d.driverId === 'charger' && d.driver && d.driver.owner_uri === 'homey:app:no.easee'),
+            isZaptec:     (d.class === 'evcharger' && d.driver && d.driver.owner_uri === 'homey:app:com.zaptec'),
           };
         });
 
