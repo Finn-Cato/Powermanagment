@@ -1,4 +1,8 @@
 {
+  "0.2.0": {
+    "en": "Dynamic flow action discovery: automatically finds the correct Flow action ID for Zaptec and Enua chargers at runtime. Improved test charger diagnostics with detailed Flow API reporting. No more hardcoded action IDs.",
+    "no": "Dynamisk flow-action oppdagelse: finner automatisk riktig Flow action-ID for Zaptec og Enua ladere ved kj\u00f8ring. Forbedret ladertest-diagnostikk med detaljert Flow API-rapportering. Ingen flere hardkodede action-IDer."
+  },
   "0.1.9": {
     "en": "Added dynamic current control for Zaptec and Enua chargers via Homey Flow API. Zaptec uses installation_current_control (0-40A per phase), Enua uses changeCurrentLimitAction (6-32A). Auto-detects charger brand and routes to correct handler. Added Zaptec car-connected detection. Full Enua Charge E support with pause/resume and status monitoring.",
     "no": "Lagt til dynamisk strømstyring for Zaptec og Enua ladere via Homey Flow API. Zaptec bruker installation_current_control (0-40A per fase), Enua bruker changeCurrentLimitAction (6-32A). Auto-detekterer ladermerke og ruter til riktig handler. Lagt til Zaptec bil-tilkoblet deteksjon. Full Enua Charge E støtte med pause/gjenopptak og statusovervåking."
