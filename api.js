@@ -40,6 +40,7 @@ module.exports = {
       mainCircuitA:      s.get('mainCircuitA')      ?? 25,
       classFilters:      s.get('classFilters')      ?? {},
       priorityList:      s.get('priorityList')      ?? [],
+      selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
     };
   },
 
@@ -70,6 +71,7 @@ module.exports = {
         mainCircuitA:      s.get('mainCircuitA')      ?? 25,
         classFilters:      s.get('classFilters')      ?? {},
         priorityList:      s.get('priorityList')      ?? [],
+        selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
       },
       status:  homey.app.getStatus(),
       devices: homey.app.getDevicesForSettings(),
@@ -152,5 +154,35 @@ module.exports = {
   async applyCircuitLimits({ homey }) {
     const app = homey.app;
     return app.applyCircuitLimitsToChargers();
+  },
+
+  async getMeterDevices({ homey }) {
+    return homey.app.getMeterDevices();
+  },
+
+  async setMeterDevice({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request' };
+    const deviceId = body.deviceId || 'auto';
+    homey.settings.set('selectedMeterDeviceId', deviceId);
+    // Reconnect HAN with the new selection
+    const app = homey.app;
+    if (app._hanCapabilityInstance) {
+      try { app._hanCapabilityInstance.destroy(); } catch (_) {}
+      app._hanCapabilityInstance = null;
+    }
+    if (app._hanPollInterval) {
+      clearInterval(app._hanPollInterval);
+      app._hanPollInterval = null;
+    }
+    app._hanDevice = null;
+    app._hanDeviceName = null;
+    app._hanDeviceManufacturer = null;
+    app._hanDeviceId = null;
+    await app._connectToHAN();
+    return {
+      ok: true,
+      hanConnected: !!app._hanDeviceId,
+      hanDeviceName: app._hanDeviceId ? app._getHANDeviceBrand() : null,
+    };
   },
 };

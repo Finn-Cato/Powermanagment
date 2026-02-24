@@ -343,6 +343,22 @@
     <div id="tab-system" style="display:none">
 
       <div class="card">
+        <h2>Power Meter Selection</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Power meter device</label>
+            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
+          </div>
+          <div class="control">
+            <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
+              <option value="auto">Auto-detect</option>
+            </select>
+          </div>
+        </div>
+        <div id="meter-status" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
+      </div>
+
+      <div class="card">
         <h2>Electrical System Configuration</h2>
         <div class="row">
           <div class="label-group">
@@ -815,6 +831,73 @@
     renderChargerDetails();  // Update charger power details based on voltage system
   }
 
+  // ── Meter device selector ──────────────────────────────────────────────────
+  function loadMeterDevices() {
+    hApi('GET', '/meter-devices', null)
+      .then(function(devices) {
+        var sel = document.getElementById('s-meterDevice');
+        if (!sel) return;
+        // Keep auto option, clear rest
+        var currentVal = sel.value;
+        sel.innerHTML = '<option value=\"auto\">Auto-detect</option>';
+        if (Array.isArray(devices)) {
+          devices.forEach(function(d) {
+            var opt = document.createElement('option');
+            opt.value = d.id;
+            var label = d.name;
+            if (d.class && d.class !== 'other') label += ' (' + d.class + ')';
+            opt.textContent = label;
+            sel.appendChild(opt);
+          });
+        }
+        // Restore saved selection
+        var savedId = _savedMeterDeviceId || 'auto';
+        sel.value = savedId;
+        // If the saved device is not in the list, fall back to auto
+        if (sel.value !== savedId) sel.value = 'auto';
+        updateMeterStatus();
+        dbg('Loaded ' + (devices ? devices.length : 0) + ' meter devices');
+      })
+      .catch(function(err) {
+        dbg('Meter device load error: ' + (err.message || err));
+      });
+  }
+
+  var _savedMeterDeviceId = 'auto';
+
+  function changeMeterDevice(deviceId) {
+    var statusEl = document.getElementById('meter-status');
+    if (statusEl) statusEl.innerHTML = '<span style=\"color:#ff9500\">⏳ Switching meter...</span>';
+    hApi('POST', '/set-meter-device', { deviceId: deviceId })
+      .then(function(result) {
+        _savedMeterDeviceId = deviceId;
+        if (result && result.hanConnected) {
+          if (statusEl) statusEl.innerHTML = '<span style=\"color:#34c759\">✓ Connected to ' + escHtml(result.hanDeviceName || 'meter') + '</span>';
+        } else {
+          if (statusEl) statusEl.innerHTML = '<span style=\"color:#ff3b30\">✗ No meter found' + (deviceId === 'auto' ? ' (auto-detect)' : '') + '</span>';
+        }
+        dbg('Meter device changed to: ' + deviceId + ', connected: ' + (result && result.hanConnected));
+      })
+      .catch(function(err) {
+        if (statusEl) statusEl.innerHTML = '<span style=\"color:#ff3b30\">✗ Error: ' + escHtml(err.message || err) + '</span>';
+        dbg('Meter device change error: ' + (err.message || err));
+      });
+  }
+
+  function updateMeterStatus() {
+    var statusEl = document.getElementById('meter-status');
+    if (!statusEl) return;
+    hApi('GET', '/cache-status', null)
+      .then(function(result) {
+        if (result && result.hanConnected) {
+          statusEl.innerHTML = '<span style=\"color:#34c759\">✓ Meter connected</span>';
+        } else {
+          statusEl.innerHTML = '<span style=\"color:#ff9500\">⚠ No meter connected</span>';
+        }
+      })
+      .catch(function() {});
+  }
+
   /**
    * Render charger-specific power details based on voltage system.
    */
@@ -1089,8 +1172,10 @@
         applySettings(settings);
         updateStatusUI(status);
         availableDevices = Array.isArray(devices) ? devices : [];
+        _savedMeterDeviceId = settings.selectedMeterDeviceId || 'auto';
         renderAllDevices();
         renderChargerDetails();  // Refresh charger details after loading
+        loadMeterDevices();  // Load meter device dropdown
         dbg('Load complete: ' + availableDevices.length + ' devices');
       })
       .catch(function(err) {

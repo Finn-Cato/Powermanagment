@@ -415,30 +415,69 @@ class PowerGuardApp extends Homey.App {
     return this._hanDeviceName || 'Unknown meter';
   }
 
+  /**
+   * Returns all devices with measure_power capability for the meter selector.
+   */
+  async getMeterDevices() {
+    if (!this._api) return [];
+    const allDevices = await this._api.devices.getDevices();
+    return Object.values(allDevices)
+      .filter(d => Array.isArray(d.capabilities) && d.capabilities.includes('measure_power'))
+      .map(d => ({
+        id: d.id,
+        name: d.name || 'Unknown',
+        class: d.class || '',
+        driverId: d.driverId || '',
+        ownerUri: (d.driver && d.driver.owner_uri) || '',
+        capabilities: d.capabilities || [],
+      }));
+  }
+
   async _connectToHAN() {
     const allDevices = await this._api.devices.getDevices();
+    const allDeviceList = Object.values(allDevices);
 
-    const hanDevice = Object.values(allDevices).find(d => {
-      const hasPower = Array.isArray(d.capabilities) && d.capabilities.includes('measure_power');
-      if (!hasPower) return false;
-      
-      // Must be identifiable as a meter/HAN device, not just any device with power measurement
-      const name = (d.name || '').toLowerCase();
-      const driver = (d.driverId || '').toLowerCase();
-      const deviceClass = (d.class || '').toLowerCase();
-      
-      // Easee Equalizer: class 'other', driver 'equalizer', app 'no.easee'
-      const isEaseeEqualizer = driver === 'equalizer' &&
-        d.driver && d.driver.owner_uri === 'homey:app:no.easee';
+    // Check if user has manually selected a specific meter device
+    const selectedId = this.homey.settings.get('selectedMeterDeviceId') || null;
+    let hanDevice = null;
 
-      const isMeterLike = deviceClass === 'meter' || isEaseeEqualizer ||
-        name.includes('meter') || name.includes('frient') || name.includes('han') ||
-        name.includes('futurehome') || name.includes('tibber') || name.includes('easee') ||
-        driver.includes('meter') || driver.includes('frient') || driver.includes('han') ||
-        driver.includes('futurehome') || driver.includes('tibber');
-      
-      return isMeterLike;
-    });
+    if (selectedId && selectedId !== 'auto') {
+      hanDevice = allDeviceList.find(d => d.id === selectedId &&
+        Array.isArray(d.capabilities) && d.capabilities.includes('measure_power'));
+      if (hanDevice) {
+        this.log(`[HAN] Using manually selected meter: "${hanDevice.name}" (${hanDevice.id})`);
+      } else {
+        this.log(`[HAN] Selected meter ${selectedId} not found or missing measure_power, falling back to auto-detect`);
+      }
+    }
+
+    // Auto-detect if no manual selection or selected device not found
+    if (!hanDevice) {
+      hanDevice = allDeviceList.find(d => {
+        const hasPower = Array.isArray(d.capabilities) && d.capabilities.includes('measure_power');
+        if (!hasPower) return false;
+        
+        // Must be identifiable as a meter/HAN device, not just any device with power measurement
+        const name = (d.name || '').toLowerCase();
+        const driver = (d.driverId || '').toLowerCase();
+        const deviceClass = (d.class || '').toLowerCase();
+        
+        // Easee Equalizer: class 'other', driver 'equalizer', app 'no.easee'
+        const isEaseeEqualizer = driver === 'equalizer' &&
+          d.driver && d.driver.owner_uri === 'homey:app:no.easee';
+
+        // Use word-boundary regex for 'han' to avoid matching names like 'Hanna'
+        const hanRegex = /\bhan\b/;
+
+        const isMeterLike = deviceClass === 'meter' || isEaseeEqualizer ||
+          name.includes('meter') || name.includes('frient') || hanRegex.test(name) ||
+          name.includes('futurehome') || name.includes('tibber') || name.includes('easee') ||
+          driver.includes('meter') || driver.includes('frient') || hanRegex.test(driver) ||
+          driver.includes('futurehome') || driver.includes('tibber');
+        
+        return isMeterLike;
+      });
+    }
 
     if (!hanDevice) {
       this.log('No electricity meter with measure_power capability found. Power Guard will not receive live data until a meter is paired.');

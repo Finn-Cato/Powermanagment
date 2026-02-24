@@ -109,6 +109,14 @@
     "applyCircuitLimits": {
       "method": "POST",
       "path": "/apply-circuit-limits"
+    },
+    "getMeterDevices": {
+      "method": "GET",
+      "path": "/meter-devices"
+    },
+    "setMeterDevice": {
+      "method": "POST",
+      "path": "/set-meter-device"
     }
   },
   "drivers": [
