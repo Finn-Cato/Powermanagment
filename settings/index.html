@@ -240,6 +240,17 @@
           <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">RECENT ACTIVITY</div>
           <div id="log-container"><div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div></div>
         </div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">LAST MITIGATION SCAN</div>
+          <div id="scan-container"><div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div></div>
+        </div>
+        <!-- Effekttariff (Capacity Tariff) Section -->
+        <div style="margin-top:14px" id="effekt-section">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">⚡ EFFEKTTARIFF (TEST)</div>
+          <div id="effekt-container" style="background:var(--bg-surface);border-radius:8px;padding:10px;">
+            <div style="color:var(--text-tertiary);font-size:12px">Waiting for data...</div>
+          </div>
+        </div>
         <!-- Hidden sync element for s-enabled -->
         <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
       </div>
@@ -640,6 +651,18 @@
             escHtml(e.message || '') + '</div>';
         }).join('')
       : '<div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div>';
+    // Render last mitigation scan diagnostics
+    var scanData = Array.isArray(s.lastMitigationScan) ? s.lastMitigationScan : [];
+    document.getElementById('scan-container').innerHTML = scanData.length
+      ? scanData.map(function(d) {
+          var color = d.result === 'SUCCESS' ? '#34c759' :
+                      d.result.indexOf('already mitigated') >= 0 ? '#ff9500' :
+                      d.result.indexOf('error') >= 0 ? '#ff3b30' : 'var(--text-secondary)';
+          return '<div class="log-entry"><span style="color:' + color + '">' +
+            escHtml(d.name || '?') + '</span> [' + escHtml(d.action || '?') + '] → ' +
+            escHtml(d.result || '?') + '</div>';
+        }).join('')
+      : '<div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div>';
     var evChargers = Array.isArray(s.evChargers) ? s.evChargers : [];
     // Update cached charger status for the System tab table
     evChargers.forEach(function(c) {
@@ -650,7 +673,10 @@
           currentA: c.currentA || 0,
           powerW: c.powerW || 0,
           chargerStatus: c.chargerStatus,
-          isCharging: c.isCharging
+          isCharging: c.isCharging,
+          confirmed: c.confirmed || false,
+          reliability: c.reliability != null ? c.reliability : 50,
+          offeredCurrent: c.offeredCurrent
         };
         // Live-update the status badge in the System tab table without full re-render
         var badge = document.getElementById('charger-status-' + c.deviceId);
@@ -693,6 +719,61 @@
       } else {
         evSection.style.display = 'none';
       }
+    }
+
+    // Render effekttariff section
+    var effekt = s.effekttariff;
+    var effektEl = document.getElementById('effekt-container');
+    if (effektEl && effekt) {
+      var tierColor = effekt.tierIndex <= 1 ? '#34c759' :
+                      effekt.tierIndex <= 3 ? '#ff9500' : '#ff3b30';
+      var peakWarning = effekt.wouldBeNewDailyPeak
+        ? '<span style="color:#ff9500;font-weight:600"> ⚠ New peak!</span>' : '';
+      var html = '';
+      // Main metric
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+      html += '<div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Monthly metric (TOP3 avg)</div>';
+      html += '<div style="font-size:22px;font-weight:700;color:var(--text-primary)">' + effekt.monthlyKW.toFixed(1) + ' <span style="font-size:13px;font-weight:400">kW</span></div>';
+      html += '</div>';
+      html += '<div style="text-align:right">';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Current tier</div>';
+      html += '<div style="font-size:16px;font-weight:600;color:' + tierColor + '">' + escHtml(effekt.tierLabel) + '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      // Current hour info
+      html += '<div style="display:flex;gap:16px;margin-bottom:8px;padding:6px 0;border-top:1px solid var(--border-color);font-size:12px">';
+      html += '<div>Current hour: <b>' + effekt.currentHourKW.toFixed(2) + ' kW</b>' + peakWarning + '</div>';
+      html += '<div>Today peak: <b>' + effekt.todayPeakKW.toFixed(2) + ' kW</b></div>';
+      html += '</div>';
+
+      // TOP3 days
+      if (effekt.top3 && effekt.top3.length) {
+        html += '<div style="border-top:1px solid var(--border-color);padding-top:6px;font-size:11px;color:var(--text-muted);margin-bottom:4px">Top 3 daily peaks this month:</div>';
+        html += '<div style="font-size:12px">';
+        effekt.top3.forEach(function(p, i) {
+          var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+          html += '<div style="padding:2px 0">' + medal + ' ' + p.date + ' — <b>' + p.kw.toFixed(2) + ' kW</b></div>';
+        });
+        html += '</div>';
+      }
+
+      // All peaks (collapsed)
+      if (effekt.allPeaks && effekt.allPeaks.length > 3) {
+        html += '<details style="margin-top:6px;font-size:11px"><summary style="cursor:pointer;color:var(--text-muted)">All daily peaks (' + effekt.dailyPeakCount + ' days)</summary>';
+        html += '<div style="margin-top:4px">';
+        effekt.allPeaks.forEach(function(p) {
+          html += '<div style="padding:1px 0;color:var(--text-secondary)">' + p.date + ': ' + p.kw.toFixed(2) + ' kW</div>';
+        });
+        html += '</div></details>';
+      }
+
+      // Note that this is test mode
+      html += '<div style="margin-top:8px;padding:6px 8px;background:var(--bg-body);border-radius:6px;font-size:11px;color:var(--text-muted)">';
+      html += '🧪 <b>Test mode</b> — Display only. Not affecting limits or mitigation.';
+      html += '</div>';
+      effektEl.innerHTML = html;
     }
   }
 
@@ -844,6 +925,9 @@
               ' | status=' + (live.status || '?') +
               ' | label=' + (live.statusLabel || '?') +
               ' | power=' + (live.powerW || 0) + 'W' +
+              ' | offered=' + (live.offeredCurrent != null ? live.offeredCurrent + 'A' : 'N/A') +
+              ' | confirmed=' + (live.confirmed ? '\u2713' : '\u2717') +
+              ' | reliability=' + (live.reliability != null ? live.reliability + '%' : '?') +
               ' | isCharging=' + (live.isCharging !== undefined ? live.isCharging : '?') +
               '</div>';
     });

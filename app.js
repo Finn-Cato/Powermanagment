@@ -8,7 +8,24 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
-const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX } = require('./common/constants');
+const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS } = require('./common/constants');
+
+/**
+ * Promise wrapper with timeout — prevents hung API calls from blocking the mitigation cycle.
+ * @param {Promise} promise - The promise to wrap
+ * @param {number} ms - Timeout in milliseconds
+ * @param {string} label - Label for error messages
+ * @returns {Promise}
+ */
+function withTimeout(promise, ms, label = 'API call') {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    })
+  ]).finally(() => clearTimeout(timer));
+}
 
 class PowerGuardApp extends Homey.App {
 
@@ -48,9 +65,40 @@ class PowerGuardApp extends Homey.App {
     this._cachedDevices = null; // All devices from API (including non-controllable ones)
     this.log('[Power Consumption] Data object initialized');
     this._lastEVAdjustTime = 0;
+    this._pendingChargerCommands = {};  // Track outstanding charger commands {deviceId: timestamp}
+    this._chargerState = {};             // Per-charger confirmation & reliability: {deviceId: {lastCommandA, commandTime, confirmed, reliability, lastAdjustTime}}
+    this._lastMitigationScan = [];      // Last mitigation scan results per device (for diagnostics)
     this._deviceCacheReady = false;
     this._lastCacheTime = null;
     this._saveQueue = [];
+
+    // Hourly energy tracking
+    this._hourlyEnergy = {
+      currentHour: new Date().getHours(),
+      accumulatedWh: 0,        // Watt-hours accumulated this hour
+      lastReadingW: 0,         // Last power reading in watts
+      lastReadingTime: null,   // Timestamp of last reading
+      history: [],             // Last 24 hours: [{hour, date, kWh}]
+    };
+    // Restore hourly energy history from persistent storage
+    try {
+      const savedEnergy = this.homey.settings.get('_hourlyEnergyHistory');
+      if (Array.isArray(savedEnergy)) {
+        this._hourlyEnergy.history = savedEnergy.slice(-24);  // Keep last 24 entries
+      }
+    } catch (_) {}
+
+    // Effekttariff (capacity tariff) tracking — daily peak kW per day, persisted across restarts
+    // Format: { "2026-02-24": 8.5, "2026-02-23": 6.1, ... }
+    this._dailyPeaks = {};
+    try {
+      const saved = this.homey.settings.get('_dailyPeaks');
+      if (saved && typeof saved === 'object') {
+        this._dailyPeaks = saved;
+      }
+    } catch (_) {}
+    // Clean out entries older than current month on startup
+    this._cleanOldDailyPeaks();
 
     try {
       this._loadSettings();
@@ -449,6 +497,10 @@ class PowerGuardApp extends Homey.App {
 
   _onPowerReading(rawValue) {
     if (typeof rawValue !== 'number' || isNaN(rawValue)) return;
+
+    // Cap negative power to 0 (solar export should not count as usage)
+    if (rawValue < 0) rawValue = 0;
+
     this._lastHanReading = Date.now();
 
     const avg = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
@@ -481,6 +533,9 @@ class PowerGuardApp extends Homey.App {
     this._powerBuffer.push(rawValue);
     if (this._powerBuffer.length > 60) this._powerBuffer.shift();
 
+    // Accumulate hourly energy (trapezoidal integration)
+    this._accumulateHourlyEnergy(rawValue);
+
     const smoothed = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     this._updateVirtualDevice({ power: smoothed }).catch(() => {});
     this._checkLimits(smoothed).catch((err) => this.error('checkLimits error:', err));
@@ -500,6 +555,162 @@ class PowerGuardApp extends Homey.App {
   _onPhaseReading(capId, value) {
     if (typeof value !== 'number') return;
     // Phase values stored for diagnostics only (not shown on virtual device yet)
+  }
+
+  // ─── Hourly Energy Tracking ───────────────────────────────────────────────
+
+  /**
+   * Accumulate energy usage using trapezoidal integration of power readings.
+   * Rolls over to a new hour when the clock ticks, persisting the completed hour.
+   */
+  _accumulateHourlyEnergy(powerW) {
+    const now = Date.now();
+    const currentHour = new Date().getHours();
+
+    // Hour rollover — save completed hour and start fresh
+    if (currentHour !== this._hourlyEnergy.currentHour) {
+      const completedKWh = Math.round(this._hourlyEnergy.accumulatedWh) / 1000;
+      const entry = {
+        hour: this._hourlyEnergy.currentHour,
+        date: new Date(now - 1).toISOString().slice(0, 10),  // Date of the completed hour
+        kWh: Math.round(completedKWh * 1000) / 1000,         // 3 decimal places
+      };
+      this._hourlyEnergy.history.push(entry);
+      // Keep last 24 entries only
+      if (this._hourlyEnergy.history.length > 24) {
+        this._hourlyEnergy.history = this._hourlyEnergy.history.slice(-24);
+      }
+      // Persist to settings
+      try {
+        this.homey.settings.set('_hourlyEnergyHistory', this._hourlyEnergy.history);
+      } catch (_) {}
+      this.log(`[Energy] Hour ${entry.hour}:00 completed: ${entry.kWh} kWh`);
+
+      // Update effekttariff daily peak: kWh in one hour = average kW for that hour
+      // The hourly kWh value IS the average power in kW for that hour
+      this._updateDailyPeak(entry.date, entry.kWh);
+
+      // Reset for new hour
+      this._hourlyEnergy.currentHour = currentHour;
+      this._hourlyEnergy.accumulatedWh = 0;
+      this._hourlyEnergy.lastReadingW = powerW;
+      this._hourlyEnergy.lastReadingTime = now;
+      return;
+    }
+
+    // Normal accumulation: trapezoidal integration (average of last and current reading × elapsed time)
+    if (this._hourlyEnergy.lastReadingTime !== null) {
+      const elapsedMs = now - this._hourlyEnergy.lastReadingTime;
+      // Sanity: ignore gaps > 60s (likely a restart or missed readings)
+      if (elapsedMs > 0 && elapsedMs < 60000) {
+        const avgPowerW = (this._hourlyEnergy.lastReadingW + powerW) / 2;
+        const elapsedH = elapsedMs / 3600000;  // Convert ms to hours
+        this._hourlyEnergy.accumulatedWh += avgPowerW * elapsedH;
+      }
+    }
+
+    this._hourlyEnergy.lastReadingW = powerW;
+    this._hourlyEnergy.lastReadingTime = now;
+  }
+
+  // ─── Effekttariff (Capacity Tariff) Tracking ──────────────────────────────
+
+  /**
+   * Update the daily peak kW for a given date.
+   * kWh consumed in 1 hour == average kW for that hour.
+   * We keep only the highest hour per day.
+   */
+  _updateDailyPeak(dateStr, avgKW) {
+    const old = this._dailyPeaks[dateStr] || 0;
+    if (avgKW > old) {
+      this._dailyPeaks[dateStr] = Math.round(avgKW * 1000) / 1000;
+      this.log(`[Effekttariff] New daily peak for ${dateStr}: ${avgKW.toFixed(3)} kW (was ${old.toFixed(3)} kW)`);
+      this._persistDailyPeaks();
+    }
+  }
+
+  /**
+   * Clean out daily peak entries that are not in the current month.
+   * Called on startup and on month rollover.
+   */
+  _cleanOldDailyPeaks() {
+    const now = new Date();
+    const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const keys = Object.keys(this._dailyPeaks);
+    let removed = 0;
+    for (const key of keys) {
+      if (!key.startsWith(currentMonth)) {
+        delete this._dailyPeaks[key];
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      this.log(`[Effekttariff] Cleaned ${removed} old daily peak(s), keeping ${Object.keys(this._dailyPeaks).length} for ${currentMonth}`);
+      this._persistDailyPeaks();
+    }
+  }
+
+  _persistDailyPeaks() {
+    try {
+      this.homey.settings.set('_dailyPeaks', this._dailyPeaks);
+    } catch (_) {}
+  }
+
+  /**
+   * Calculate the monthly capacity metric (TOP3_AVG):
+   * Average of the 3 highest daily peaks this month.
+   * Returns { monthlyKW, tier, dailyPeaks, top3 }
+   */
+  _getEffekttariffStatus() {
+    // Clean if we crossed into a new month
+    const now = new Date();
+    const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    const firstKey = Object.keys(this._dailyPeaks)[0];
+    if (firstKey && !firstKey.startsWith(currentMonth)) {
+      this._cleanOldDailyPeaks();
+    }
+
+    // Get all daily peaks sorted descending
+    const allPeaks = Object.entries(this._dailyPeaks)
+      .map(([date, kw]) => ({ date, kw: Number(kw) }))
+      .filter(p => Number.isFinite(p.kw) && p.kw >= 0)
+      .sort((a, b) => b.kw - a.kw);
+
+    // TOP3 average
+    const top3 = allPeaks.slice(0, 3);
+    const monthlyKW = top3.length > 0
+      ? top3.reduce((sum, p) => sum + p.kw, 0) / top3.length
+      : 0;
+
+    // Find current tier
+    let tier = EFFEKT_TIERS[EFFEKT_TIERS.length - 1];  // Default to highest
+    for (const t of EFFEKT_TIERS) {
+      if (monthlyKW < t.maxKW) {
+        tier = t;
+        break;
+      }
+    }
+
+    // Current hour's running average kW (what it would be if the hour ended now)
+    const currentHourKW = this._hourlyEnergy.accumulatedWh > 0
+      ? Math.round(this._hourlyEnergy.accumulatedWh) / 1000
+      : 0;
+    const todayStr = now.toISOString().slice(0, 10);
+    const todayPeak = this._dailyPeaks[todayStr] || 0;
+    const wouldBeNewDailyPeak = currentHourKW > todayPeak;
+
+    return {
+      monthlyKW: Math.round(monthlyKW * 1000) / 1000,
+      tierLabel: tier.label,
+      tierIndex: tier.index,
+      tierMaxKW: tier.maxKW === Infinity ? null : tier.maxKW,
+      top3: top3.map(p => ({ date: p.date, kw: Math.round(p.kw * 1000) / 1000 })),
+      dailyPeakCount: allPeaks.length,
+      allPeaks: allPeaks.slice(0, 10),  // Top 10 for display
+      currentHourKW: Math.round(currentHourKW * 1000) / 1000,
+      todayPeakKW: Math.round(todayPeak * 1000) / 1000,
+      wouldBeNewDailyPeak,
+    };
   }
 
   // ─── Limit checking ───────────────────────────────────────────────────────
@@ -544,7 +755,12 @@ class PowerGuardApp extends Homey.App {
     const release = await this._mutex.acquire();
     try {
       const now = Date.now();
-      if (now - this._lastMitigationTime < this._settings.cooldownSeconds * 1000) return;
+      const cooldownMs = this._settings.cooldownSeconds * 1000;
+      const elapsed = now - this._lastMitigationTime;
+      if (elapsed < cooldownMs) {
+        this.log(`[Mitigation] Cooldown active: ${Math.round((cooldownMs - elapsed) / 1000)}s remaining`);
+        return;
+      }
 
       // First, try to mitigate by adjusting EV chargers (least disruptive)
       await this._mitigateEaseeChargers().catch((err) => this.error('Easee mitigation error:', err));
@@ -552,19 +768,67 @@ class PowerGuardApp extends Homey.App {
       const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
       const mitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
 
+      this.log(`[Mitigation] Starting cycle: power=${Math.round(currentPower)}W, limit=${Math.round(this._getEffectiveLimit())}W, `
+        + `devices in list: ${priorityList.length}, already mitigated: ${mitigated.size}`);
+
+      // Build diagnostic scan results (visible in settings page)
+      const scanResults = [];
+
       // Then, apply regular mitigation (turn off devices)
+      let mitigatedThisCycle = false;
       for (const entry of priorityList) {
-        if (entry.enabled === false) continue;
-        if (entry.action === 'dynamic_current') continue;  // Skip EV chargers here (handled above)
-        if (mitigated.has(entry.deviceId)) continue;
-        if (!this._canMitigate(entry)) continue;
+        if (entry.enabled === false) {
+          this.log(`[Mitigation] SKIP ${entry.name}: disabled`);
+          scanResults.push({ name: entry.name, action: entry.action, result: 'disabled' });
+          continue;
+        }
+        if (entry.action === 'dynamic_current') {
+          scanResults.push({ name: entry.name, action: entry.action, result: 'ev_charger (handled separately)' });
+          continue;  // Skip EV chargers here (handled above)
+        }
+        if (mitigated.has(entry.deviceId)) {
+          this.log(`[Mitigation] SKIP ${entry.name}: already mitigated`);
+          scanResults.push({ name: entry.name, action: entry.action, result: 'already mitigated' });
+          continue;
+        }
+        if (!this._canMitigate(entry)) {
+          this.log(`[Mitigation] SKIP ${entry.name}: min runtime not met`);
+          scanResults.push({ name: entry.name, action: entry.action, result: 'min runtime not met' });
+          continue;
+        }
+        if (mitigatedThisCycle) {
+          scanResults.push({ name: entry.name, action: entry.action, result: 'waiting (1 device per cycle)' });
+          continue;
+        }
+        this.log(`[Mitigation] TRYING ${entry.name} (action=${entry.action})`);
         try {
-          const device = await this._api.devices.getDevice({ id: entry.deviceId });
-          if (!device) continue;
+          const device = await withTimeout(
+            this._api.devices.getDevice({ id: entry.deviceId }),
+            10000, `getDevice(${entry.deviceId})`
+          );
+          if (!device) {
+            this.log(`[Mitigation] SKIP ${entry.name}: device not found`);
+            scanResults.push({ name: entry.name, action: entry.action, result: 'device not found' });
+            continue;
+          }
+
+          // Log device capabilities so we can debug mismatches
+          const caps = device.capabilities || [];
+          const obj = device.capabilitiesObj || {};
+          const capInfo = {};
+          if (caps.includes('target_temperature')) capInfo.target_temp = obj.target_temperature?.value;
+          if (caps.includes('onoff')) capInfo.onoff = obj.onoff?.value;
+          if (caps.includes('dim')) capInfo.dim = obj.dim?.value;
+          this.log(`[Mitigation] ${entry.name} caps: ${caps.join(', ')}`);
+          this.log(`[Mitigation] ${entry.name} values: ${JSON.stringify(capInfo)}`);
 
           const previousState = this._snapshotState(device);
           const applied = await applyAction(device, entry.action);
-          if (!applied) continue;
+          if (!applied) {
+            this.log(`[Mitigation] SKIP ${entry.name}: applyAction returned false (already at minimum or no matching capability)`);
+            scanResults.push({ name: entry.name, action: entry.action, result: `applyAction=false (caps: ${caps.join(',')}, vals: ${JSON.stringify(capInfo)})` });
+            continue;
+          }
 
           this._mitigatedDevices.push({ deviceId: entry.deviceId, action: entry.action, previousState, mitigatedAt: now });
           this._lastMitigationTime = now;
@@ -572,11 +836,26 @@ class PowerGuardApp extends Homey.App {
           this._persistMitigatedDevices();
           this._fireTrigger('mitigation_applied', { device_name: device.name, action: entry.action });
           await this._updateVirtualDevice({ alarm: true });
-          break;
+          this.log(`[Mitigation] SUCCESS: ${entry.name} mitigated with action=${entry.action}`);
+          scanResults.push({ name: entry.name, action: entry.action, result: `SUCCESS` });
+          mitigatedThisCycle = true;
+          // Don't break — continue to build full scan results for diagnostics
         } catch (err) {
+          // If device was removed, skip it rather than blocking mitigation
+          const errMsg = (err.message || '').toLowerCase();
+          if (errMsg.includes('not_found') || errMsg.includes('device_not_found') || errMsg.includes('timed out')) {
+            this.log(`[Mitigation] Device ${entry.deviceId} (${entry.name}) not found or unreachable, skipping`);
+            scanResults.push({ name: entry.name, action: entry.action, result: `error: ${errMsg.substring(0, 80)}` });
+            continue;
+          }
           this.error(`Mitigation failed for ${entry.deviceId}:`, err);
+          scanResults.push({ name: entry.name, action: entry.action, result: `error: ${(err.message || '').substring(0, 80)}` });
         }
       }
+
+      // Store scan results for diagnostics (visible via getStatus)
+      this._lastMitigationScan = scanResults;
+      this.log(`[Mitigation] Scan complete: ${JSON.stringify(scanResults)}`);
     } finally {
       release();
     }
@@ -602,7 +881,10 @@ class PowerGuardApp extends Homey.App {
       if (Date.now() - toRestore.mitigatedAt < minOffTime) return;
 
       try {
-        const device = await this._api.devices.getDevice({ id: toRestore.deviceId });
+        const device = await withTimeout(
+          this._api.devices.getDevice({ id: toRestore.deviceId }),
+          10000, `getDevice(${toRestore.deviceId})`
+        );
         if (!device) { this._mitigatedDevices.pop(); this._persistMitigatedDevices(); return; }
 
         const restored = await restoreDevice(device, toRestore.action, toRestore.previousState);
@@ -616,6 +898,14 @@ class PowerGuardApp extends Homey.App {
           }
         }
       } catch (err) {
+        // If device was removed from Homey, clean up the stale mitigation entry
+        const errMsg = (err.message || '').toLowerCase();
+        if (errMsg.includes('not_found') || errMsg.includes('device_not_found') || errMsg.includes('timed out')) {
+          this.log(`[Restore] Device ${toRestore.deviceId} gone or unreachable, removing stale entry`);
+          this._mitigatedDevices.pop();
+          this._persistMitigatedDevices();
+          return;
+        }
         this.error(`Restore failed for ${toRestore.deviceId}:`, err);
       }
     } finally {
@@ -993,7 +1283,10 @@ class PowerGuardApp extends Homey.App {
 
     for (const entry of evEntries) {
       try {
-        const device = await this._api.devices.getDevice({ id: entry.deviceId });
+        const device = await withTimeout(
+          this._api.devices.getDevice({ id: entry.deviceId }),
+          10000, `connectGetDevice(${entry.deviceId})`
+        );
         if (!device) continue;
         const caps = device.capabilities || [];
         const obj  = device.capabilitiesObj || {};
@@ -1043,11 +1336,12 @@ class PowerGuardApp extends Homey.App {
           this._evCapabilityInstances[entry.deviceId + '_onoff'] = onInst;
         }
 
-        // Listen to offered current
+        // Listen to offered current (also checks command confirmation)
         if (caps.includes('measure_current.offered')) {
           const offInst = device.makeCapabilityInstance('measure_current.offered', (value) => {
             if (this._evPowerData[entry.deviceId]) {
               this._evPowerData[entry.deviceId].offeredCurrent = typeof value === 'number' ? value : null;
+              this._checkChargerConfirmation(entry.deviceId);
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_offered'] = offInst;
@@ -1066,6 +1360,34 @@ class PowerGuardApp extends Homey.App {
   }
 
   /**
+   * Check if a charger's offered current confirms our last command.
+   * Updates confirmation state and reliability score per charger.
+   * Called on offered-current capability updates and during polling.
+   */
+  _checkChargerConfirmation(deviceId) {
+    const state = this._chargerState[deviceId];
+    if (!state || state.confirmed || state.timedOut) return;  // Already resolved or no pending command
+
+    const evData = this._evPowerData[deviceId];
+    if (!evData || evData.offeredCurrent == null) return;
+
+    const now = Date.now();
+    const elapsed = now - (state.commandTime || 0);
+
+    // Check if offered current matches commanded current (within 1A)
+    if (state.lastCommandA != null && Math.abs(evData.offeredCurrent - state.lastCommandA) <= 1) {
+      state.confirmed = true;
+      state.reliability = (state.reliability ?? 0.5) * 0.99 + 0.01;  // Success → nudge up
+      this.log(`[EV] \u2713 Confirmed: ${evData.name} → ${evData.offeredCurrent}A (commanded ${state.lastCommandA}A, took ${Math.round(elapsed / 1000)}s, reliability=${(state.reliability * 100).toFixed(1)}%)`);
+    } else if (elapsed > CHARGER_DEFAULTS.confirmationTimeoutMs) {
+      // Timed out waiting for confirmation
+      state.reliability = (state.reliability ?? 0.5) * 0.99;  // Failure → nudge down
+      state.timedOut = true;  // Stop re-checking until next command
+      this.log(`[EV] \u2717 Unconfirmed: ${evData.name} → offered ${evData.offeredCurrent}A but commanded ${state.lastCommandA}A (${Math.round(elapsed / 1000)}s, reliability=${(state.reliability * 100).toFixed(1)}%)`);
+    }
+  }
+
+  /**
    * Poll all tracked EV chargers for fresh capability values.
    * Ensures power/status updates even if the Easee driver doesn't fire events.
    */
@@ -1076,7 +1398,10 @@ class PowerGuardApp extends Homey.App {
     );
     for (const entry of entries) {
       try {
-        const device = await this._api.devices.getDevice({ id: entry.deviceId });
+        const device = await withTimeout(
+          this._api.devices.getDevice({ id: entry.deviceId }),
+          8000, `pollGetDevice(${entry.deviceId})`
+        );
         if (!device) continue;
         const obj = device.capabilitiesObj || {};
         const data = this._evPowerData[entry.deviceId];
@@ -1099,6 +1424,9 @@ class PowerGuardApp extends Homey.App {
         if (obj['measure_current.offered'] && obj['measure_current.offered'].value != null) {
           data.offeredCurrent = typeof obj['measure_current.offered'].value === 'number' ? obj['measure_current.offered'].value : null;
         }
+
+        // Check for command confirmation
+        this._checkChargerConfirmation(entry.deviceId);
       } catch (err) {
         // Silently ignore per-charger poll errors
       }
@@ -1110,12 +1438,14 @@ class PowerGuardApp extends Homey.App {
   /**
    * Continuously adjust EV chargers to optimize charging within the power limit.
    * Called on every HAN reading — bypasses the main mitigation cooldown.
-   * Normal throttle: 30s between adjustments. Emergency (>500W over): 5s.
+   * Per-charger smart throttle: 15s when confirmed, 45s when unconfirmed, 5s on emergency.
    * Key behaviors:
-   *  - Keeps charger at minimum 6A instead of pausing (keeps car charging)
+   *  - Keeps charger at minimum 7A instead of pausing (keeps car charging)
    *  - Only pauses charger in true emergency (household alone exceeds limit)
-   *  - Start threshold prevents restarting paused charger until enough headroom (8A+)
+   *  - Start threshold prevents restarting paused charger until enough headroom (11A startCurrent)
    *  - Main fuse protection caps power allocation at the physical fuse limit
+   *  - Confirmation tracking: reads measure_current.offered to verify commands took effect
+   *  - Proportional current scaling when charger is active (smoother adjustments)
    */
   async _adjustEVChargersForPower(smoothedPower) {
     const now = Date.now();
@@ -1129,14 +1459,10 @@ class PowerGuardApp extends Homey.App {
     const totalOverload = Math.max(0, smoothedPower - limit);
 
     // Detect emergency: power is significantly over limit (>500W)
-    // Emergency bypasses the charger toggle throttle for immediate response
     const isEmergency = totalOverload > 500;
 
-    // Charger toggle throttle
-    // Normal: 30 seconds between adjustments to avoid hammering the charger API
-    // Emergency: 5 seconds (fast response when significantly over limit)
-    const throttleMs = isEmergency ? 5000 : 30000;
-    if (now - (this._lastEVAdjustTime || 0) < throttleMs) return;
+    // Global floor: don't even evaluate more often than every 2s (prevents API spam)
+    if (now - (this._lastEVAdjustTime || 0) < 2000) return;
 
     for (const entry of easeeEntries) {
       // Skip chargers with no car connected — no point adjusting them
@@ -1151,6 +1477,17 @@ class PowerGuardApp extends Homey.App {
         continue;
       }
 
+      // Per-charger smart throttle based on confirmation state
+      // Confirmed commands → shorter wait (charger is responsive)
+      // Unconfirmed → longer wait (charger may be slow or unresponsive)
+      // Emergency → minimal wait (immediate response needed)
+      const cState = this._chargerState[entry.deviceId] || {};
+      const isConfirmed = cState.confirmed === true;
+      const perChargerThrottle = isEmergency ? CHARGER_DEFAULTS.toggleEmergencyMs
+        : isConfirmed ? CHARGER_DEFAULTS.toggleConfirmedMs
+        : CHARGER_DEFAULTS.toggleUnconfirmedMs;
+      if (now - (cState.lastAdjustTime || 0) < perChargerThrottle) continue;
+
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
       const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
@@ -1164,27 +1501,30 @@ class PowerGuardApp extends Homey.App {
         continue;
       }
 
-      // Charger start threshold: only START a paused charger when enough power is available
+      // Charger start threshold: only START a paused charger when enough power for startCurrent
       // This prevents rapid on/off cycling when hovering near the limit
       const isCurrentlyPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
-      if (isCurrentlyPaused && targetCurrent !== null && targetCurrent <= 6) {
-        // Don't restart at minimum — wait until we have headroom for at least 8A
+      if (isCurrentlyPaused && targetCurrent !== null && targetCurrent < CHARGER_DEFAULTS.startCurrent) {
+        // Don't restart below startCurrent — wait until we have headroom for at least 11A
         const chargerPhases = entry.chargerPhases || 3;
         const voltage = chargerPhases === 1 ? 230 : 692;
-        const startThresholdW = 8 * voltage;  // ~1840W for 1-phase, ~5536W for 3-phase
+        const startThresholdW = CHARGER_DEFAULTS.startCurrent * voltage;  // ~2530W for 1-phase, ~7612W for 3-phase
         const chargerPowerW = this._evPowerData[entry.deviceId]?.powerW || 0;
         const nonChargerUsage = smoothedPower - chargerPowerW;
         const availableForStart = limit - nonChargerUsage - 200;
         if (availableForStart < startThresholdW) {
-          this.log(`EV throttle: not restarting ${entry.name}, need ${Math.round(startThresholdW)}W but only ${Math.round(availableForStart)}W available`);
+          this.log(`EV throttle: not restarting ${entry.name}, need ${Math.round(startThresholdW)}W (${CHARGER_DEFAULTS.startCurrent}A) but only ${Math.round(availableForStart)}W available`);
           continue;
         }
       }
 
-      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
+      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
       if (!success) continue;
 
       this._lastEVAdjustTime = now;
+      // Update per-charger state
+      if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+      this._chargerState[entry.deviceId].lastAdjustTime = now;
 
       if (targetCurrent !== null && targetCurrent < (entry.circuitLimitA || 32)) {
         // Charger is being limited (but still charging)
@@ -1238,18 +1578,20 @@ class PowerGuardApp extends Homey.App {
    * Respects per-charger circuit limits.
    * @param {number} totalOverloadW - Total power overage in watts
    * @param {Object} chargerEntry - Entry from priorityList (may have circuitLimitA)
-   * @returns {number} Target current in amps (6-32), or null to pause
+   * @returns {number} Target current in amps (7-32), or null to pause
    */
   _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
     const chargerPhases = chargerEntry.chargerPhases || 3;
     const voltage = chargerPhases === 1 ? 230 : 692;
-    const minCurrent = 6;  // Minimum EV charging current per IEC 61851
-    const maxCurrent = Math.min(32, circuitLimitA);
+    const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 7A (some chargers unstable at 6A)
+    const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA);
 
     const limit = this._getEffectiveLimit();
     const currentUsage = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
-    const chargerPowerW = this._evPowerData[chargerEntry.deviceId]?.powerW || 0;
+    const evData = this._evPowerData[chargerEntry.deviceId];
+    const chargerPowerW = evData?.powerW || 0;
+    const offeredCurrent = evData?.offeredCurrent;
 
     // Calculate household usage without this charger
     const nonChargerUsage = currentUsage - chargerPowerW;
@@ -1279,124 +1621,164 @@ class PowerGuardApp extends Homey.App {
 
     if (availablePowerW <= 0) {
       // No headroom but household isn't over limit → keep at minimum current
-      // This keeps the car charging slowly instead of stopping completely
       this.log(`EV calc: usage=${Math.round(currentUsage)}W, available=${Math.round(availablePowerW)}W → KEEP MIN ${minCurrent}A`);
       return minCurrent;
     }
 
-    const availableCurrentA = Math.floor(availablePowerW / voltage);
-
-    if (availableCurrentA < minCurrent) {
-      // Not enough for desired current, but keep at minimum instead of pausing
-      this.log(`EV calc: available=${Math.round(availablePowerW)}W → ${availableCurrentA}A < min → KEEP MIN ${minCurrent}A`);
-      return minCurrent;
+    // Proportional scaling: when charger is actively drawing power with known offered current,
+    // scale proportionally for more accurate adjustment. This accounts for actual voltage,
+    // power factor, and phase imbalance rather than assuming a fixed voltage.
+    let targetCurrent;
+    if (offeredCurrent > 0 && chargerPowerW > 500) {
+      // Proportional: offeredCurrent × (desiredPower / actualPower)
+      const proportionalA = Math.round(offeredCurrent * (availablePowerW / chargerPowerW));
+      targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, proportionalA));
+      this.log(`EV calc (proportional): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W@${offeredCurrent}A, available=${Math.round(availablePowerW)}W → ${targetCurrent}A`);
+    } else {
+      // Additive fallback: when charger is not active or no offered current data
+      const availableCurrentA = Math.floor(availablePowerW / voltage);
+      targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
+      this.log(`EV calc (additive): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W, fuse=${maxFuseDrainW}W → ${targetCurrent}A`);
     }
-
-    const targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
-    this.log(`EV calc: usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W, fuse=${maxFuseDrainW}W, circuit=${circuitLimitA}A → ${targetCurrent}A`);
     return targetCurrent;
   }
 
   /**
-   * Adjust an EV charger's current to optimize power usage.
-   * @param {string} deviceId - Device ID from priorityList
-   * @param {number} targetCurrentA - Target current in amps (or null to pause)
-   * @returns {Promise<boolean>} true if adjustment was made
-   */
-  async _adjustEVChargerCurrent(deviceId, targetCurrentA) {
-    if (!this._api) return false;
-
-    // Skip if charger has no car connected
-    if (!this._isCarConnected(deviceId)) return false;
-
-    try {
-      const device = await this._api.devices.getDevice({ id: deviceId });
-      if (!device) return false;
-
-      const caps = device.capabilities || [];
-      const obj = device.capabilitiesObj || {};
-
-      // Use dynamic_charger_current ("Midlertidig Ladegrense") as primary for load balancing
-      // Falls back to other capabilities if not available
-      const currentCapability = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
-        .find(cap => caps.includes(cap));
-
-      if (!currentCapability) return false;
-
-      const currentValue = obj[currentCapability]?.value || 16;
-
-      // If targetCurrentA is null, pause the charger instead
-      if (targetCurrentA === null) {
-        if (caps.includes('onoff') && obj.onoff?.value !== false) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
-          this._addLog(`Charger paused: ${device.name}`);
-          return true;
-        }
-        return false;
-      }
-
-      // Check if change is significant enough (>= 1A difference)
-      if (Math.abs(currentValue - targetCurrentA) < 1) {
-        return false;
-      }
-
-      // Apply the adjustment
-      await device.setCapabilityValue({ capabilityId: currentCapability, value: targetCurrentA });
-      this._addLog(`Charger adjusted: ${device.name} ${currentValue}A → ${targetCurrentA}A`);
-      return true;
-    } catch (err) {
-      this.error(`Failed to adjust charger ${deviceId}:`, err);
-      return false;
-    }
-  }
-
-  /**
-   * Dynamically control EV chargers during mitigation.
-   * Adjusts charger currents to stay within power limit while maximizing charging.
-   */
-  /**
    * Set Easee charger current using the HomeyAPI.
+   * Also controls target_circuit_current for better Easee integration.
+   * Records commands for confirmation tracking and reliability scoring.
    * @param {string} deviceId - Device ID
    * @param {number} currentA - Target current in amps (or null to pause)
+   * @param {number} circuitLimitA - Circuit breaker limit in amps (default 32)
    * @returns {Promise<boolean>} true if set successfully
    */
-  async _setEaseeChargerCurrent(deviceId, currentA) {
+  async _setEaseeChargerCurrent(deviceId, currentA, circuitLimitA = 32) {
     if (!this._api) return false;
 
     // Skip if charger has no car connected
     if (!this._isCarConnected(deviceId)) return false;
 
-    try {
-      const device = await this._api.devices.getDevice({ id: deviceId });
-      if (!device) return false;
-
-      // If currentA is null, pause by turning off
-      if (currentA === null) {
-        if (device.capabilities.includes('onoff')) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
-          this._addLog(`Easee paused: ${device.name}`);
-          return true;
-        }
-        return false;
-      }
-
-      // Use dynamic_charger_current ("Midlertidig Ladegrense") as primary for Power Guard control
-      // This is the temporary/dynamic limit meant for load balancing — does NOT change the permanent Ladegrense
-      const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
-        .find(cap => (device.capabilities || []).includes(cap));
-
-      if (dynCap) {
-        await device.setCapabilityValue({ capabilityId: dynCap, value: currentA });
-        this._addLog(`Easee ${dynCap === 'target_charger_current' ? 'Ladegrense' : 'Midlertidig'}: ${device.name} → ${currentA}A`);
-        return true;
-      }
-
-      this.log(`[Easee] Device ${deviceId} doesn't expose dynamic current capability, available: ${(device.capabilities || []).join(', ')}`);
-      return false;
-    } catch (err) {
-      this.error(`Failed to set Easee current for ${deviceId}:`, err);
+    // Item 4: Don't send new commands while a previous command is still pending
+    const pendingTs = this._pendingChargerCommands[deviceId];
+    if (pendingTs && (Date.now() - pendingTs) < 15000) {
+      this.log(`[Easee] Skipping ${deviceId}, command still pending (${Math.round((Date.now() - pendingTs) / 1000)}s ago)`);
       return false;
     }
+
+    const maxRetries = 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const device = await withTimeout(
+          this._api.devices.getDevice({ id: deviceId }),
+          10000, `getDevice(${deviceId})`
+        );
+        if (!device) return false;
+
+        // Mark command as pending
+        this._pendingChargerCommands[deviceId] = Date.now();
+
+        // If currentA is null, pause by turning off
+        if (currentA === null) {
+          if (device.capabilities.includes('onoff')) {
+            // Set circuit current to 0 when pausing (prevents any current flow)
+            if ((device.capabilities || []).includes('target_circuit_current')) {
+              await withTimeout(
+                device.setCapabilityValue({ capabilityId: 'target_circuit_current', value: 0 }),
+                10000, `setCircuitCurrentPause(${deviceId})`
+              ).catch(e => this.log(`[Easee] target_circuit_current pause failed: ${e.message}`));
+            }
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'onoff', value: false }),
+              10000, `setOnOff(${deviceId})`
+            );
+            this._addLog(`Easee paused: ${device.name}`);
+            // Record command for confirmation tracking
+            if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+            Object.assign(this._chargerState[deviceId], { lastCommandA: 0, commandTime: Date.now(), confirmed: false, timedOut: false });
+            delete this._pendingChargerCommands[deviceId];
+            return true;
+          }
+          delete this._pendingChargerCommands[deviceId];
+          return false;
+        }
+
+        // Item 2: When resuming from pause, turn on first then set startCurrent
+        const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === deviceId);
+        const wasPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
+        if (wasPaused && device.capabilities.includes('onoff')) {
+          const isOff = device.capabilitiesObj?.onoff?.value === false;
+          if (isOff) {
+            // Use startCurrent (11A) for reliable resume — ensures charger starts properly
+            const resumeCurrent = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
+            // First set the target current, then turn on (Easee needs current set before resume)
+            const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
+              .find(cap => (device.capabilities || []).includes(cap));
+            if (dynCap) {
+              await withTimeout(
+                device.setCapabilityValue({ capabilityId: dynCap, value: resumeCurrent }),
+                10000, `setStartCurrent(${deviceId})`
+              );
+            }
+            // Set circuit current to max to avoid it being a bottleneck
+            if ((device.capabilities || []).includes('target_circuit_current')) {
+              await withTimeout(
+                device.setCapabilityValue({ capabilityId: 'target_circuit_current', value: circuitLimitA }),
+                10000, `setCircuitCurrentResume(${deviceId})`
+              ).catch(e => this.log(`[Easee] target_circuit_current resume failed: ${e.message}`));
+            }
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'onoff', value: true }),
+              10000, `resumeCharger(${deviceId})`
+            );
+            this._addLog(`Easee resumed: ${device.name} → ${resumeCurrent}A (startCurrent=${CHARGER_DEFAULTS.startCurrent}A)`);
+            // Record command for confirmation tracking
+            if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+            Object.assign(this._chargerState[deviceId], { lastCommandA: resumeCurrent, commandTime: Date.now(), confirmed: false, timedOut: false });
+            delete this._pendingChargerCommands[deviceId];
+            return true;
+          }
+        }
+
+        // Normal current adjustment
+        const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
+          .find(cap => (device.capabilities || []).includes(cap));
+
+        if (dynCap) {
+          await withTimeout(
+            device.setCapabilityValue({ capabilityId: dynCap, value: currentA }),
+            10000, `setCurrent(${deviceId})`
+          );
+          // Also set target_circuit_current to circuitLimitA so it doesn't bottleneck
+          if ((device.capabilities || []).includes('target_circuit_current')) {
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'target_circuit_current', value: circuitLimitA }),
+              10000, `setCircuitCurrent(${deviceId})`
+            ).catch(e => this.log(`[Easee] target_circuit_current failed: ${e.message}`));
+          }
+          this._addLog(`Easee ${dynCap === 'target_charger_current' ? 'Ladegrense' : 'Midlertidig'}: ${device.name} → ${currentA}A`);
+          // Record command for confirmation tracking
+          if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+          Object.assign(this._chargerState[deviceId], { lastCommandA: currentA, commandTime: Date.now(), confirmed: false, timedOut: false });
+          delete this._pendingChargerCommands[deviceId];
+          return true;
+        }
+
+        this.log(`[Easee] Device ${deviceId} doesn't expose dynamic current capability, available: ${(device.capabilities || []).join(', ')}`);
+        delete this._pendingChargerCommands[deviceId];
+        return false;
+
+      } catch (err) {
+        delete this._pendingChargerCommands[deviceId];
+        if (attempt < maxRetries) {
+          this.log(`[Easee] Retry ${attempt + 1}/${maxRetries} for ${deviceId}: ${err.message}`);
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));  // Back-off: 1s, 2s
+          continue;
+        }
+        this.error(`Failed to set Easee current for ${deviceId} after ${maxRetries + 1} attempts:`, err);
+        return false;
+      }
+    }
+    return false;
   }
 
   /**
@@ -1418,7 +1800,7 @@ class PowerGuardApp extends Homey.App {
       if (!this._isCarConnected(entry.deviceId)) continue;
 
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
-      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
+      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
 
       if (success) {
         // Track in mitigatedDevices so the UI shows it as "controlled"
@@ -1993,6 +2375,10 @@ class PowerGuardApp extends Homey.App {
           currentA: currentA,
           circuitLimitA: entry.circuitLimitA || 32,
           chargerStatus: chargerStatus,
+          // Confirmation tracking & reliability
+          confirmed: (this._chargerState[entry.deviceId] || {}).confirmed || false,
+          reliability: Math.round(((this._chargerState[entry.deviceId] || {}).reliability ?? 0.5) * 100),
+          offeredCurrent: evData.offeredCurrent || null,
         };
       });
 
@@ -2008,6 +2394,13 @@ class PowerGuardApp extends Homey.App {
       hanLastSeen:      this._lastHanReading,
       log:              this._mitigationLog.slice(-20),
       evChargers:       evChargerStatus,
+      hourlyEnergy: {
+        currentHourKWh: Math.round(this._hourlyEnergy.accumulatedWh) / 1000,
+        currentHour:    this._hourlyEnergy.currentHour,
+        history:        this._hourlyEnergy.history.slice(-24),
+      },
+      effekttariff: this._getEffekttariffStatus(),
+      lastMitigationScan: this._lastMitigationScan || [],
     };
   }
 

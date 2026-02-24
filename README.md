@@ -31,12 +31,41 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - Priority list — drag-and-drop ordering of which devices to turn off first
 - Multiple actions — turn off, dim, lower temperature, pause charging, or dynamically adjust charger current
 - Automatic restore when power is safe again
-- Dynamic EV charger current based on available power
-- Thermostat control with inline stepper and live temperature
 - Protection profiles: Normal and Strict (90% of limit)
 - Per-phase ampere limits (L1/L2/L3)
 - Spike filtering and configurable reaction speed
 - Flow cards for Homey automations
+
+### EV Charger Control
+
+- **Dynamic current adjustment** — continuously adjusts charger current based on available power headroom
+- **Proportional scaling** — uses the charger's actual offered current and power draw for smoother, more accurate adjustments
+- **Confirmation tracking** — verifies commands by reading the charger's `measure_current.offered` capability, with per-charger reliability scoring
+- **Smart throttle** — adjusts faster when the charger confirms commands (15s), waits longer when unconfirmed (45s), and responds immediately in emergencies (5s)
+- **Main fuse protection** — caps charger power allocation at the physical fuse limit to prevent tripping the main breaker
+- **Start threshold** — requires 11A of headroom before restarting a paused charger, preventing rapid on/off cycling
+- **Minimum current** — keeps chargers at 7A minimum instead of pausing, so the car stays charging
+- **Circuit current control** — manages both `target_charger_current` and `target_circuit_current` on Easee chargers for reliable control
+- **Disconnected car detection** — uses a whitelist of charger statuses to detect when no car is connected, skipping unnecessary adjustments
+- **Retry with backoff** — retries failed commands up to 2 times with increasing delays
+- **Pending command tracking** — prevents sending new commands while a previous command is still being processed
+
+### Thermostat Control
+
+- Auto-detects thermostat capabilities (on/off, target temperature, or both)
+- Lowers to 5°C during mitigation instead of turning off completely
+- Cross-fallback: if `target_temperature` isn't available, falls back to `onoff` (and vice versa)
+- Automatic restore to previous temperature when power is safe
+
+### Effekttariff Tracking (Capacity Tariff)
+
+- Tracks hourly energy consumption using trapezoidal integration
+- Records the highest hourly average (kW) per day — the daily peak
+- Calculates the monthly capacity metric: average of the 3 highest daily peaks (TOP3 average)
+- Maps to Norwegian grid tariff tiers: 0–2, 2–5, 5–10, 10–15, 15–20, 20–25, ≥25 kW
+- Displays current hour running average, today's peak, top 3 peaks with medals, and current tier
+- Data persists across restarts and auto-cleans at month boundaries
+- Currently display-only (test mode) — does not affect limits or mitigation
 
 ## Getting Started
 
@@ -74,7 +103,7 @@ The app has five tabs in the settings page:
 
 | Tab | What it does |
 |-----|-------------|
-| **⚙️ Settings** | Live status, power limit, protection mode, activity log |
+| **⚙️ Settings** | Live status, power limit, protection mode, EV charger status, effekttariff tracking, activity log, mitigation scan |
 | **📱 Devices** | Enable/disable devices, set priority order and actions |
 | **📊 System** | Electrical system config, charger details, test buttons |
 | **⚡ Power** | Real-time power consumption per device |
@@ -101,9 +130,9 @@ Drag and drop devices to set priority order. Devices at the **bottom** are turne
 |--------|-------------|
 | Turn Off | Switches the device off |
 | Dim | Reduces to 10% brightness |
-| Temperature | Lowers target temperature |
+| Temperature | Lowers target temperature to 5°C |
 | Charge Pause | Pauses EV charging |
-| Dynamic Current | Adjusts charger current limit |
+| Dynamic Current | Adjusts charger current limit (7–32A) |
 
 ### Power Tab
 
@@ -128,7 +157,6 @@ Controls all detected thermostats in your home:
 |--------|---------|
 | **Power Guard** | Virtual device — shows current power, limit alarm, guard on/off |
 | **EV Charger** | Charger power monitoring and on/off state |
-| **Thermostat** | Temperature control, on/off, operating mode (heat/cool/auto/off) |
 
 ## Flow Cards
 

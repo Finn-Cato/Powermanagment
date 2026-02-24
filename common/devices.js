@@ -40,6 +40,13 @@ async function applyAction(device, action) {
         await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
         return true;
       }
+      // Fallback: thermostat without onoff — set temperature to minimum (5°C) to stop heating
+      if (caps.includes('target_temperature')) {
+        const current = obj.target_temperature ? obj.target_temperature.value : 20;
+        if (current <= 5) return false;  // Already at minimum
+        await device.setCapabilityValue({ capabilityId: 'target_temperature', value: 5 });
+        return true;
+      }
       break;
 
     case ACTIONS.DIM:
@@ -59,10 +66,16 @@ async function applyAction(device, action) {
     case ACTIONS.TARGET_TEMP:
       if (caps.includes('target_temperature')) {
         const current = obj.target_temperature ? obj.target_temperature.value : 20;
-        const newTemp = Math.max(5, (current || 20) - 3);
-        // Skip if temperature is already at minimum
-        if (newTemp >= (current || 20)) return false;
+        // Set to minimum (5°C) to actually stop heating — lowering by just 3°C often isn't enough
+        const newTemp = 5;
+        if (current <= newTemp) return false;  // Already at minimum
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: newTemp });
+        return true;
+      }
+      // Fallback: use onoff if thermostat has it
+      if (caps.includes('onoff')) {
+        if (obj.onoff && obj.onoff.value === false) return false;
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
         return true;
       }
       break;
@@ -114,6 +127,13 @@ async function restoreDevice(device, action, previousState) {
         await device.setCapabilityValue({ capabilityId: 'onoff', value: wasOn });
         return true;
       }
+      // Fallback: restore temperature if we used target_temperature as fallback
+      if (caps.includes('target_temperature')) {
+        const prevTemp = previousState && previousState.target_temperature !== undefined
+          ? previousState.target_temperature : 21;
+        await device.setCapabilityValue({ capabilityId: 'target_temperature', value: prevTemp });
+        return true;
+      }
       break;
 
     case ACTIONS.DIM:
@@ -129,6 +149,12 @@ async function restoreDevice(device, action, previousState) {
         const prevTemp = previousState && previousState.target_temperature !== undefined
           ? previousState.target_temperature : 21;
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: prevTemp });
+        return true;
+      }
+      // Fallback: restore onoff if we used that instead
+      if (caps.includes('onoff')) {
+        const wasOn = previousState && previousState.onoff !== undefined ? previousState.onoff : true;
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: wasOn });
         return true;
       }
       break;

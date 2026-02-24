@@ -40,4 +40,28 @@ const ACTIONS = {
 
 const MITIGATION_LOG_MAX = 100;
 
-module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, MITIGATION_LOG_MAX };
+// EV charger control defaults (inspired by Sparegris Piggy Charger)
+const CHARGER_DEFAULTS = {
+  minCurrent: 7,               // Minimum charging current (some chargers unstable at 6A)
+  startCurrent: 11,            // Current when resuming from pause (ensures reliable start)
+  maxCurrent: 32,              // Maximum charging current
+  toggleConfirmedMs: 15000,    // Throttle when last command was confirmed (15s)
+  toggleUnconfirmedMs: 45000,  // Throttle when last command was NOT confirmed (45s)
+  toggleEmergencyMs: 5000,     // Throttle in emergency >500W over (5s)
+  confirmationTimeoutMs: 20000,// How long to wait for offered-current confirmation (20s)
+};
+
+// Norwegian effekttariff (capacity tariff) — tier thresholds in kW
+// Determines the monthly grid capacity charge based on average of 3 highest daily peaks.
+// Source: NVE standard thresholds used by most Norwegian DSOs.
+const EFFEKT_TIERS = [
+  { maxKW:  2, label: '0–2 kW',   index: 0 },
+  { maxKW:  5, label: '2–5 kW',   index: 1 },
+  { maxKW: 10, label: '5–10 kW',  index: 2 },
+  { maxKW: 15, label: '10–15 kW', index: 3 },
+  { maxKW: 20, label: '15–20 kW', index: 4 },
+  { maxKW: 25, label: '20–25 kW', index: 5 },
+  { maxKW: Infinity, label: '≥ 25 kW', index: 6 },
+];
+
+module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS };
