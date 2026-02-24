@@ -1,4 +1,8 @@
 {
+  "0.1.9": {
+    "en": "Added dynamic current control for Zaptec and Enua chargers via Homey Flow API. Zaptec uses installation_current_control (0-40A per phase), Enua uses changeCurrentLimitAction (6-32A). Auto-detects charger brand and routes to correct handler. Added Zaptec car-connected detection. Full Enua Charge E support with pause/resume and status monitoring.",
+    "no": "Lagt til dynamisk strømstyring for Zaptec og Enua ladere via Homey Flow API. Zaptec bruker installation_current_control (0-40A per fase), Enua bruker changeCurrentLimitAction (6-32A). Auto-detekterer ladermerke og ruter til riktig handler. Lagt til Zaptec bil-tilkoblet deteksjon. Full Enua Charge E støtte med pause/gjenopptak og statusovervåking."
+  },
   "0.1.8": {
     "en": "Fixed charger test diagnostic for Zaptec Go: now correctly detects charging_button capability and reports Zaptec charger status. Test no longer fails for non-Easee chargers.",
     "no": "Fikset ladertest-diagnostikk for Zaptec Go: oppdager nå charging_button-kapabilitet korrekt og rapporterer Zaptec-laderstatus. Testen feiler ikke lenger for ikke-Easee-ladere."
