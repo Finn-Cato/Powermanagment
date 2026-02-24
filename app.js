@@ -500,6 +500,22 @@ class PowerGuardApp extends Homey.App {
       this._onPowerReading(value);
     });
 
+    // Read the initial value immediately — don't wait for the first event or poll
+    try {
+      const capObj = hanDevice.capabilitiesObj;
+      if (capObj && capObj.measure_power && capObj.measure_power.value != null) {
+        const initialVal = Number(capObj.measure_power.value);
+        this.log(`[HAN] Initial measure_power = ${initialVal} W`);
+        if (!isNaN(initialVal)) {
+          this._onPowerReading(initialVal);
+        }
+      } else {
+        this.log('[HAN] No initial measure_power value available, waiting for events/poll');
+      }
+    } catch (initErr) {
+      this.log('[HAN] Error reading initial value: ' + (initErr.message || initErr));
+    }
+
     // Phase values (optional — only if the HAN device reports them)
     // Standard HAN meters use measure_power.phase1/phase2/phase3
     // Easee Equalizer uses measure_current.L1/L2/L3 and measure_voltage.L1/L2/L3
@@ -514,12 +530,13 @@ class PowerGuardApp extends Homey.App {
       }
     }
 
-    // Active polling fallback: read HAN value every 10 seconds
-    // Some Frient HAN firmware only fires events when the value changes significantly.
-    // This ensures we always have fresh data for mitigation decisions.
+    // Active polling fallback — critical for cloud-based meters (Easee Equalizer, etc.)
+    // that may not reliably fire capability change events through Homey's API.
+    // Poll every 10s, and do an immediate first poll after 2s to get data quickly.
     if (this._hanPollInterval) clearInterval(this._hanPollInterval);
     this._hanPollInterval = setInterval(() => this._pollHANPower().catch(() => {}), 10000);
-    this.log('HAN active polling started (10s interval)');
+    setTimeout(() => this._pollHANPower().catch(() => {}), 2000);
+    this.log('HAN active polling started (10s interval, first poll in 2s)');
   }
 
   async _pollHANPower() {
@@ -527,11 +544,17 @@ class PowerGuardApp extends Homey.App {
     try {
       // Re-fetch the device to get the latest capability values
       const device = await this._api.devices.getDevice({ id: this._hanDeviceId });
-      if (!device) return;
+      if (!device) {
+        this.log('[HAN Poll] Device not found');
+        return;
+      }
 
       const capObj = device.capabilitiesObj;
       if (capObj && capObj.measure_power && capObj.measure_power.value != null) {
-        const value = capObj.measure_power.value;
+        // Coerce to number — some apps may report as string
+        const value = Number(capObj.measure_power.value);
+        if (isNaN(value)) return;
+
         const timeSinceLastReading = this._lastHanReading ? Date.now() - this._lastHanReading : Infinity;
 
         // Only process if we haven't had an event-based reading in the last 8 seconds
@@ -540,6 +563,8 @@ class PowerGuardApp extends Homey.App {
           this.log(`[HAN Poll] Fallback reading: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
           this._onPowerReading(value);
         }
+      } else {
+        this.log('[HAN Poll] measure_power value is null or missing');
       }
     } catch (err) {
       this.log('[HAN Poll] Error: ' + (err.message || err));
@@ -547,7 +572,9 @@ class PowerGuardApp extends Homey.App {
   }
 
   _onPowerReading(rawValue) {
-    if (typeof rawValue !== 'number' || isNaN(rawValue)) return;
+    // Coerce to number — some cloud-based meters may report as string
+    rawValue = Number(rawValue);
+    if (isNaN(rawValue)) return;
 
     // Cap negative power to 0 (solar export should not count as usage)
     if (rawValue < 0) rawValue = 0;

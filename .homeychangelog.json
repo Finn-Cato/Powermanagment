@@ -1,4 +1,8 @@
 {
+  "0.1.7": {
+    "en": "Fixed Easee Equalizer showing 0W: reads initial power value immediately on connect, faster first poll (2s), robust number handling for cloud-based meters.",
+    "no": "Fikset Easee Equalizer som viste 0W: leser initial effektverdi umiddelbart ved tilkobling, raskere f\u00f8rste poll (2s), robust tallh\u00e5ndtering for skybaserte m\u00e5lere."
+  },
   "0.1.6": {
     "en": "Added manual power meter selection on the System tab. Fixed auto-detect falsely matching devices like 'Hanna Thermostat'. Improved Futurehome HAN and Easee Equalizer support.",
     "no": "Lagt til manuelt valg av effektmåler på System-fanen. Fikset auto-deteksjon som feilaktig matchet enheter som 'Hanna Thermostat'. Forbedret støtte for Futurehome HAN og Easee Equalizer."
