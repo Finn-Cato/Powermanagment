@@ -2512,20 +2512,22 @@ class PowerGuardApp extends Homey.App {
       }
       results.steps.push({ step: 'API check', ok: true, detail: 'HomeyAPI connected' });
 
-      // Step 2: Find charger(s)
+      // Step 2: Find charger(s) — both dynamic_current (Easee) and charge_pause (Zaptec) actions
       const priorityList = this._settings.priorityList || [];
-      const easeeEntries = priorityList.filter(e => e.action === 'dynamic_current' && e.enabled !== false);
+      const chargerEntries = priorityList.filter(e =>
+        (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false
+      );
 
-      if (!easeeEntries.length) {
-        results.steps.push({ step: 'Find chargers', ok: false, detail: 'No dynamic_current chargers in priority list' });
+      if (!chargerEntries.length) {
+        results.steps.push({ step: 'Find chargers', ok: false, detail: 'No chargers in priority list (need dynamic_current or charge_pause action)' });
         return results;
       }
-      results.steps.push({ step: 'Find chargers', ok: true, detail: `Found ${easeeEntries.length} charger(s): ${easeeEntries.map(e => e.name).join(', ')}` });
+      results.steps.push({ step: 'Find chargers', ok: true, detail: `Found ${chargerEntries.length} charger(s): ${chargerEntries.map(e => e.name).join(', ')}` });
 
       // Use specified device or first one
       const targetEntry = deviceId
-        ? easeeEntries.find(e => e.deviceId === deviceId) || easeeEntries[0]
-        : easeeEntries[0];
+        ? chargerEntries.find(e => e.deviceId === deviceId) || chargerEntries[0]
+        : chargerEntries[0];
 
       // Step 3: Get device from API
       let device;
@@ -2543,8 +2545,10 @@ class PowerGuardApp extends Homey.App {
       const relevantCaps = ['target_charger_current', 'target_circuit_current', 'target_current',
                             'dynamic_charger_current', 'dynamicChargerCurrent',
                             'dynamicCircuitCurrentP1', 'dynamic_current',
+                            'charging_button', 'charge_mode', 'charging_mode',
+                            'available_installation_current', 'alarm_generic.car_connected',
                             'measure_current', 'measure_power', 'onoff', 'charger_status',
-                            'measure_current.p1', 'measure_current.p2', 'measure_current.p3',
+                            'measure_current.phase1', 'measure_current.phase2', 'measure_current.phase3',
                             'measure_current.offered', 'measure_voltage'];
       const found = {};
       for (const cap of relevantCaps) {
@@ -2554,29 +2558,49 @@ class PowerGuardApp extends Homey.App {
       }
       results.steps.push({ step: 'Capabilities', ok: true, detail: JSON.stringify(found) });
 
-      // Step 5: Find the dynamic current control capability (Midlertidig Ladegrense)
-      const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
-        .find(cap => caps.includes(cap));
+      // Detect charger type
+      const isZaptec = caps.includes('charging_button');
+      const isEasee = caps.includes('target_charger_current') || caps.includes('target_circuit_current') ||
+                      caps.includes('dynamic_charger_current') || caps.includes('dynamicChargerCurrent');
 
-      if (!dynCap) {
-        results.steps.push({ step: 'Current capability', ok: false, detail: `No current control capability found. Available: ${caps.join(', ')}` });
-        return results;
-      }
+      if (isZaptec) {
+        // ── Zaptec test path ──
+        results.steps.push({ step: 'Charger type', ok: true, detail: 'Zaptec (charging_button control)' });
 
-      const currentVal = obj[dynCap] ? obj[dynCap].value : null;
-      results.steps.push({ step: 'Current capability', ok: true, detail: `${dynCap} = ${currentVal}A` });
+        const btnVal = obj.charging_button ? obj.charging_button.value : null;
+        results.steps.push({ step: 'charging_button', ok: true, detail: `Current value: ${btnVal}` });
 
-      // Also list ALL capabilities for debugging
-      results.steps.push({ step: 'All capabilities', ok: true, detail: caps.join(', ') });
+        // Check car connected status
+        const carConnected = obj['alarm_generic.car_connected'] ? obj['alarm_generic.car_connected'].value : 'unknown';
+        results.steps.push({ step: 'Car connected', ok: true, detail: `${carConnected}` });
 
-      // Step 6: Test write — set to current value (no actual change, just test the API call)
-      try {
-        const testVal = currentVal || 16;
-        await device.setCapabilityValue({ capabilityId: dynCap, value: testVal });
-        results.steps.push({ step: 'Write test', ok: true, detail: `Successfully wrote ${dynCap} = ${testVal}A (same value, safe test)` });
+        // Test read — don't write charging_button as it would start/stop charging
+        results.steps.push({ step: 'Control test', ok: true, detail: 'Zaptec uses charging_button for pause/resume. Read test OK. (No write test — would affect charging state)' });
         results.success = true;
-      } catch (err) {
-        results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write ${dynCap}: ${err.message}` });
+
+      } else if (isEasee) {
+        // ── Easee test path ──
+        const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
+          .find(cap => caps.includes(cap));
+
+        results.steps.push({ step: 'Charger type', ok: true, detail: 'Easee (dynamic current control)' });
+
+        const currentVal = obj[dynCap] ? obj[dynCap].value : null;
+        results.steps.push({ step: 'Current capability', ok: true, detail: `${dynCap} = ${currentVal}A` });
+
+        // Test write — set to current value (no actual change, just test the API call)
+        try {
+          const testVal = currentVal || 16;
+          await device.setCapabilityValue({ capabilityId: dynCap, value: testVal });
+          results.steps.push({ step: 'Write test', ok: true, detail: `Successfully wrote ${dynCap} = ${testVal}A (same value, safe test)` });
+          results.success = true;
+        } catch (err) {
+          results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write ${dynCap}: ${err.message}` });
+        }
+
+      } else {
+        // Unknown charger type
+        results.steps.push({ step: 'Charger type', ok: false, detail: `Unknown charger type. No dynamic current or charging_button found. Available: ${caps.join(', ')}` });
       }
 
     } catch (err) {
