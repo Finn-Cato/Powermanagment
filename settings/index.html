@@ -907,11 +907,11 @@
 
     // Use the already-loaded priorityList variable (no extra API call needed)
     var chargers = (priorityList || []).filter(function(e) { 
-      return e.action === 'dynamic_current' && e.enabled !== false; 
+      return (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false; 
     });
 
     if (chargers.length === 0) {
-      container.innerHTML = '<span style="color:var(--text-muted)">No dynamic chargers configured</span>';
+      container.innerHTML = '<span style="color:var(--text-muted)">No chargers configured</span>';
       return;
     }
 
@@ -1573,8 +1573,8 @@
         '<option value="onoff"'             + selOpt(entry.action,'onoff')             + '>Turn off</option>' +
         '<option value="dim"'               + selOpt(entry.action,'dim')               + '>Dim</option>' +
         '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>Lower thermostat</option>' +
-        '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging</option>' +
-        '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee)</option>' +
+        '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging (Zaptec/Enua)</option>' +
+        '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee/Zaptec/Enua)</option>' +
       '</select>' +
       '<label class="toggle" title="Managed \u2014 toggle to remove">' +
         '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
@@ -1594,8 +1594,8 @@
         '<option value="onoff">Turn off</option>' +
         '<option value="dim">Dim</option>' +
         '<option value="target_temperature">Lower thermostat</option>' +
-        '<option value="charge_pause">Pause EV charging</option>' +
-        '<option value="dynamic_current">Dynamic charging (Easee)</option>' +
+        '<option value="charge_pause">Pause EV charging (Zaptec/Enua)</option>' +
+        '<option value="dynamic_current">Dynamic charging (Easee/Zaptec/Enua)</option>' +
       '</select>' +
       '<label class="toggle" title="Toggle on to manage this device">' +
         '<input type="checkbox" onchange="toggleDevice(\'' + dev.id + '\',this.checked)">' +

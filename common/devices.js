@@ -40,6 +40,12 @@ async function applyAction(device, action) {
         await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
         return true;
       }
+      // Enua charger: use toggleChargingCapability to stop charging
+      if (caps.includes('toggleChargingCapability')) {
+        if (obj.toggleChargingCapability && obj.toggleChargingCapability.value === false) return false;
+        await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: false });
+        return true;
+      }
       // Fallback: thermostat without onoff — set temperature to minimum (5°C) to stop heating
       if (caps.includes('target_temperature')) {
         const current = obj.target_temperature ? obj.target_temperature.value : 20;
@@ -125,6 +131,13 @@ async function restoreDevice(device, action, previousState) {
       if (caps.includes('onoff')) {
         const wasOn = previousState && previousState.onoff !== undefined ? previousState.onoff : true;
         await device.setCapabilityValue({ capabilityId: 'onoff', value: wasOn });
+        return true;
+      }
+      // Enua charger: restore toggleChargingCapability
+      if (caps.includes('toggleChargingCapability')) {
+        const wasCharging = previousState && previousState.toggleChargingCapability !== undefined
+          ? previousState.toggleChargingCapability : true;
+        await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: wasCharging });
         return true;
       }
       // Fallback: restore temperature if we used target_temperature as fallback

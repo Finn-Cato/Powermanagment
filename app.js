@@ -1096,6 +1096,7 @@ class PowerGuardApp extends Homey.App {
       target_current:          obj.target_current          ? obj.target_current.value          : undefined,
       target_charger_current:  obj.target_charger_current  ? obj.target_charger_current.value  : undefined,
       target_circuit_current:  obj.target_circuit_current  ? obj.target_circuit_current.value  : undefined,
+      toggleChargingCapability: obj.toggleChargingCapability ? obj.toggleChargingCapability.value : undefined,
     };
   }
 
@@ -1203,7 +1204,8 @@ class PowerGuardApp extends Homey.App {
             caps.includes('dynamicChargerCurrent') ||
             caps.includes('target_circuit_current') ||
             caps.includes('charge_pause') ||
-            caps.includes('charging_button');
+            caps.includes('charging_button') ||
+            caps.includes('toggleChargingCapability');
 
           // Check for known controllable device classes
           const isControllableClass =
@@ -1228,7 +1230,7 @@ class PowerGuardApp extends Homey.App {
             caps.some(c =>
               c === 'onoff' || c === 'dim' || c === 'target_temperature' ||
               c === 'target_current' || c === 'target_charger_current' || c === 'dynamic_charger_current' ||
-              c === 'target_circuit_current' || c === 'charge_pause' || c === 'charging_button')
+              c === 'target_circuit_current' || c === 'charge_pause' || c === 'charging_button' || c === 'toggleChargingCapability')
               ? 'capability'
               : ['light', 'socket', 'charger', 'evcharger', 'thermostat', 'appliance'].includes(d.class)
               ? 'class'
@@ -1246,6 +1248,7 @@ class PowerGuardApp extends Homey.App {
             driverId:     d.driverId,
             isEasee:      (d.driverId === 'charger' && d.driver && d.driver.owner_uri === 'homey:app:no.easee'),
             isZaptec:     (d.class === 'evcharger' && d.driver && d.driver.owner_uri === 'homey:app:com.zaptec'),
+            isEnua:       (d.driver && d.driver.owner_uri === 'homey:app:no.enua'),
           };
         });
 
@@ -1343,6 +1346,9 @@ class PowerGuardApp extends Homey.App {
 
     if (connectedStatuses.includes(cs)) return true;
 
+    // Zaptec: alarm_generic.car_connected is a boolean (true = car connected)
+    if (evData.carConnectedAlarm === true) return true;
+
     // Secondary check: if charger is drawing meaningful power, something is connected
     if (evData.powerW > 100) return true;
 
@@ -1376,8 +1382,14 @@ class PowerGuardApp extends Homey.App {
         this._evPowerData[entry.deviceId] = {
           name:           entry.name || device.name,
           powerW:         obj.measure_power ? (obj.measure_power.value || 0) : 0,
-          isCharging:     obj.onoff ? obj.onoff.value !== false : false,
-          chargerStatus:  obj.charger_status ? obj.charger_status.value : null,
+          isCharging:     obj.onoff ? obj.onoff.value !== false
+                        : obj.toggleChargingCapability ? obj.toggleChargingCapability.value !== false
+                        : obj.charging_button ? obj.charging_button.value !== false
+                        : false,
+          chargerStatus:  obj.charger_status ? obj.charger_status.value
+                        : obj.chargerStatusCapability ? obj.chargerStatusCapability.value
+                        : null,
+          carConnectedAlarm: obj['alarm_generic.car_connected'] ? obj['alarm_generic.car_connected'].value : null,
           offeredCurrent: obj['measure_current.offered'] ? obj['measure_current.offered'].value : null,
           isConnected:    null,  // derived below
         };
@@ -1405,6 +1417,52 @@ class PowerGuardApp extends Homey.App {
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_status'] = csInst;
+        }
+
+        // Listen to chargerStatusCapability changes (Enua specific)
+        if (caps.includes('chargerStatusCapability')) {
+          const enuaStatusInst = device.makeCapabilityInstance('chargerStatusCapability', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].chargerStatus = value;
+              this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
+              this.log(`[EV] ${entry.name} chargerStatusCapability changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_enua_status'] = enuaStatusInst;
+        }
+
+        // Listen to toggleChargingCapability changes (Enua specific)
+        if (caps.includes('toggleChargingCapability')) {
+          const enuaChargingInst = device.makeCapabilityInstance('toggleChargingCapability', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].isCharging = value !== false;
+              this.log(`[EV] ${entry.name} toggleChargingCapability changed to: ${value}`);
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_enua_charging'] = enuaChargingInst;
+        }
+
+        // Listen to alarm_generic.car_connected changes (Zaptec specific)
+        if (caps.includes('alarm_generic.car_connected')) {
+          const carInst = device.makeCapabilityInstance('alarm_generic.car_connected', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].carConnectedAlarm = value;
+              this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
+              this.log(`[EV] ${entry.name} alarm_generic.car_connected changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_car_connected'] = carInst;
+        }
+
+        // Listen to charging_button changes (Zaptec specific)
+        if (caps.includes('charging_button')) {
+          const btnInst = device.makeCapabilityInstance('charging_button', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].isCharging = value !== false;
+              this.log(`[EV] ${entry.name} charging_button changed to: ${value}`);
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_charging_button'] = btnInst;
         }
 
         // Listen to onoff changes
@@ -1724,10 +1782,249 @@ class PowerGuardApp extends Homey.App {
     return targetCurrent;
   }
 
+  // ─── Charger Brand Detection & Flow-Based Current Control ──────────────
+
+  /**
+   * Detect charger brand from cached device capabilities.
+   * @param {string} deviceId
+   * @returns {'easee'|'zaptec'|'enua'|'unknown'}
+   */
+  _getChargerBrand(deviceId) {
+    const cache = this.homey.settings.get('_deviceCache') || [];
+    const cached = cache.find(d => d.id === deviceId);
+    if (!cached) return 'unknown';
+    const caps = cached.capabilities || [];
+    if (caps.includes('toggleChargingCapability')) return 'enua';
+    if (caps.includes('charging_button')) return 'zaptec';
+    // Easee exposes dynamic current as settable capabilities
+    if (caps.some(c => ['dynamic_charger_current', 'dynamicChargerCurrent',
+      'dynamicCircuitCurrentP1', 'target_charger_current'].includes(c))) return 'easee';
+    return 'unknown';
+  }
+
+  /**
+   * Set Zaptec charger current via the Homey Flow API (runFlowCardAction).
+   * Uses 'installation_current_control' action from the com.zaptec app (0-40A per phase).
+   * Handles pause via charging_button capability, resume via charging_button + flow.
+   * @param {string} deviceId
+   * @param {number|null} currentA - Target current in amps, or null to pause
+   * @returns {Promise<boolean>} true if successful
+   */
+  async _setZaptecCurrent(deviceId, currentA) {
+    if (!this._api) return false;
+
+    // Pending command guard (same 15s guard as Easee)
+    const pendingTs = this._pendingChargerCommands[deviceId];
+    if (pendingTs && (Date.now() - pendingTs) < 15000) {
+      this.log(`[Zaptec] Skipping ${deviceId}, command still pending (${Math.round((Date.now() - pendingTs) / 1000)}s ago)`);
+      return false;
+    }
+
+    const maxRetries = 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const device = await withTimeout(
+          this._api.devices.getDevice({ id: deviceId }),
+          10000, `getDevice(${deviceId})`
+        );
+        if (!device) return false;
+
+        this._pendingChargerCommands[deviceId] = Date.now();
+
+        // ── Pause: set charging_button to false ──
+        if (currentA === null || currentA === 0) {
+          if (device.capabilities.includes('charging_button')) {
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'charging_button', value: false }),
+              10000, `zaptecPause(${deviceId})`
+            );
+          }
+          // Also set installation current to 0 via flow to prevent any residual draw
+          try {
+            await withTimeout(
+              this._api.flow.runFlowCardAction({
+                uri: 'homey:app:com.zaptec',
+                id: 'installation_current_control',
+                args: { device: { id: deviceId, name: device.name }, current1: 0, current2: 0, current3: 0 }
+              }),
+              10000, `zaptecFlowPause(${deviceId})`
+            );
+          } catch (flowErr) {
+            this.log(`[Zaptec] Flow pause fallback failed (non-critical): ${flowErr.message}`);
+          }
+          this._addLog(`Zaptec paused: ${device.name}`);
+          if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+          Object.assign(this._chargerState[deviceId], { lastCommandA: 0, commandTime: Date.now(), confirmed: false, timedOut: false });
+          delete this._pendingChargerCommands[deviceId];
+          return true;
+        }
+
+        // ── Resume from pause: turn on first, then set current ──
+        const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === deviceId);
+        const wasPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
+        if (wasPaused && device.capabilities.includes('charging_button')) {
+          const btnVal = device.capabilitiesObj?.charging_button?.value;
+          if (btnVal === false) {
+            const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
+            // Set current via flow first, then enable charging
+            await withTimeout(
+              this._api.flow.runFlowCardAction({
+                uri: 'homey:app:com.zaptec',
+                id: 'installation_current_control',
+                args: { device: { id: deviceId, name: device.name }, current1: resumeA, current2: resumeA, current3: resumeA }
+              }),
+              10000, `zaptecFlowResume(${deviceId})`
+            );
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
+              10000, `zaptecResume(${deviceId})`
+            );
+            this._addLog(`Zaptec resumed: ${device.name} → ${resumeA}A`);
+            if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+            Object.assign(this._chargerState[deviceId], { lastCommandA: resumeA, commandTime: Date.now(), confirmed: false, timedOut: false });
+            delete this._pendingChargerCommands[deviceId];
+            return true;
+          }
+        }
+
+        // ── Normal current adjustment via Flow API ──
+        const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(40, currentA));
+        await withTimeout(
+          this._api.flow.runFlowCardAction({
+            uri: 'homey:app:com.zaptec',
+            id: 'installation_current_control',
+            args: { device: { id: deviceId, name: device.name }, current1: clampedA, current2: clampedA, current3: clampedA }
+          }),
+          10000, `zaptecFlowSet(${deviceId})`
+        );
+        this._addLog(`Zaptec strøm: ${device.name} → ${clampedA}A`);
+        if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+        Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
+        delete this._pendingChargerCommands[deviceId];
+        return true;
+
+      } catch (err) {
+        delete this._pendingChargerCommands[deviceId];
+        if (attempt < maxRetries) {
+          this.log(`[Zaptec] Retry ${attempt + 1}/${maxRetries} for ${deviceId}: ${err.message}`);
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        this.error(`Failed to set Zaptec current for ${deviceId} after ${maxRetries + 1} attempts:`, err);
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Set Enua charger current via the Homey Flow API (runFlowCardAction).
+   * Uses 'changeCurrentLimitAction' from the no.enua app (6-32A).
+   * Handles pause via toggleChargingCapability, resume via flow + toggleChargingCapability.
+   * @param {string} deviceId
+   * @param {number|null} currentA - Target current in amps, or null to pause
+   * @returns {Promise<boolean>} true if successful
+   */
+  async _setEnuaCurrent(deviceId, currentA) {
+    if (!this._api) return false;
+
+    const pendingTs = this._pendingChargerCommands[deviceId];
+    if (pendingTs && (Date.now() - pendingTs) < 15000) {
+      this.log(`[Enua] Skipping ${deviceId}, command still pending (${Math.round((Date.now() - pendingTs) / 1000)}s ago)`);
+      return false;
+    }
+
+    const maxRetries = 2;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const device = await withTimeout(
+          this._api.devices.getDevice({ id: deviceId }),
+          10000, `getDevice(${deviceId})`
+        );
+        if (!device) return false;
+
+        this._pendingChargerCommands[deviceId] = Date.now();
+
+        // ── Pause: set toggleChargingCapability to false ──
+        if (currentA === null || currentA === 0) {
+          if (device.capabilities.includes('toggleChargingCapability')) {
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: false }),
+              10000, `enuaPause(${deviceId})`
+            );
+          }
+          this._addLog(`Enua paused: ${device.name}`);
+          if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+          Object.assign(this._chargerState[deviceId], { lastCommandA: 0, commandTime: Date.now(), confirmed: false, timedOut: false });
+          delete this._pendingChargerCommands[deviceId];
+          return true;
+        }
+
+        // ── Resume from pause: set current via flow, then enable charging ──
+        const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === deviceId);
+        const wasPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
+        if (wasPaused && device.capabilities.includes('toggleChargingCapability')) {
+          const chargingVal = device.capabilitiesObj?.toggleChargingCapability?.value;
+          if (chargingVal === false) {
+            const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
+            const clampedA = Math.max(6, Math.min(32, resumeA));
+            // Set current limit via flow first
+            await withTimeout(
+              this._api.flow.runFlowCardAction({
+                uri: 'homey:app:no.enua',
+                id: 'changeCurrentLimitAction',
+                args: { device: { id: deviceId, name: device.name }, current: clampedA }
+              }),
+              10000, `enuaFlowResume(${deviceId})`
+            );
+            // Then enable charging
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true }),
+              10000, `enuaResume(${deviceId})`
+            );
+            this._addLog(`Enua resumed: ${device.name} → ${clampedA}A`);
+            if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+            Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
+            delete this._pendingChargerCommands[deviceId];
+            return true;
+          }
+        }
+
+        // ── Normal current adjustment via Flow API ──
+        const clampedA = Math.max(6, Math.min(32, currentA));
+        await withTimeout(
+          this._api.flow.runFlowCardAction({
+            uri: 'homey:app:no.enua',
+            id: 'changeCurrentLimitAction',
+            args: { device: { id: deviceId, name: device.name }, current: clampedA }
+          }),
+          10000, `enuaFlowSet(${deviceId})`
+        );
+        this._addLog(`Enua strøm: ${device.name} → ${clampedA}A`);
+        if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+        Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
+        delete this._pendingChargerCommands[deviceId];
+        return true;
+
+      } catch (err) {
+        delete this._pendingChargerCommands[deviceId];
+        if (attempt < maxRetries) {
+          this.log(`[Enua] Retry ${attempt + 1}/${maxRetries} for ${deviceId}: ${err.message}`);
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
+        this.error(`Failed to set Enua current for ${deviceId} after ${maxRetries + 1} attempts:`, err);
+        return false;
+      }
+    }
+    return false;
+  }
+
   /**
    * Set Easee charger current using the HomeyAPI.
    * Also controls target_circuit_current for better Easee integration.
    * Records commands for confirmation tracking and reliability scoring.
+   * Routes to brand-specific handlers for Zaptec (Flow API) and Enua (Flow API).
    * @param {string} deviceId - Device ID
    * @param {number} currentA - Target current in amps (or null to pause)
    * @param {number} circuitLimitA - Circuit breaker limit in amps (default 32)
@@ -1735,6 +2032,11 @@ class PowerGuardApp extends Homey.App {
    */
   async _setEaseeChargerCurrent(deviceId, currentA, circuitLimitA = 32) {
     if (!this._api) return false;
+
+    // Route to brand-specific handler for non-Easee chargers
+    const brand = this._getChargerBrand(deviceId);
+    if (brand === 'zaptec') return this._setZaptecCurrent(deviceId, currentA);
+    if (brand === 'enua') return this._setEnuaCurrent(deviceId, currentA);
 
     // Skip if charger has no car connected
     if (!this._isCarConnected(deviceId)) return false;
@@ -1958,7 +2260,8 @@ class PowerGuardApp extends Homey.App {
       cooldownSeconds: this._settings.cooldownSeconds,
       lastMitigationTime: this._lastMitigationTime ? new Date(this._lastMitigationTime).toISOString() : null,
       easeeChargers: (this._settings.priorityList || []).filter(e => e.action === 'dynamic_current').map(e => ({
-        name: e.name, deviceId: e.deviceId, circuitLimitA: e.circuitLimitA, enabled: e.enabled !== false
+        name: e.name, deviceId: e.deviceId, circuitLimitA: e.circuitLimitA, enabled: e.enabled !== false,
+        brand: this._getChargerBrand(e.deviceId)
       })),
       recentLog: this._mitigationLog.slice(-5),
     };
@@ -2547,6 +2850,8 @@ class PowerGuardApp extends Homey.App {
                             'dynamicCircuitCurrentP1', 'dynamic_current',
                             'charging_button', 'charge_mode', 'charging_mode',
                             'available_installation_current', 'alarm_generic.car_connected',
+                            'toggleChargingCapability', 'chargerStatusCapability',
+                            'toggleCableLockCapability', 'changeLedIntensityCapability',
                             'measure_current', 'measure_power', 'onoff', 'charger_status',
                             'measure_current.phase1', 'measure_current.phase2', 'measure_current.phase3',
                             'measure_current.offered', 'measure_voltage'];
@@ -2560,12 +2865,13 @@ class PowerGuardApp extends Homey.App {
 
       // Detect charger type
       const isZaptec = caps.includes('charging_button');
+      const isEnua = caps.includes('toggleChargingCapability');
       const isEasee = caps.includes('target_charger_current') || caps.includes('target_circuit_current') ||
                       caps.includes('dynamic_charger_current') || caps.includes('dynamicChargerCurrent');
 
       if (isZaptec) {
         // ── Zaptec test path ──
-        results.steps.push({ step: 'Charger type', ok: true, detail: 'Zaptec (charging_button control)' });
+        results.steps.push({ step: 'Charger type', ok: true, detail: 'Zaptec (charging_button + Flow API dynamic current)' });
 
         const btnVal = obj.charging_button ? obj.charging_button.value : null;
         results.steps.push({ step: 'charging_button', ok: true, detail: `Current value: ${btnVal}` });
@@ -2574,8 +2880,58 @@ class PowerGuardApp extends Homey.App {
         const carConnected = obj['alarm_generic.car_connected'] ? obj['alarm_generic.car_connected'].value : 'unknown';
         results.steps.push({ step: 'Car connected', ok: true, detail: `${carConnected}` });
 
-        // Test read — don't write charging_button as it would start/stop charging
-        results.steps.push({ step: 'Control test', ok: true, detail: 'Zaptec uses charging_button for pause/resume. Read test OK. (No write test — would affect charging state)' });
+        // Check available installation current (read-only)
+        const availCurrent = obj.available_installation_current ? obj.available_installation_current.value : 'unknown';
+        results.steps.push({ step: 'Installation current', ok: true, detail: `Available: ${availCurrent}A` });
+
+        // Test Flow API availability for dynamic current control
+        try {
+          const flowActions = await this._api.flow.getFlowCardActions();
+          const zaptecAction = Object.values(flowActions).find(a =>
+            a.uri === 'homey:app:com.zaptec' && a.id === 'installation_current_control'
+          );
+          if (zaptecAction) {
+            results.steps.push({ step: 'Flow API', ok: true, detail: `Found: installation_current_control (0-40A per phase) — dynamic current ready` });
+          } else {
+            results.steps.push({ step: 'Flow API', ok: false, detail: 'installation_current_control action not found — is com.zaptec app installed?' });
+          }
+        } catch (flowErr) {
+          results.steps.push({ step: 'Flow API', ok: false, detail: `Flow API error: ${flowErr.message}` });
+        }
+
+        results.steps.push({ step: 'Control test', ok: true, detail: 'Zaptec: pause=charging_button, dynamic current=Flow API (installation_current_control). Read test OK.' });
+        results.success = true;
+
+      } else if (isEnua) {
+        // ── Enua test path ──
+        results.steps.push({ step: 'Charger type', ok: true, detail: 'Enua Charge E (toggleChargingCapability + Flow API dynamic current)' });
+
+        const chargingVal = obj.toggleChargingCapability ? obj.toggleChargingCapability.value : null;
+        results.steps.push({ step: 'toggleChargingCapability', ok: true, detail: `Current value: ${chargingVal}` });
+
+        const statusVal = obj.chargerStatusCapability ? obj.chargerStatusCapability.value : null;
+        results.steps.push({ step: 'chargerStatusCapability', ok: true, detail: `Status: ${statusVal}` });
+
+        // Check cable lock
+        const cableLock = obj.toggleCableLockCapability ? obj.toggleCableLockCapability.value : 'unknown';
+        results.steps.push({ step: 'Cable lock', ok: true, detail: `${cableLock}` });
+
+        // Test Flow API availability for dynamic current control
+        try {
+          const flowActions = await this._api.flow.getFlowCardActions();
+          const enuaAction = Object.values(flowActions).find(a =>
+            a.uri === 'homey:app:no.enua' && a.id === 'changeCurrentLimitAction'
+          );
+          if (enuaAction) {
+            results.steps.push({ step: 'Flow API', ok: true, detail: `Found: changeCurrentLimitAction (6-32A) — dynamic current ready` });
+          } else {
+            results.steps.push({ step: 'Flow API', ok: false, detail: 'changeCurrentLimitAction not found — is no.enua app installed?' });
+          }
+        } catch (flowErr) {
+          results.steps.push({ step: 'Flow API', ok: false, detail: `Flow API error: ${flowErr.message}` });
+        }
+
+        results.steps.push({ step: 'Control test', ok: true, detail: 'Enua: pause=toggleChargingCapability, dynamic current=Flow API (changeCurrentLimitAction). Read test OK.' });
         results.success = true;
 
       } else if (isEasee) {
