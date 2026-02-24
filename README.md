@@ -10,11 +10,9 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 
 | Type | Supported |
 |------|-----------|
-| **EV Charger** | Easee Home, Easee Pro |
-| **Power Meter** | Any HAN meter with `measure_power` (Frient, Futurehome, Tibber Pulse, Aidon, Kaifa, etc.) |
+| **EV Charger** | Easee Home, Easee Pro, Zaptec Go/Go2/Home/Pro |
+| **Power Meter** | Any HAN meter with `measure_power` — Frient, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer, and more |
 | **Thermostats** | Any brand — auto-detects capabilities (Futurehome, Z-Wave, Zigbee, etc.) |
-
-*More charger brands will be added in future releases.*
 
 ## How It Works
 
@@ -49,6 +47,8 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - **Disconnected car detection** — uses a whitelist of charger statuses to detect when no car is connected, skipping unnecessary adjustments
 - **Retry with backoff** — retries failed commands up to 2 times with increasing delays
 - **Pending command tracking** — prevents sending new commands while a previous command is still being processed
+- **Zaptec support** — detects Zaptec chargers (Go, Go2, Home, Pro) via the `charging_button` capability for charge pause/resume
+- **Multi-brand** — works with both Easee (`target_charger_current` / `target_circuit_current`) and Zaptec (`charging_button`) control methods
 
 ### Thermostat Control
 
@@ -150,7 +150,13 @@ Controls all detected thermostats in your home:
 - Live current temperature (auto-refreshes)
 - On/off toggle per thermostat
 - Orange border shows heaters currently drawing power
+### Power Meter / HAN Support
 
+- Auto-detects HAN meters by device class, name, or driver ID
+- Supported brands: Frient, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer
+- **Easee Equalizer** — used as a whole-house power meter via `measure_power`, with per-phase current and voltage monitoring (`measure_current.L1–L3`, `measure_voltage.L1–L3`)
+- Active polling fallback (10s) for meters that don't fire frequent events
+- Any device with `measure_power` and a meter-like name/class is automatically picked up
 ## Drivers
 
 | Driver | Purpose |
