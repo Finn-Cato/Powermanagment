@@ -1,4 +1,8 @@
 {
+  "0.1.6": {
+    "en": "Added manual power meter selection on the System tab. Fixed auto-detect falsely matching devices like 'Hanna Thermostat'. Improved Futurehome HAN and Easee Equalizer support.",
+    "no": "Lagt til manuelt valg av effektmåler på System-fanen. Fikset auto-deteksjon som feilaktig matchet enheter som 'Hanna Thermostat'. Forbedret støtte for Futurehome HAN og Easee Equalizer."
+  },
   "0.1.5": {
     "en": "Added support for Easee Equalizer as HAN meter source and Zaptec charger detection. Expanded per-phase monitoring for Easee devices.",
     "no": "Lagt til støtte for Easee Equalizer som HAN-målerkilde og Zaptec-ladergjenkjenning. Utvidet faseovervåking for Easee-enheter."
