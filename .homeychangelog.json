@@ -1,4 +1,8 @@
 {
+  "0.1.5": {
+    "en": "Added support for Easee Equalizer as HAN meter source and Zaptec charger detection. Expanded per-phase monitoring for Easee devices.",
+    "no": "Lagt til støtte for Easee Equalizer som HAN-målerkilde og Zaptec-ladergjenkjenning. Utvidet faseovervåking for Easee-enheter."
+  },
   "0.1.4": {
     "en": "Initial release. Real-time power monitoring with HAN meter, smart EV charger control with dynamic current adjustment, thermostat management, priority-based mitigation, and Norwegian capacity tariff tracking.",
     "no": "Første utgivelse. Sanntids effektovervåking med HAN-måler, smart elbilladerstyring med dynamisk strømjustering, termostatstyring, prioritetsbasert tiltak, og norsk effekttariff-sporing."
