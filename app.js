@@ -1803,8 +1803,67 @@ class PowerGuardApp extends Homey.App {
   }
 
   /**
+   * Discover and cache the Flow action ID for a charger brand's current control.
+   * Searches all available flow actions for the matching app URI and current-related action.
+   * Results are cached in this._flowActionCache to avoid repeated lookups.
+   * @param {'zaptec'|'enua'} brand
+   * @returns {Promise<{uri: string, actionId: string, argsStyle: 'zaptec3phase'|'enuaSingle'}|null>}
+   */
+  async _discoverFlowAction(brand) {
+    if (!this._flowActionCache) this._flowActionCache = {};
+    if (this._flowActionCache[brand]) return this._flowActionCache[brand];
+
+    try {
+      const flowActions = await this._api.flow.getFlowCardActions();
+      const allActions = Object.values(flowActions);
+
+      if (brand === 'zaptec') {
+        // Look for Zaptec current control actions
+        const zaptecActions = allActions.filter(a => a.uri === 'homey:app:com.zaptec');
+        // Try exact match first, then fuzzy
+        let action = zaptecActions.find(a => a.id === 'installation_current_control');
+        if (!action) action = zaptecActions.find(a => /current|ampere|limit|strøm/i.test(a.id));
+        if (!action) {
+          // Try broader URI match
+          const broader = allActions.filter(a => (a.uri || '').includes('zaptec'));
+          action = broader.find(a => /current|ampere|limit|strøm/i.test(a.id));
+        }
+        if (action) {
+          const result = { uri: action.uri, actionId: action.id, argsStyle: 'zaptec3phase' };
+          this._flowActionCache[brand] = result;
+          this.log(`[Zaptec] Discovered flow action: ${action.uri}/${action.id}`);
+          return result;
+        }
+        this.log(`[Zaptec] No current control flow action found. Available Zaptec actions: ${zaptecActions.map(a => a.id).join(', ') || 'none'}`);
+        return null;
+      }
+
+      if (brand === 'enua') {
+        const enuaActions = allActions.filter(a => a.uri === 'homey:app:no.enua');
+        let action = enuaActions.find(a => a.id === 'changeCurrentLimitAction');
+        if (!action) action = enuaActions.find(a => /current|ampere|limit|strøm/i.test(a.id));
+        if (!action) {
+          const broader = allActions.filter(a => (a.uri || '').includes('enua'));
+          action = broader.find(a => /current|ampere|limit|strøm/i.test(a.id));
+        }
+        if (action) {
+          const result = { uri: action.uri, actionId: action.id, argsStyle: 'enuaSingle' };
+          this._flowActionCache[brand] = result;
+          this.log(`[Enua] Discovered flow action: ${action.uri}/${action.id}`);
+          return result;
+        }
+        this.log(`[Enua] No current control flow action found. Available Enua actions: ${enuaActions.map(a => a.id).join(', ') || 'none'}`);
+        return null;
+      }
+    } catch (err) {
+      this.error(`[FlowDiscover] Failed to discover ${brand} flow actions:`, err);
+    }
+    return null;
+  }
+
+  /**
    * Set Zaptec charger current via the Homey Flow API (runFlowCardAction).
-   * Uses 'installation_current_control' action from the com.zaptec app (0-40A per phase).
+   * Dynamically discovers the correct flow action ID from the com.zaptec app.
    * Handles pause via charging_button capability, resume via charging_button + flow.
    * @param {string} deviceId
    * @param {number|null} currentA - Target current in amps, or null to pause
@@ -1820,6 +1879,9 @@ class PowerGuardApp extends Homey.App {
       return false;
     }
 
+    // Discover the correct flow action (cached after first lookup)
+    const flowAction = await this._discoverFlowAction('zaptec');
+
     const maxRetries = 2;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -1831,6 +1893,22 @@ class PowerGuardApp extends Homey.App {
 
         this._pendingChargerCommands[deviceId] = Date.now();
 
+        // Helper to call the Zaptec flow action with the discovered ID
+        const callZaptecFlow = async (amps) => {
+          if (!flowAction) {
+            this.log(`[Zaptec] No flow action discovered, skipping current control`);
+            return;
+          }
+          await withTimeout(
+            this._api.flow.runFlowCardAction({
+              uri: flowAction.uri,
+              id: flowAction.actionId,
+              args: { device: { id: deviceId, name: device.name }, current1: amps, current2: amps, current3: amps }
+            }),
+            10000, `zaptecFlow(${deviceId}, ${amps}A)`
+          );
+        };
+
         // ── Pause: set charging_button to false ──
         if (currentA === null || currentA === 0) {
           if (device.capabilities.includes('charging_button')) {
@@ -1840,16 +1918,7 @@ class PowerGuardApp extends Homey.App {
             );
           }
           // Also set installation current to 0 via flow to prevent any residual draw
-          try {
-            await withTimeout(
-              this._api.flow.runFlowCardAction({
-                uri: 'homey:app:com.zaptec',
-                id: 'installation_current_control',
-                args: { device: { id: deviceId, name: device.name }, current1: 0, current2: 0, current3: 0 }
-              }),
-              10000, `zaptecFlowPause(${deviceId})`
-            );
-          } catch (flowErr) {
+          try { await callZaptecFlow(0); } catch (flowErr) {
             this.log(`[Zaptec] Flow pause fallback failed (non-critical): ${flowErr.message}`);
           }
           this._addLog(`Zaptec paused: ${device.name}`);
@@ -1867,14 +1936,7 @@ class PowerGuardApp extends Homey.App {
           if (btnVal === false) {
             const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
             // Set current via flow first, then enable charging
-            await withTimeout(
-              this._api.flow.runFlowCardAction({
-                uri: 'homey:app:com.zaptec',
-                id: 'installation_current_control',
-                args: { device: { id: deviceId, name: device.name }, current1: resumeA, current2: resumeA, current3: resumeA }
-              }),
-              10000, `zaptecFlowResume(${deviceId})`
-            );
+            if (flowAction) await callZaptecFlow(resumeA);
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
               10000, `zaptecResume(${deviceId})`
@@ -1888,15 +1950,13 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Normal current adjustment via Flow API ──
+        if (!flowAction) {
+          this.log(`[Zaptec] No flow action available for dynamic current control on ${deviceId}`);
+          delete this._pendingChargerCommands[deviceId];
+          return false;
+        }
         const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(40, currentA));
-        await withTimeout(
-          this._api.flow.runFlowCardAction({
-            uri: 'homey:app:com.zaptec',
-            id: 'installation_current_control',
-            args: { device: { id: deviceId, name: device.name }, current1: clampedA, current2: clampedA, current3: clampedA }
-          }),
-          10000, `zaptecFlowSet(${deviceId})`
-        );
+        await callZaptecFlow(clampedA);
         this._addLog(`Zaptec strøm: ${device.name} → ${clampedA}A`);
         if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
         Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
@@ -1919,7 +1979,7 @@ class PowerGuardApp extends Homey.App {
 
   /**
    * Set Enua charger current via the Homey Flow API (runFlowCardAction).
-   * Uses 'changeCurrentLimitAction' from the no.enua app (6-32A).
+   * Dynamically discovers the correct flow action ID from the no.enua app.
    * Handles pause via toggleChargingCapability, resume via flow + toggleChargingCapability.
    * @param {string} deviceId
    * @param {number|null} currentA - Target current in amps, or null to pause
@@ -1934,6 +1994,9 @@ class PowerGuardApp extends Homey.App {
       return false;
     }
 
+    // Discover the correct flow action (cached after first lookup)
+    const flowAction = await this._discoverFlowAction('enua');
+
     const maxRetries = 2;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -1944,6 +2007,22 @@ class PowerGuardApp extends Homey.App {
         if (!device) return false;
 
         this._pendingChargerCommands[deviceId] = Date.now();
+
+        // Helper to call the Enua flow action with the discovered ID
+        const callEnuaFlow = async (amps) => {
+          if (!flowAction) {
+            this.log(`[Enua] No flow action discovered, skipping current control`);
+            return;
+          }
+          await withTimeout(
+            this._api.flow.runFlowCardAction({
+              uri: flowAction.uri,
+              id: flowAction.actionId,
+              args: { device: { id: deviceId, name: device.name }, current: amps }
+            }),
+            10000, `enuaFlow(${deviceId}, ${amps}A)`
+          );
+        };
 
         // ── Pause: set toggleChargingCapability to false ──
         if (currentA === null || currentA === 0) {
@@ -1969,14 +2048,7 @@ class PowerGuardApp extends Homey.App {
             const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
             const clampedA = Math.max(6, Math.min(32, resumeA));
             // Set current limit via flow first
-            await withTimeout(
-              this._api.flow.runFlowCardAction({
-                uri: 'homey:app:no.enua',
-                id: 'changeCurrentLimitAction',
-                args: { device: { id: deviceId, name: device.name }, current: clampedA }
-              }),
-              10000, `enuaFlowResume(${deviceId})`
-            );
+            if (flowAction) await callEnuaFlow(clampedA);
             // Then enable charging
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true }),
@@ -1991,15 +2063,13 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Normal current adjustment via Flow API ──
+        if (!flowAction) {
+          this.log(`[Enua] No flow action available for dynamic current control on ${deviceId}`);
+          delete this._pendingChargerCommands[deviceId];
+          return false;
+        }
         const clampedA = Math.max(6, Math.min(32, currentA));
-        await withTimeout(
-          this._api.flow.runFlowCardAction({
-            uri: 'homey:app:no.enua',
-            id: 'changeCurrentLimitAction',
-            args: { device: { id: deviceId, name: device.name }, current: clampedA }
-          }),
-          10000, `enuaFlowSet(${deviceId})`
-        );
+        await callEnuaFlow(clampedA);
         this._addLog(`Enua strøm: ${device.name} → ${clampedA}A`);
         if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
         Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
@@ -2887,19 +2957,40 @@ class PowerGuardApp extends Homey.App {
         // Test Flow API availability for dynamic current control
         try {
           const flowActions = await this._api.flow.getFlowCardActions();
-          const zaptecAction = Object.values(flowActions).find(a =>
-            a.uri === 'homey:app:com.zaptec' && a.id === 'installation_current_control'
+          // Find all Zaptec flow actions
+          const zaptecActions = Object.values(flowActions).filter(a =>
+            a.uri === 'homey:app:com.zaptec'
           );
-          if (zaptecAction) {
+          // Look for current control action (try known names)
+          const currentAction = zaptecActions.find(a =>
+            a.id.includes('current') || a.id.includes('Current') || a.id.includes('ampere') || a.id.includes('limit')
+          );
+          const exactAction = zaptecActions.find(a => a.id === 'installation_current_control');
+
+          if (exactAction) {
             results.steps.push({ step: 'Flow API', ok: true, detail: `Found: installation_current_control (0-40A per phase) — dynamic current ready` });
+          } else if (currentAction) {
+            results.steps.push({ step: 'Flow API', ok: true, detail: `Found Zaptec current action: "${currentAction.id}" (title: ${currentAction.title || 'N/A'}) — will use this for dynamic current` });
+          } else if (zaptecActions.length > 0) {
+            const actionList = zaptecActions.map(a => `${a.id}${a.title ? ' (' + (typeof a.title === 'object' ? JSON.stringify(a.title) : a.title) + ')' : ''}`).join(', ');
+            results.steps.push({ step: 'Flow API', ok: false, detail: `Found ${zaptecActions.length} Zaptec action(s) but none for current control: ${actionList}` });
           } else {
-            results.steps.push({ step: 'Flow API', ok: false, detail: 'installation_current_control action not found — is com.zaptec app installed?' });
+            // Check if any flow actions exist for Zaptec with different URI pattern
+            const allZaptec = Object.values(flowActions).filter(a =>
+              (a.uri || '').includes('zaptec') || (a.ownerUri || '').includes('zaptec')
+            );
+            if (allZaptec.length > 0) {
+              const actionList = allZaptec.map(a => `${a.uri}/${a.id}`).join(', ');
+              results.steps.push({ step: 'Flow API', ok: false, detail: `No actions at homey:app:com.zaptec, but found Zaptec-related: ${actionList}` });
+            } else {
+              results.steps.push({ step: 'Flow API', ok: false, detail: 'No Zaptec flow actions found. The com.zaptec app may not expose flow action cards for current control.' });
+            }
           }
         } catch (flowErr) {
           results.steps.push({ step: 'Flow API', ok: false, detail: `Flow API error: ${flowErr.message}` });
         }
 
-        results.steps.push({ step: 'Control test', ok: true, detail: 'Zaptec: pause=charging_button, dynamic current=Flow API (installation_current_control). Read test OK.' });
+        results.steps.push({ step: 'Control test', ok: true, detail: 'Zaptec: pause=charging_button, dynamic current=Flow API. Read test OK.' });
         results.success = true;
 
       } else if (isEnua) {
@@ -2919,19 +3010,37 @@ class PowerGuardApp extends Homey.App {
         // Test Flow API availability for dynamic current control
         try {
           const flowActions = await this._api.flow.getFlowCardActions();
-          const enuaAction = Object.values(flowActions).find(a =>
-            a.uri === 'homey:app:no.enua' && a.id === 'changeCurrentLimitAction'
+          const enuaActions = Object.values(flowActions).filter(a =>
+            a.uri === 'homey:app:no.enua'
           );
-          if (enuaAction) {
+          const currentAction = enuaActions.find(a =>
+            a.id.includes('current') || a.id.includes('Current') || a.id.includes('limit') || a.id.includes('Limit')
+          );
+          const exactAction = enuaActions.find(a => a.id === 'changeCurrentLimitAction');
+
+          if (exactAction) {
             results.steps.push({ step: 'Flow API', ok: true, detail: `Found: changeCurrentLimitAction (6-32A) — dynamic current ready` });
+          } else if (currentAction) {
+            results.steps.push({ step: 'Flow API', ok: true, detail: `Found Enua current action: "${currentAction.id}" (title: ${currentAction.title || 'N/A'}) — will use this for dynamic current` });
+          } else if (enuaActions.length > 0) {
+            const actionList = enuaActions.map(a => `${a.id}${a.title ? ' (' + (typeof a.title === 'object' ? JSON.stringify(a.title) : a.title) + ')' : ''}`).join(', ');
+            results.steps.push({ step: 'Flow API', ok: false, detail: `Found ${enuaActions.length} Enua action(s) but none for current control: ${actionList}` });
           } else {
-            results.steps.push({ step: 'Flow API', ok: false, detail: 'changeCurrentLimitAction not found — is no.enua app installed?' });
+            const allEnua = Object.values(flowActions).filter(a =>
+              (a.uri || '').includes('enua') || (a.ownerUri || '').includes('enua')
+            );
+            if (allEnua.length > 0) {
+              const actionList = allEnua.map(a => `${a.uri}/${a.id}`).join(', ');
+              results.steps.push({ step: 'Flow API', ok: false, detail: `No actions at homey:app:no.enua, but found Enua-related: ${actionList}` });
+            } else {
+              results.steps.push({ step: 'Flow API', ok: false, detail: 'No Enua flow actions found. The no.enua app may not expose flow action cards for current control.' });
+            }
           }
         } catch (flowErr) {
           results.steps.push({ step: 'Flow API', ok: false, detail: `Flow API error: ${flowErr.message}` });
         }
 
-        results.steps.push({ step: 'Control test', ok: true, detail: 'Enua: pause=toggleChargingCapability, dynamic current=Flow API (changeCurrentLimitAction). Read test OK.' });
+        results.steps.push({ step: 'Control test', ok: true, detail: 'Enua: pause=toggleChargingCapability, dynamic current=Flow API. Read test OK.' });
         results.success = true;
 
       } else if (isEasee) {
