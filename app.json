@@ -9,8 +9,8 @@
     "no": "Power Guard"
   },
   "description": {
-    "en": "Protect against exceeding your power limit",
-    "no": "Beskytt mot å overskride effektgrensen"
+    "en": "Keep your home within its power limit — automatically",
+    "no": "Hold hjemmet innenfor effektgrensen — automatisk"
   },
   "category": [
     "energy"
@@ -21,12 +21,15 @@
   },
   "images": {
     "small": "/assets/images/small.png",
-    "large": "/assets/images/large.png"
+    "large": "/assets/images/large.png",
+    "xlarge": "/assets/images/xlarge.png"
   },
   "author": {
     "name": "Power Guard",
-    "email": "powerguard@example.com"
+    "email": "powerguard@finnlyden.no"
   },
+  "support": "https://github.com/Finn-Cato/Powermanagment/issues",
+  "source": "https://github.com/Finn-Cato/Powermanagment",
   "permissions": [
     "homey:manager:api"
   ],
@@ -106,8 +109,9 @@
         "onoff"
       ],
       "images": {
+        "small": "/drivers/power-guard/assets/small.png",
         "large": "/drivers/power-guard/assets/large.png",
-        "small": "/drivers/power-guard/assets/small.png"
+        "xlarge": "/drivers/power-guard/assets/xlarge.png"
       },
       "capabilitiesOptions": {
         "measure_power": {
@@ -222,8 +226,9 @@
       },
       "class": "socket",
       "images": {
+        "small": "/drivers/ev-charger/assets/small.png",
         "large": "/drivers/ev-charger/assets/large.png",
-        "small": "/drivers/ev-charger/assets/small.png"
+        "xlarge": "/drivers/ev-charger/assets/xlarge.png"
       },
       "capabilities": [
         "measure_power",
@@ -259,8 +264,9 @@
       },
       "class": "thermostat",
       "images": {
+        "small": "/drivers/thermostat/assets/small.png",
         "large": "/drivers/thermostat/assets/large.png",
-        "small": "/drivers/thermostat/assets/small.png"
+        "xlarge": "/drivers/thermostat/assets/xlarge.png"
       },
       "capabilities": [
         "target_temperature",
@@ -366,7 +372,8 @@
       },
       {
         "id": "profile_is",
-        "title": { "en": "Active profile !{{is|is not}} [[profile]]", "no": "Aktiv profil !{{er|er ikke}} [[profile]]" },
+        "title": { "en": "Active profile is...", "no": "Aktiv profil er..." },
+        "titleFormatted": { "en": "Active profile !{{is|is not}} [[profile]]", "no": "Aktiv profil !{{er|er ikke}} [[profile]]" },
         "args": [
           {
             "name": "profile",
@@ -392,7 +399,8 @@
       },
       {
         "id": "set_profile",
-        "title": { "en": "Set profile to [[profile]]", "no": "Sett profil til [[profile]]" },
+        "title": { "en": "Set profile", "no": "Sett profil" },
+        "titleFormatted": { "en": "Set profile to [[profile]]", "no": "Sett profil til [[profile]]" },
         "args": [
           {
             "name": "profile",

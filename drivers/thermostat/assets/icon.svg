@@ -1,8 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 960">
-  <!-- Outer circle ring -->
-  <circle cx="480" cy="480" r="400" stroke="#000" stroke-width="56" fill="none"/>
-  <!-- Inner power arc -->
-  <path d="M 370 320 A 180 180 0 1 0 590 320" stroke="#000" stroke-width="48" stroke-linecap="round" fill="none"/>
-  <!-- Power line (vertical) -->
-  <rect x="456" y="180" width="48" height="220" rx="24" fill="#000"/>
+  <!-- Thermometer bulb -->
+  <circle cx="480" cy="720" r="140" stroke="#000" stroke-width="48" fill="none"/>
+  <!-- Thermometer tube -->
+  <rect x="440" y="140" width="80" height="480" rx="40" stroke="#000" stroke-width="48" fill="none"/>
+  <!-- Mercury fill in bulb -->
+  <circle cx="480" cy="720" r="80" fill="#000"/>
+  <!-- Mercury column -->
+  <rect x="456" y="360" width="48" height="300" rx="10" fill="#000"/>
+  <!-- Temperature marks -->
+  <line x1="540" y1="260" x2="600" y2="260" stroke="#000" stroke-width="28" stroke-linecap="round"/>
+  <line x1="540" y1="360" x2="600" y2="360" stroke="#000" stroke-width="28" stroke-linecap="round"/>
+  <line x1="540" y1="460" x2="580" y2="460" stroke="#000" stroke-width="28" stroke-linecap="round"/>
 </svg>

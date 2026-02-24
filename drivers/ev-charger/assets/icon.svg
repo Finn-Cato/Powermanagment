@@ -1,8 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 960">
-  <!-- Outer circle ring -->
-  <circle cx="480" cy="480" r="400" stroke="#000" stroke-width="56" fill="none"/>
-  <!-- Inner power arc -->
-  <path d="M 370 320 A 180 180 0 1 0 590 320" stroke="#000" stroke-width="48" stroke-linecap="round" fill="none"/>
-  <!-- Power line (vertical) -->
-  <rect x="456" y="180" width="48" height="220" rx="24" fill="#000"/>
+  <!-- Charger body -->
+  <rect x="240" y="160" width="360" height="560" rx="40" stroke="#000" stroke-width="48" fill="none"/>
+  <!-- Screen/display area -->
+  <rect x="320" y="260" width="200" height="120" rx="12" fill="#000"/>
+  <!-- Cable going down -->
+  <path d="M420 720 L420 820 Q420 860 460 860 L560 860" stroke="#000" stroke-width="40" stroke-linecap="round" fill="none"/>
+  <!-- Plug head -->
+  <rect x="560" y="830" width="120" height="60" rx="16" fill="#000"/>
+  <!-- Lightning bolt on screen -->
+  <polygon points="440,280 390,340 420,340 400,370 460,310 430,310 450,280" fill="#fff"/>
 </svg>

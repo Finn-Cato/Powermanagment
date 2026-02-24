@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 960">
-  <!-- Outer circle ring -->
-  <circle cx="480" cy="480" r="400" stroke="#000" stroke-width="56" fill="none"/>
-  <!-- Inner power arc -->
-  <path d="M 370 320 A 180 180 0 1 0 590 320" stroke="#000" stroke-width="48" stroke-linecap="round" fill="none"/>
-  <!-- Power line (vertical) -->
-  <rect x="456" y="180" width="48" height="220" rx="24" fill="#000"/>
+  <!-- Shield outline -->
+  <path d="M480 100 L820 240 L820 520 Q820 740 480 880 Q140 740 140 520 L140 240 Z"
+        stroke="#000" stroke-width="48" stroke-linejoin="round" fill="none"/>
+  <!-- Lightning bolt inside shield -->
+  <polygon points="520,260 400,500 480,500 440,720 600,440 510,440 560,260"
+           fill="#000"/>
 </svg>
