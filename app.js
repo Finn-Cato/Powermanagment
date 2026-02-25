@@ -1246,9 +1246,11 @@ class PowerGuardApp extends Homey.App {
             capabilities: d.capabilities || [],
             zoneName:     zoneMap[d.zone] || 'Other',
             driverId:     d.driverId,
+            driverUri:    d.driverUri || '',
             isEasee:      (d.driverId === 'charger' && d.driver && d.driver.owner_uri === 'homey:app:no.easee'),
             isZaptec:     (d.class === 'evcharger' && d.driver && d.driver.owner_uri === 'homey:app:com.zaptec'),
             isEnua:       (d.driver && d.driver.owner_uri === 'homey:app:no.enua'),
+            isAdax:       (d.driverUri || '').includes('no.adax') || (d.driver && d.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app'),
           };
         });
 
@@ -2476,6 +2478,25 @@ class PowerGuardApp extends Homey.App {
       }
       
       this.log(`[FloorHeater]   FINAL -> Target: ${currentTarget}°C | Measure: ${currentMeasure}°C | Power: ${currentPowerW}W | On: ${isOn}`);
+
+      // ── Adax power estimation workaround ──
+      // The Adax Homey app reports constant rated wattage even when the heater
+      // element is off (thermostat satisfied). We estimate actual power from
+      // temperature state: if room is at or above target, the element is idle.
+      const isAdax = cached.isAdax ||
+        (liveDevice && ((liveDevice.driverUri || '').includes('no.adax') ||
+        (liveDevice.driver && liveDevice.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app')));
+      if (isAdax && currentMeasure != null && currentTarget != null) {
+        const ratedW = (hasPower && currentPowerW > 0) ? currentPowerW : 0;
+        if (isOn === false) {
+          currentPowerW = 0;
+        } else if (currentMeasure >= currentTarget) {
+          currentPowerW = 0;  // Room at target → element idle
+        } else {
+          currentPowerW = ratedW;  // Room below target → element heating
+        }
+        this.log(`[FloorHeater]   Adax power estimate: ${currentPowerW}W (rated=${ratedW}W, measure=${currentMeasure}°C, target=${currentTarget}°C, on=${isOn})`);
+      }
       
       // Get zone name - try live device first, then cached
       let zoneName = '';
@@ -2666,6 +2687,24 @@ class PowerGuardApp extends Homey.App {
           try {
             currentW = device.getCapabilityValue('measure_power') || 0;
           } catch (_) {}
+        }
+
+        // ── Adax power estimation workaround ──
+        // Adax Homey app reports constant rated wattage even when element is idle.
+        // Override with estimate based on temperature state.
+        const isAdax = device.isAdax ||
+          (device.driverUri || '').includes('no.adax') ||
+          (device.driver && device.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app');
+        if (isAdax && currentW > 0) {
+          const obj = device.capabilitiesObj || {};
+          const measT = obj.measure_temperature ? obj.measure_temperature.value : null;
+          const targT = obj.target_temperature ? obj.target_temperature.value : null;
+          const onoff = obj.onoff ? obj.onoff.value : null;
+          if (onoff === false) {
+            currentW = 0;
+          } else if (measT != null && targT != null && measT >= targT) {
+            currentW = 0;  // Room at target → element idle
+          }
         }
         
         if (!this._powerConsumptionData[devId]) {

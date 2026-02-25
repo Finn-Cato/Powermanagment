@@ -1,4 +1,8 @@
 {
+  "0.2.2": {
+    "en": "Adax heater power estimation: detects when Adax reports constant rated wattage and estimates actual power from temperature state (room at target = 0W, room below target = rated wattage). Heater tab now correctly shows which Adax heaters are actively heating. Thermostat mitigation changed from setting to 5°C to lowering by 3°C from current target.",
+    "no": "Adax-varmer effektestimering: oppdager når Adax rapporterer konstant nominell effekt og estimerer faktisk forbruk fra temperaturstatus (rom på mål = 0W, rom under mål = nominell effekt). Varmer-fanen viser nå korrekt hvilke Adax-varmere som aktivt varmer. Termostat-tiltak endret fra å sette til 5°C til å senke med 3°C fra nåværende mål."
+  },
   "0.2.1": {
     "en": "Fixed Zaptec and Enua dynamic current control on Homey setups where getFlowCardActions() does not enumerate app flow cards. Now falls back to hardcoded known action IDs (installation_current_control / changeCurrentLimitAction) when discovery returns nothing, instead of silently skipping current adjustments.",
     "no": "Fikset Zaptec og Enua dynamisk strømstyring på Homey-oppsett hvor getFlowCardActions() ikke lister app-flythandlinger. Faller nå tilbake til kjente action-IDer (installation_current_control / changeCurrentLimitAction) når oppdagelse ikke finner noe, i stedet for å hoppe over strømjusteringer."

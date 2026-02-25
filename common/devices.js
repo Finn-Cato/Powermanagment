@@ -46,11 +46,12 @@ async function applyAction(device, action) {
         await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: false });
         return true;
       }
-      // Fallback: thermostat without onoff — set temperature to minimum (5°C) to stop heating
+      // Fallback: thermostat without onoff — lower temperature by 3°C to reduce heating
       if (caps.includes('target_temperature')) {
         const current = obj.target_temperature ? obj.target_temperature.value : 20;
+        const newTemp = Math.max(5, current - 3);
         if (current <= 5) return false;  // Already at minimum
-        await device.setCapabilityValue({ capabilityId: 'target_temperature', value: 5 });
+        await device.setCapabilityValue({ capabilityId: 'target_temperature', value: newTemp });
         return true;
       }
       break;
@@ -72,9 +73,9 @@ async function applyAction(device, action) {
     case ACTIONS.TARGET_TEMP:
       if (caps.includes('target_temperature')) {
         const current = obj.target_temperature ? obj.target_temperature.value : 20;
-        // Set to minimum (5°C) to actually stop heating — lowering by just 3°C often isn't enough
-        const newTemp = 5;
-        if (current <= newTemp) return false;  // Already at minimum
+        // Lower by 3°C to reduce heating, with a floor of 5°C
+        const newTemp = Math.max(5, current - 3);
+        if (current <= 5) return false;  // Already at minimum
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: newTemp });
         return true;
       }
