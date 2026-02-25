@@ -10,9 +10,10 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 
 | Type | Supported |
 |------|-----------|
-| **EV Charger** | Easee Home, Easee Pro, Zaptec Go/Go2/Home/Pro |
+| **EV Charger** | Easee Home, Easee Pro, Zaptec Go/Go2/Home/Pro, Enua Charge E |
 | **Power Meter** | Any HAN meter with `measure_power` — Frient, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer, and more |
 | **Thermostats** | Any brand — auto-detects capabilities (Futurehome, Z-Wave, Zigbee, etc.) |
+| **Water Heaters** | Hoiax Connected 300/200 — stepped power reduction |
 
 ## How It Works
 
@@ -48,12 +49,13 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - **Retry with backoff** — retries failed commands up to 2 times with increasing delays
 - **Pending command tracking** — prevents sending new commands while a previous command is still being processed
 - **Zaptec support** — detects Zaptec chargers (Go, Go2, Home, Pro) via the `charging_button` capability for charge pause/resume
-- **Multi-brand** — works with both Easee (`target_charger_current` / `target_circuit_current`) and Zaptec (`charging_button`) control methods
+- **Enua support** — detects Enua Charge E chargers with dynamic current control (6–32 A) and pause/resume via Flow API
+- **Multi-brand** — works with Easee (`target_charger_current` / `target_circuit_current`), Zaptec (`charging_button` / Flow API), and Enua (Flow API) control methods
 
 ### Thermostat Control
 
 - Auto-detects thermostat capabilities (on/off, target temperature, or both)
-- Lowers to 5°C during mitigation instead of turning off completely
+- Lowers by 3°C during mitigation instead of turning off completely
 - Cross-fallback: if `target_temperature` isn't available, falls back to `onoff` (and vice versa)
 - Automatic restore to previous temperature when power is safe
 
@@ -99,7 +101,7 @@ On the **Settings** tab, make sure "Guard active" is turned on. Choose a protect
 
 ## Settings Page
 
-The app has five tabs in the settings page:
+The app has six tabs in the settings page:
 
 | Tab | What it does |
 |-----|-------------|
@@ -108,6 +110,7 @@ The app has five tabs in the settings page:
 | **📊 System** | Electrical system config, charger details, test buttons |
 | **⚡ Power** | Real-time power consumption per device |
 | **🌡️ Heaters** | Thermostat control — temperature, on/off, live readings |
+| **📋 Log** | Diagnostic log for remote debugging — filterable by category, copy-to-clipboard, auto-refresh |
 
 ### Configuration
 
@@ -130,9 +133,10 @@ Drag and drop devices to set priority order. Devices at the **bottom** are turne
 |--------|-------------|
 | Turn Off | Switches the device off |
 | Dim | Reduces to 10% brightness |
-| Temperature | Lowers target temperature to 5°C |
-| Charge Pause | Pauses EV charging |
-| Dynamic Current | Adjusts charger current limit (7–32A) |
+| Lower Thermostat | Lowers target temperature by 3°C |
+| Charge Pause | Pauses EV charging (Zaptec/Enua) |
+| Dynamic Current | Adjusts charger current limit (Easee/Zaptec/Enua, 7–32A) |
+| Stepped Power (Hoiax) | Reduces water heater power one level per cycle (3000W → 1750W → 1250W → off) |
 
 ### Power Tab
 
@@ -150,6 +154,18 @@ Controls all detected thermostats in your home:
 - Live current temperature (auto-refreshes)
 - On/off toggle per thermostat
 - Orange border shows heaters currently drawing power
+
+### Log Tab
+
+Consolidated diagnostic log for remote debugging:
+- Filter by category: HAN, Charger, Mitigation, Energy, Cache, System
+- Color-coded category badges for quick scanning
+- Copy Filtered or Copy All JSON to clipboard for sharing
+- Auto-refresh toggle (5-second interval)
+- HAN Meter Summary — connection status, reading source, raw readings
+- Last Mitigation Scan — device-by-device results table
+- System Info — uptime, power limits, settings summary
+
 ### Power Meter / HAN Support
 
 - Auto-detects HAN meters by device class, name, or driver ID

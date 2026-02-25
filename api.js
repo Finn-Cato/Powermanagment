@@ -142,10 +142,6 @@ module.exports = {
     };
   },
 
-  async getPowerConsumption({ homey }) {
-    return homey.app.getPowerConsumption();
-  },
-
   async testCharger({ homey, body }) {
     const app = homey.app;
     return app.testEaseeCharger(body ? body.deviceId : null);
@@ -198,6 +194,10 @@ module.exports = {
     return homey.app.getMeterDevices();
   },
 
+  async getHanDiagnostic({ homey }) {
+    return homey.app.getHanDiagnostic();
+  },
+
   async setMeterDevice({ homey, body }) {
     if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request' };
     const deviceId = body.deviceId || 'auto';
@@ -222,5 +222,9 @@ module.exports = {
       hanConnected: !!app._hanDeviceId,
       hanDeviceName: app._hanDeviceId ? app._getHANDeviceBrand() : null,
     };
+  },
+
+  async getAppLog({ homey }) {
+    return homey.app.getAppLog();
   },
 };

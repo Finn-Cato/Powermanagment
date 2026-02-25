@@ -58,6 +58,12 @@ class PowerGuardApp extends Homey.App {
     this._lastHanReading = null;
     this._hanDeviceId = null;
     this._hanPollInterval = null;
+    // HAN diagnostic counters for remote debugging
+    this._hanEventCount = 0;
+    this._hanPollCount = 0;
+    this._hanSpikeCount = 0;
+    this._hanWatchdogCount = 0;
+    this._hanRawLog = [];         // Ring buffer: last 20 raw readings {time, value, source}
     this._evPowerData = {};
     this._evCapabilityInstances = {};
     this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
@@ -71,6 +77,9 @@ class PowerGuardApp extends Homey.App {
     this._deviceCacheReady = false;
     this._lastCacheTime = null;
     this._saveQueue = [];
+    // Unified app log for remote diagnostics
+    this._appLog = [];          // Ring buffer: last 300 entries {time, category, message}
+    this._appStartTime = Date.now();
 
     // Hourly energy tracking
     this._hourlyEnergy = {
@@ -148,6 +157,7 @@ class PowerGuardApp extends Homey.App {
       // When power limit or profile changes, immediately re-evaluate chargers
       if (['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA'].includes(key)) {
         this.log(`[Settings] ${key} changed, forcing charger re-evaluation`);
+        this._appLogEntry('system', `Settings changed: ${key}`);
         this._forceChargerRecheck().catch(err => this.error('Force re-check error:', err));
       }
     });
@@ -162,6 +172,7 @@ class PowerGuardApp extends Homey.App {
       this._api = await HomeyAPI.createAppAPI({ homey: this.homey });
       this.log('HomeyAPI ready');
       this.log('[Power Consumption] API is ready for device tracking');
+      this._appLogEntry('system', 'HomeyAPI ready');
     } catch (err) {
       this.error('HomeyAPI init error:', err);
     }
@@ -170,6 +181,7 @@ class PowerGuardApp extends Homey.App {
       if (this._api) await this._connectToHAN();
     } catch (err) {
       this.error('HAN connection error (non-fatal):', err);
+      this._appLogEntry('han', `Connection error: ${err.message}`);
     }
 
     try {
@@ -197,9 +209,11 @@ class PowerGuardApp extends Homey.App {
     // Initialize power consumption tracking after API is ready (don't call on startup, it fails)
     // It will populate when HAN readings arrive or when the tab is first opened
     this._writeDebugLog('===== APP STARTED =====' );
+    this._appLogEntry('system', 'App started');
 
     this.log('Power Guard ready (device cache: ' +
       (this._deviceCacheReady ? 'YES' : 'NO') + ')');
+    this._appLogEntry('system', 'Power Guard ready (device cache: ' + (this._deviceCacheReady ? 'YES' : 'NO') + ')');
   }
 
   // ─── Device Cache Initialization with Retry Logic ──────────────────────────
@@ -415,6 +429,49 @@ class PowerGuardApp extends Homey.App {
     return this._hanDeviceName || 'Unknown meter';
   }
 
+  _pushHanRawLog(value, source) {
+    this._hanRawLog.push({ time: Date.now(), value, source });
+    if (this._hanRawLog.length > 20) this._hanRawLog.shift();
+  }
+
+  getHanDiagnostic() {
+    const selectedId = this.homey.settings.get('selectedMeterDeviceId') || 'auto';
+    const hanDevice = this._hanDevice;
+    const capValues = {};
+    if (hanDevice && hanDevice.capabilitiesObj) {
+      for (const [cap, obj] of Object.entries(hanDevice.capabilitiesObj)) {
+        capValues[cap] = obj && obj.value !== undefined ? obj.value : null;
+      }
+    }
+    const lastAge = this._lastHanReading ? Math.round((Date.now() - this._lastHanReading) / 1000) : null;
+    // Determine primary reading source
+    let readingSource = 'none';
+    if (this._hanEventCount > 0 && this._hanPollCount === 0) readingSource = 'event';
+    else if (this._hanPollCount > 0 && this._hanEventCount === 0) readingSource = 'poll';
+    else if (this._hanEventCount > 0 && this._hanPollCount > 0) readingSource = 'event+poll';
+
+    return {
+      hanConnected: !!this._hanDeviceId,
+      hanDeviceId: this._hanDeviceId || null,
+      hanDeviceName: this._hanDeviceName || null,
+      hanBrand: this._hanDeviceId ? this._getHANDeviceBrand() : null,
+      selectedMeterDeviceId: selectedId,
+      selectionMode: selectedId === 'auto' ? 'auto' : 'manual',
+      capabilities: hanDevice ? (hanDevice.capabilities || []) : [],
+      capabilityValues: capValues,
+      lastReadingAgeSeconds: lastAge,
+      readingSource: readingSource,
+      eventCount: this._hanEventCount,
+      pollCount: this._hanPollCount,
+      spikeFilterCount: this._hanSpikeCount,
+      watchdogReconnects: this._hanWatchdogCount,
+      rawLog: this._hanRawLog.slice(-20).map(function (e) {
+        return { time: new Date(e.time).toISOString(), value: e.value, source: e.source };
+      }),
+      powerBuffer: this._powerBuffer.slice(-10),
+    };
+  }
+
   /**
    * Returns all devices with measure_power capability for the meter selector.
    */
@@ -494,9 +551,18 @@ class PowerGuardApp extends Homey.App {
     this._hanDeviceManufacturer = hanDevice.owner?.name || hanDevice.driverId || null;
     const brand = this._getHANDeviceBrand();
     this.log(`HAN device found: "${this._hanDeviceName}" (${brand}) (${hanDevice.id})`);
+    this._writeDebugLog(`[HAN] Device found: "${this._hanDeviceName}" (${brand}) id=${hanDevice.id} caps=[${(hanDevice.capabilities || []).join(', ')}]`);
+    this._appLogEntry('han', `Device found: "${this._hanDeviceName}" (${brand}) id=${hanDevice.id}`);
+    // Reset diagnostic counters on each connect
+    this._hanEventCount = 0;
+    this._hanPollCount = 0;
+    this._hanSpikeCount = 0;
+    this._hanRawLog = [];
 
     // makeCapabilityInstance is the correct homey-api v3 way to subscribe to capability changes
     this._hanCapabilityInstance = hanDevice.makeCapabilityInstance('measure_power', (value) => {
+      this._hanEventCount++;
+      this._pushHanRawLog(value, 'event');
       this._onPowerReading(value);
     });
 
@@ -506,7 +572,9 @@ class PowerGuardApp extends Homey.App {
       if (capObj && capObj.measure_power && capObj.measure_power.value != null) {
         const initialVal = Number(capObj.measure_power.value);
         this.log(`[HAN] Initial measure_power = ${initialVal} W`);
+        this._writeDebugLog(`[HAN] Initial reading: ${initialVal} W`);
         if (!isNaN(initialVal)) {
+          this._pushHanRawLog(initialVal, 'initial');
           this._onPowerReading(initialVal);
         }
       } else {
@@ -561,6 +629,9 @@ class PowerGuardApp extends Homey.App {
         // This avoids double-processing when events ARE working
         if (timeSinceLastReading > 8000) {
           this.log(`[HAN Poll] Fallback reading: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
+          this._hanPollCount++;
+          this._pushHanRawLog(value, 'poll');
+          this._appLogEntry('han', `Poll fallback: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
           this._onPowerReading(value);
         }
       } else {
@@ -604,6 +675,9 @@ class PowerGuardApp extends Homey.App {
         this.log(`Spike allowed (charger capacity ${Math.round(maxChargerW)}W): ${rawValue} W (avg ${avg.toFixed(0)} W)`);
       } else {
         this.log(`Spike ignored: ${rawValue} W (avg ${avg.toFixed(0)} W, charger headroom ${Math.round(maxChargerW)}W)`);
+        this._hanSpikeCount++;
+        this._pushHanRawLog(rawValue, 'spike-filtered');
+        this._appLogEntry('han', `Spike filtered: ${rawValue}W (avg ${avg.toFixed(0)}W, charger headroom ${Math.round(maxChargerW)}W)`);
         return;
       }
     }
@@ -663,6 +737,7 @@ class PowerGuardApp extends Homey.App {
         this.homey.settings.set('_hourlyEnergyHistory', this._hourlyEnergy.history);
       } catch (_) {}
       this.log(`[Energy] Hour ${entry.hour}:00 completed: ${entry.kWh} kWh`);
+      this._appLogEntry('energy', `Hour ${entry.hour}:00 completed: ${entry.kWh} kWh`);
 
       // Update effekttariff daily peak: kWh in one hour = average kW for that hour
       // The hourly kWh value IS the average power in kW for that hour
@@ -703,6 +778,7 @@ class PowerGuardApp extends Homey.App {
     if (avgKW > old) {
       this._dailyPeaks[dateStr] = Math.round(avgKW * 1000) / 1000;
       this.log(`[Effekttariff] New daily peak for ${dateStr}: ${avgKW.toFixed(3)} kW (was ${old.toFixed(3)} kW)`);
+      this._appLogEntry('energy', `New daily peak for ${dateStr}: ${avgKW.toFixed(3)} kW (was ${old.toFixed(3)} kW)`);
       this._persistDailyPeaks();
     }
   }
@@ -837,6 +913,7 @@ class PowerGuardApp extends Homey.App {
       const elapsed = now - this._lastMitigationTime;
       if (elapsed < cooldownMs) {
         this.log(`[Mitigation] Cooldown active: ${Math.round((cooldownMs - elapsed) / 1000)}s remaining`);
+        this._appLogEntry('mitigation', `Cooldown active: ${Math.round((cooldownMs - elapsed) / 1000)}s remaining`);
         return;
       }
 
@@ -848,6 +925,7 @@ class PowerGuardApp extends Homey.App {
 
       this.log(`[Mitigation] Starting cycle: power=${Math.round(currentPower)}W, limit=${Math.round(this._getEffectiveLimit())}W, `
         + `devices in list: ${priorityList.length}, already mitigated: ${mitigated.size}`);
+      this._appLogEntry('mitigation', `Cycle start: power=${Math.round(currentPower)}W, limit=${Math.round(this._getEffectiveLimit())}W, list=${priorityList.length}, mitigated=${mitigated.size}`);
 
       // Build diagnostic scan results (visible in settings page)
       const scanResults = [];
@@ -928,6 +1006,7 @@ class PowerGuardApp extends Homey.App {
           this._fireTrigger('mitigation_applied', { device_name: device.name, action: entry.action });
           await this._updateVirtualDevice({ alarm: true });
           this.log(`[Mitigation] SUCCESS: ${entry.name} mitigated with action=${entry.action}`);
+          this._appLogEntry('mitigation', `Mitigated: ${entry.name} (action=${entry.action})`);
           scanResults.push({ name: entry.name, action: entry.action, result: `SUCCESS` });
           mitigatedThisCycle = true;
           // Don't break — continue to build full scan results for diagnostics
@@ -982,6 +1061,7 @@ class PowerGuardApp extends Homey.App {
         if (restored) {
           this._mitigatedDevices.pop();
           this._addLog(`Restored: ${device.name}`);
+          this._appLogEntry('mitigation', `Restored: ${device.name}`);
           this._persistMitigatedDevices();
           if (this._mitigatedDevices.length === 0) {
             this._fireTrigger('mitigation_cleared', {});
@@ -1082,6 +1162,7 @@ class PowerGuardApp extends Homey.App {
     this.homey.settings.set('profile', profile);
     this._fireTrigger('profile_changed', { profile });
     this.log(`Profile: ${profile}`);
+    this._appLogEntry('system', `Profile changed to: ${profile}`);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -1097,6 +1178,43 @@ class PowerGuardApp extends Homey.App {
     this._mitigationLog.push({ time: timestamp(), message });
     if (this._mitigationLog.length > MITIGATION_LOG_MAX) this._mitigationLog.shift();
     this.log(message);
+  }
+
+  _appLogEntry(category, message) {
+    this._appLog.push({ time: new Date().toISOString(), category: category, message: message });
+    if (this._appLog.length > 300) this._appLog.shift();
+  }
+
+  getAppLog() {
+    const s = this.homey.settings;
+    const cache = s.get('_deviceCache') || [];
+    return {
+      appLog: this._appLog.slice(),
+      mitigationLog: this._mitigationLog.slice(),
+      hanDiagnostic: this.getHanDiagnostic(),
+      lastMitigationScan: this._lastMitigationScan.slice(),
+      settings: {
+        enabled: s.get('enabled') ?? true,
+        profile: s.get('profile') ?? 'normal',
+        powerLimitW: s.get('powerLimitW') ?? 10000,
+        phase1LimitA: s.get('phase1LimitA') ?? 0,
+        phase2LimitA: s.get('phase2LimitA') ?? 0,
+        phase3LimitA: s.get('phase3LimitA') ?? 0,
+        smoothingWindow: s.get('smoothingWindow') ?? 5,
+        spikeMultiplier: s.get('spikeMultiplier') ?? 2.0,
+        hysteresisCount: s.get('hysteresisCount') ?? 3,
+        cooldownSeconds: s.get('cooldownSeconds') ?? 30,
+        voltageSystem: s.get('voltageSystem') ?? '230v-1phase',
+        mainCircuitA: s.get('mainCircuitA') ?? 25,
+        selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
+      },
+      deviceCacheCount: cache.length,
+      uptimeSeconds: Math.round((Date.now() - this._appStartTime) / 1000),
+      currentPowerW: Math.round(movingAverage(this._powerBuffer, this._settings.smoothingWindow)),
+      limitW: this._getEffectiveLimit(),
+      mitigatedDevices: this._mitigatedDevices.map(function (m) { return { deviceId: m.deviceId, action: m.action }; }),
+      overLimitCount: this._overLimitCount,
+    };
   }
 
   // Read current capability values from homey-api capabilitiesObj
@@ -1130,6 +1248,9 @@ class PowerGuardApp extends Homey.App {
       if (!this._hanDeviceId || silentMs > 60000) {
         // HAN not found or no readings for 60s → try to reconnect
         this.log('[Watchdog] HAN silent for ' + Math.round(silentMs / 1000) + 's, attempting reconnect...');
+        this._writeDebugLog('[HAN] Watchdog reconnect triggered after ' + Math.round(silentMs / 1000) + 's silence');
+        this._appLogEntry('han', 'Watchdog reconnect after ' + Math.round(silentMs / 1000) + 's silence');
+        this._hanWatchdogCount++;
         try {
           if (this._hanCapabilityInstance) {
             try { this._hanCapabilityInstance.destroy(); } catch (_) {}
@@ -1277,6 +1398,7 @@ class PowerGuardApp extends Homey.App {
       this._lastCacheTime = Date.now();
       const elapsed = Date.now() - startTime;
       this.log(`[Cache] Successfully cached ${list.length} controllable devices in ${elapsed}ms`);
+      this._appLogEntry('cache', `Device cache refreshed: ${list.length} devices in ${elapsed}ms`);
 
     } catch (err) {
       if (isInitialization) {
@@ -1342,6 +1464,7 @@ class PowerGuardApp extends Homey.App {
     }
 
     this._addLog(`Circuit limits applied: ${results.filter(r => r.ok).length}/${results.length} chargers`);
+    this._appLogEntry('charger', `Circuit limits applied: ${results.filter(r => r.ok).length}/${results.length} chargers`);
     return { ok: true, results };
   }
 
@@ -1434,6 +1557,7 @@ class PowerGuardApp extends Homey.App {
               this._evPowerData[entry.deviceId].chargerStatus = value;
               this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
               this.log(`[EV] ${entry.name} charger_status changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
+              this._appLogEntry('charger', `${entry.name} status: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_status'] = csInst;
@@ -1538,11 +1662,13 @@ class PowerGuardApp extends Homey.App {
       state.confirmed = true;
       state.reliability = (state.reliability ?? 0.5) * 0.99 + 0.01;  // Success → nudge up
       this.log(`[EV] \u2713 Confirmed: ${evData.name} → ${evData.offeredCurrent}A (commanded ${state.lastCommandA}A, took ${Math.round(elapsed / 1000)}s, reliability=${(state.reliability * 100).toFixed(1)}%)`);
+      this._appLogEntry('charger', `Confirmed: ${evData.name} → ${evData.offeredCurrent}A (commanded ${state.lastCommandA}A, ${Math.round(elapsed / 1000)}s)`);
     } else if (elapsed > CHARGER_DEFAULTS.confirmationTimeoutMs) {
       // Timed out waiting for confirmation
       state.reliability = (state.reliability ?? 0.5) * 0.99;  // Failure → nudge down
       state.timedOut = true;  // Stop re-checking until next command
       this.log(`[EV] \u2717 Unconfirmed: ${evData.name} → offered ${evData.offeredCurrent}A but commanded ${state.lastCommandA}A (${Math.round(elapsed / 1000)}s, reliability=${(state.reliability * 100).toFixed(1)}%)`);
+      this._appLogEntry('charger', `Unconfirmed: ${evData.name} → offered ${evData.offeredCurrent}A but commanded ${state.lastCommandA}A (${Math.round(elapsed / 1000)}s)`);
     }
   }
 
@@ -1949,6 +2075,7 @@ class PowerGuardApp extends Homey.App {
             this.log(`[Zaptec] Flow pause fallback failed (non-critical): ${flowErr.message}`);
           }
           this._addLog(`Zaptec paused: ${device.name}`);
+          this._appLogEntry('charger', `Zaptec paused: ${device.name}`);
           if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
           Object.assign(this._chargerState[deviceId], { lastCommandA: 0, commandTime: Date.now(), confirmed: false, timedOut: false });
           delete this._pendingChargerCommands[deviceId];
@@ -1969,6 +2096,7 @@ class PowerGuardApp extends Homey.App {
               10000, `zaptecResume(${deviceId})`
             );
             this._addLog(`Zaptec resumed: ${device.name} → ${resumeA}A`);
+            this._appLogEntry('charger', `Zaptec resumed: ${device.name} → ${resumeA}A`);
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], { lastCommandA: resumeA, commandTime: Date.now(), confirmed: false, timedOut: false });
             delete this._pendingChargerCommands[deviceId];
@@ -1980,6 +2108,7 @@ class PowerGuardApp extends Homey.App {
         const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(40, currentA));
         await callZaptecFlow(clampedA);
         this._addLog(`Zaptec strøm: ${device.name} → ${clampedA}A`);
+        this._appLogEntry('charger', `Zaptec current: ${device.name} → ${clampedA}A`);
         if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
         Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
         delete this._pendingChargerCommands[deviceId];
@@ -2060,6 +2189,7 @@ class PowerGuardApp extends Homey.App {
             );
           }
           this._addLog(`Enua paused: ${device.name}`);
+          this._appLogEntry('charger', `Enua paused: ${device.name}`);
           if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
           Object.assign(this._chargerState[deviceId], { lastCommandA: 0, commandTime: Date.now(), confirmed: false, timedOut: false });
           delete this._pendingChargerCommands[deviceId];
@@ -2082,6 +2212,7 @@ class PowerGuardApp extends Homey.App {
               10000, `enuaResume(${deviceId})`
             );
             this._addLog(`Enua resumed: ${device.name} → ${clampedA}A`);
+            this._appLogEntry('charger', `Enua resumed: ${device.name} → ${clampedA}A`);
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
             delete this._pendingChargerCommands[deviceId];
@@ -2093,6 +2224,7 @@ class PowerGuardApp extends Homey.App {
         const clampedA = Math.max(6, Math.min(32, currentA));
         await callEnuaFlow(clampedA);
         this._addLog(`Enua strøm: ${device.name} → ${clampedA}A`);
+        this._appLogEntry('charger', `Enua current: ${device.name} → ${clampedA}A`);
         if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
         Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
         delete this._pendingChargerCommands[deviceId];
@@ -2167,6 +2299,7 @@ class PowerGuardApp extends Homey.App {
               10000, `setOnOff(${deviceId})`
             );
             this._addLog(`Easee paused: ${device.name}`);
+            this._appLogEntry('charger', `Easee paused: ${device.name}`);
             // Record command for confirmation tracking
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], { lastCommandA: 0, commandTime: Date.now(), confirmed: false, timedOut: false });
@@ -2206,6 +2339,7 @@ class PowerGuardApp extends Homey.App {
               10000, `resumeCharger(${deviceId})`
             );
             this._addLog(`Easee resumed: ${device.name} → ${resumeCurrent}A (startCurrent=${CHARGER_DEFAULTS.startCurrent}A)`);
+            this._appLogEntry('charger', `Easee resumed: ${device.name} → ${resumeCurrent}A`);
             // Record command for confirmation tracking
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], { lastCommandA: resumeCurrent, commandTime: Date.now(), confirmed: false, timedOut: false });
@@ -2231,6 +2365,7 @@ class PowerGuardApp extends Homey.App {
             ).catch(e => this.log(`[Easee] target_circuit_current failed: ${e.message}`));
           }
           this._addLog(`Easee ${dynCap === 'target_charger_current' ? 'Ladegrense' : 'Midlertidig'}: ${device.name} → ${currentA}A`);
+          this._appLogEntry('charger', `Easee current: ${device.name} → ${currentA}A (${dynCap})`);
           // Record command for confirmation tracking
           if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
           Object.assign(this._chargerState[deviceId], { lastCommandA: currentA, commandTime: Date.now(), confirmed: false, timedOut: false });
