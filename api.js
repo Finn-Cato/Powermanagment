@@ -142,13 +142,47 @@ module.exports = {
     };
   },
 
-  async getPowerConsumption({ homey }) {
-    return homey.app.getPowerConsumption();
-  },
-
   async testCharger({ homey, body }) {
     const app = homey.app;
     return app.testEaseeCharger(body ? body.deviceId : null);
+  },
+
+  async debugHeaters({ homey }) {
+    const app = homey.app;
+    if (!app._api) return { error: 'API not ready' };
+    const allDevices = homey.settings.get('_deviceCache') || [];
+    const results = [];
+    for (const cached of allDevices) {
+      if (!cached) continue;
+      const cls = (cached.class || '').toLowerCase();
+      const name = (cached.name || '').toLowerCase();
+      const isHeater = cls === 'thermostat' || cls === 'heater' ||
+        name.includes('varme') || name.includes('heating') || name.includes('termostat') || name.includes('thermostat');
+      if (!isHeater) continue;
+      try {
+        const live = await app._api.devices.getDevice({ id: cached.id });
+        const capValues = {};
+        if (live && live.capabilitiesObj) {
+          for (const [cap, obj] of Object.entries(live.capabilitiesObj)) {
+            capValues[cap] = obj && obj.value !== undefined ? obj.value : null;
+          }
+        }
+        results.push({
+          id: cached.id,
+          name: cached.name,
+          class: cached.class,
+          driverId: cached.driverId,
+          driverUri: cached.driverUri || (live && live.driverUri) || '',
+          ownerUri: (live && live.driver && live.driver.owner_uri) || '',
+          isAdax: cached.isAdax || false,
+          capabilities: live ? Object.keys(live.capabilitiesObj || {}) : cached.capabilities,
+          values: capValues,
+        });
+      } catch (err) {
+        results.push({ id: cached.id, name: cached.name, error: err.message });
+      }
+    }
+    return results;
   },
 
   async applyCircuitLimits({ homey }) {
@@ -158,6 +192,10 @@ module.exports = {
 
   async getMeterDevices({ homey }) {
     return homey.app.getMeterDevices();
+  },
+
+  async getHanDiagnostic({ homey }) {
+    return homey.app.getHanDiagnostic();
   },
 
   async setMeterDevice({ homey, body }) {
@@ -184,5 +222,9 @@ module.exports = {
       hanConnected: !!app._hanDeviceId,
       hanDeviceName: app._hanDeviceId ? app._getHANDeviceBrand() : null,
     };
+  },
+
+  async getAppLog({ homey }) {
+    return homey.app.getAppLog();
   },
 };

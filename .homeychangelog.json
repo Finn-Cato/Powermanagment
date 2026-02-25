@@ -1,4 +1,24 @@
 {
+  "0.2.22": {
+    "en": "New diagnostic Log tab for remote debugging: consolidated app log with category filters (HAN, Charger, Mitigation, Energy, Cache, System), color-coded badges, copy-to-clipboard (filtered or full JSON), auto-refresh, HAN meter summary, mitigation scan results, and system info. Makes it easy to share diagnostic data when reporting issues.",
+    "no": "Ny diagnostikk-loggfane for feilsøking: samlet app-logg med kategorifiltre (HAN, Lader, Tiltak, Energi, Cache, System), fargekodede merkelapper, kopier til utklippstavle (filtrert eller full JSON), auto-oppdatering, HAN-måler-sammendrag, tiltak-skanneresultater og systeminfo. Gjør det enkelt å dele diagnostikkdata ved feilrapportering."
+  },
+  "0.2.21": {
+    "en": "Høiax Connected 300/200 stepped power control: new 'Stepped power (Høiax)' action reduces water heater power one level per mitigation cycle (3000W → 1750W → 1250W → off). Supports both Høiax 300 and 200 models. Driver icons fixed. Thermostat mitigation now lowers by 3°C instead of setting to 5°C.",
+    "no": "Høiax Connected 300/200 trinnvis effektstyring: ny 'Trinnvis effekt (Høiax)'-handling reduserer varmtvannsbereder ett nivå per tiltakssyklus (3000W → 1750W → 1250W → av). Støtter både Høiax 300 og 200 modeller. Driverikoner fikset. Termostat-tiltak senker nå med 3°C i stedet for å sette til 5°C."
+  },
+  "0.2.2": {
+    "en": "Adax heater power estimation: detects when Adax reports constant rated wattage and estimates actual power from temperature state (room at target = 0W, room below target = rated wattage). Heater tab now correctly shows which Adax heaters are actively heating. Thermostat mitigation changed from setting to 5°C to lowering by 3°C from current target.",
+    "no": "Adax-varmer effektestimering: oppdager når Adax rapporterer konstant nominell effekt og estimerer faktisk forbruk fra temperaturstatus (rom på mål = 0W, rom under mål = nominell effekt). Varmer-fanen viser nå korrekt hvilke Adax-varmere som aktivt varmer. Termostat-tiltak endret fra å sette til 5°C til å senke med 3°C fra nåværende mål."
+  },
+  "0.2.1": {
+    "en": "Fixed Zaptec and Enua dynamic current control on Homey setups where getFlowCardActions() does not enumerate app flow cards. Now falls back to hardcoded known action IDs (installation_current_control / changeCurrentLimitAction) when discovery returns nothing, instead of silently skipping current adjustments.",
+    "no": "Fikset Zaptec og Enua dynamisk strømstyring på Homey-oppsett hvor getFlowCardActions() ikke lister app-flythandlinger. Faller nå tilbake til kjente action-IDer (installation_current_control / changeCurrentLimitAction) når oppdagelse ikke finner noe, i stedet for å hoppe over strømjusteringer."
+  },
+  "0.2.0": {
+    "en": "Dynamic flow action discovery: automatically finds the correct Flow action ID for Zaptec and Enua chargers at runtime. Improved test charger diagnostics with detailed Flow API reporting. No more hardcoded action IDs.",
+    "no": "Dynamisk flow-action oppdagelse: finner automatisk riktig Flow action-ID for Zaptec og Enua ladere ved kj\u00f8ring. Forbedret ladertest-diagnostikk med detaljert Flow API-rapportering. Ingen flere hardkodede action-IDer."
+  },
   "0.1.9": {
     "en": "Added dynamic current control for Zaptec and Enua chargers via Homey Flow API. Zaptec uses installation_current_control (0-40A per phase), Enua uses changeCurrentLimitAction (6-32A). Auto-detects charger brand and routes to correct handler. Added Zaptec car-connected detection. Full Enua Charge E support with pause/resume and status monitoring.",
     "no": "Lagt til dynamisk strømstyring for Zaptec og Enua ladere via Homey Flow API. Zaptec bruker installation_current_control (0-40A per fase), Enua bruker changeCurrentLimitAction (6-32A). Auto-detekterer ladermerke og ruter til riktig handler. Lagt til Zaptec bil-tilkoblet deteksjon. Full Enua Charge E støtte med pause/gjenopptak og statusovervåking."

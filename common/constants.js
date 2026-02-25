@@ -36,6 +36,15 @@ const ACTIONS = {
   TARGET_TEMP: 'target_temperature',
   CHARGE_PAUSE: 'charge_pause',  // uses onoff for chargers that support it
   DYNAMIC_CURRENT: 'dynamic_current',
+  HOIAX_POWER: 'hoiax_power',   // stepped power reduction for Høiax water heaters
+};
+
+// Høiax stepped power levels: step down one level per mitigation cycle
+// max_power_3000 = Høiax Connected 300 (3000W, 1750W, 1250W)
+// max_power      = Høiax Connected 200 (2000W, 1300W, 700W)
+const HOIAX_POWER_STEPS = {
+  max_power_3000: ['high_power', 'medium_power', 'low_power'],
+  max_power:      ['high_power', 'medium_power', 'low_power'],
 };
 
 const MITIGATION_LOG_MAX = 100;
@@ -64,4 +73,4 @@ const EFFEKT_TIERS = [
   { maxKW: Infinity, label: '≥ 25 kW', index: 6 },
 ];
 
-module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS };
+module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, HOIAX_POWER_STEPS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS };

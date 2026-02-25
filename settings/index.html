@@ -196,6 +196,7 @@
       <button class="tab-btn"        id="tb-system"   onclick="showTab('system')"><span class="tab-icon">📊</span><span class="tab-label">System</span></button>
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label">Heaters</span></button>
+      <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label">Log</span></button>
     </div>
 
     <!-- ── Settings tab ──────────────────────────────────────────────────── -->
@@ -359,6 +360,18 @@
       </div>
 
       <div class="card">
+        <h2>HAN Meter Diagnostics</h2>
+        <div id="han-diag-content" style="font-size:12px;">
+          <span style="color:var(--text-muted)">Loading...</span>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="loadHanDiagnostic()" style="font-size:12px; padding:5px 12px;">Refresh</button>
+          <button class="btn-secondary" onclick="copyHanDiagnostic()" style="font-size:12px; padding:5px 12px;">Copy diagnostic JSON</button>
+        </div>
+        <div id="han-diag-copy-msg" style="font-size:11px; margin-top:4px; display:none;"></div>
+      </div>
+
+      <div class="card">
         <h2>Electrical System Configuration</h2>
         <div class="row">
           <div class="label-group">
@@ -456,6 +469,79 @@
       </div>
 
     </div><!-- /#tab-floorheater -->
+
+    <!-- ── Log tab ──────────────────────────────────────────────────────── -->
+    <div id="tab-log" style="display:none">
+
+      <div class="card">
+        <h2>Diagnostic Log</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px 0;">
+          Consolidated diagnostic log for remote debugging. Use filter buttons to view specific categories, and copy buttons to share data.
+        </p>
+
+        <!-- Filter buttons -->
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
+          <button class="btn-secondary log-filter-btn active" data-filter="all" onclick="filterAppLog('all')" style="font-size:11px; padding:4px 10px;">All</button>
+          <button class="btn-secondary log-filter-btn" data-filter="han" onclick="filterAppLog('han')" style="font-size:11px; padding:4px 10px; border-left:3px solid #34c759;">HAN</button>
+          <button class="btn-secondary log-filter-btn" data-filter="charger" onclick="filterAppLog('charger')" style="font-size:11px; padding:4px 10px; border-left:3px solid #007aff;">Charger</button>
+          <button class="btn-secondary log-filter-btn" data-filter="mitigation" onclick="filterAppLog('mitigation')" style="font-size:11px; padding:4px 10px; border-left:3px solid #ff9500;">Mitigation</button>
+          <button class="btn-secondary log-filter-btn" data-filter="energy" onclick="filterAppLog('energy')" style="font-size:11px; padding:4px 10px; border-left:3px solid #af52de;">Energy</button>
+          <button class="btn-secondary log-filter-btn" data-filter="cache" onclick="filterAppLog('cache')" style="font-size:11px; padding:4px 10px; border-left:3px solid #5ac8fa;">Cache</button>
+          <button class="btn-secondary log-filter-btn" data-filter="system" onclick="filterAppLog('system')" style="font-size:11px; padding:4px 10px; border-left:3px solid #8e8e93;">System</button>
+        </div>
+
+        <!-- Copy and auto-refresh controls -->
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center;">
+          <button class="btn-secondary" onclick="copyAppLog('filtered')" style="font-size:11px; padding:4px 10px;">Copy Filtered</button>
+          <button class="btn-secondary" onclick="copyAppLog('all')" style="font-size:11px; padding:4px 10px;">Copy All JSON</button>
+          <button class="btn-secondary" onclick="loadAppLog()" style="font-size:11px; padding:4px 10px;">Refresh</button>
+          <label style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-left:auto;">
+            <input type="checkbox" id="log-auto-refresh" onchange="toggleLogAutoRefresh(this.checked)"> Auto-refresh (5s)
+          </label>
+        </div>
+
+        <div id="log-copy-msg" style="font-size:11px; margin-bottom:8px; display:none;"></div>
+
+        <!-- App log entries -->
+        <div id="app-log-entries" style="font-family:monospace; font-size:11px; background:var(--bg-surface); border-radius:8px; padding:10px; max-height:400px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">
+          <span style="color:var(--text-muted)">Loading log data...</span>
+        </div>
+      </div>
+
+      <!-- HAN Diagnostic Summary -->
+      <div class="card">
+        <h2>HAN Meter Summary</h2>
+        <div id="log-han-summary" style="font-size:12px;">
+          <span style="color:var(--text-muted)">Loading...</span>
+        </div>
+        <div style="margin-top:8px;">
+          <button class="btn-secondary" onclick="copyAppLog('han-diagnostic')" style="font-size:11px; padding:4px 10px;">Copy HAN Diagnostic JSON</button>
+        </div>
+      </div>
+
+      <!-- Mitigation Scan Results -->
+      <div class="card">
+        <h2>Last Mitigation Scan</h2>
+        <div id="log-mitigation-scan" style="font-size:12px;">
+          <span style="color:var(--text-muted)">Loading...</span>
+        </div>
+        <div style="margin-top:8px;">
+          <button class="btn-secondary" onclick="copyAppLog('mitigation-scan')" style="font-size:11px; padding:4px 10px;">Copy Mitigation Scan JSON</button>
+        </div>
+      </div>
+
+      <!-- System Info -->
+      <div class="card">
+        <h2>System Info</h2>
+        <div id="log-system-info" style="font-size:12px;">
+          <span style="color:var(--text-muted)">Loading...</span>
+        </div>
+        <div style="margin-top:8px;">
+          <button class="btn-secondary" onclick="copyAppLog('system-info')" style="font-size:11px; padding:4px 10px;">Copy System Info JSON</button>
+        </div>
+      </div>
+
+    </div><!-- /#tab-log -->
 
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
     <div id="tab-devices" style="display:none">
@@ -565,7 +651,7 @@
   }
 
   function showTab(name) {
-    ['settings','system','devices','consumption','floorheater'].forEach(function(t) {
+    ['settings','system','devices','consumption','floorheater','log'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -584,6 +670,8 @@
         });
     } else if (name === 'floorheater') {
       loadFloorHeaters();
+    } else if (name === 'log') {
+      loadAppLog();
     } else {
       loadAll();
     }
@@ -898,6 +986,100 @@
       .catch(function() {});
   }
 
+  function loadHanDiagnostic() {
+    var el = document.getElementById('han-diag-content');
+    if (!el) return;
+    hApi('GET', '/han-diagnostic', null)
+      .then(function(d) {
+        if (!d) { el.innerHTML = '<span style="color:var(--text-muted)">No data</span>'; return; }
+        var connColor = d.hanConnected ? '#34c759' : '#ff3b30';
+        var connText = d.hanConnected ? 'Connected' : 'Not connected';
+        var ageColor = '#636366';
+        var ageText = '-';
+        if (d.lastReadingAgeSeconds != null) {
+          var a = d.lastReadingAgeSeconds;
+          ageText = a < 5 ? 'Live' : a < 60 ? a + 's ago' : Math.round(a / 60) + 'm ago';
+          ageColor = a < 10 ? '#34c759' : a < 30 ? '#ff9500' : '#ff3b30';
+        }
+        var src = d.readingSource || 'none';
+        var srcLabel = src === 'event' ? 'Events' : src === 'poll' ? 'Polling only' : src === 'event+poll' ? 'Events + Polling' : 'None';
+        var srcColor = src === 'none' ? '#ff3b30' : src === 'poll' ? '#ff9500' : '#34c759';
+
+        var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px; margin-bottom:10px;">';
+        html += '<div><strong>Status:</strong> <span style="color:' + connColor + '">' + connText + '</span></div>';
+        html += '<div><strong>Last reading:</strong> <span style="color:' + ageColor + '">' + ageText + '</span></div>';
+        html += '<div><strong>Device:</strong> ' + escHtml(d.hanDeviceName || '-') + '</div>';
+        html += '<div><strong>Brand:</strong> ' + escHtml(d.hanBrand || '-') + '</div>';
+        html += '<div><strong>Source:</strong> <span style="color:' + srcColor + '">' + srcLabel + '</span></div>';
+        html += '<div><strong>Mode:</strong> ' + escHtml(d.selectionMode || '-') + '</div>';
+        html += '<div><strong>Events:</strong> ' + (d.eventCount || 0) + '</div>';
+        html += '<div><strong>Polls:</strong> ' + (d.pollCount || 0) + '</div>';
+        html += '<div><strong>Spikes filtered:</strong> ' + (d.spikeFilterCount || 0) + '</div>';
+        html += '<div><strong>Reconnects:</strong> ' + (d.watchdogReconnects || 0) + '</div>';
+        html += '</div>';
+
+        // Capabilities
+        if (d.capabilities && d.capabilities.length > 0) {
+          html += '<div style="margin-bottom:8px;"><strong>Capabilities:</strong> <span style="color:var(--text-muted); word-break:break-all;">' + escHtml(d.capabilities.join(', ')) + '</span></div>';
+        }
+
+        // Recent raw readings
+        var log = d.rawLog || [];
+        if (log.length > 0) {
+          html += '<div style="margin-top:6px;"><strong>Recent readings:</strong></div>';
+          html += '<div style="max-height:160px; overflow-y:auto; background:var(--bg-surface); border-radius:6px; padding:6px; margin-top:4px; font-family:monospace; font-size:11px;">';
+          for (var i = log.length - 1; i >= 0; i--) {
+            var entry = log[i];
+            var t = entry.time ? entry.time.substring(11, 19) : '?';
+            var srcBadge = entry.source === 'event' ? '<span style="color:#34c759">evt</span>'
+                         : entry.source === 'poll' ? '<span style="color:#ff9500">poll</span>'
+                         : entry.source === 'spike-filtered' ? '<span style="color:#ff3b30">spike</span>'
+                         : '<span style="color:#007aff">' + escHtml(entry.source) + '</span>';
+            html += '<div>' + t + '  ' + String(entry.value).padStart(7) + ' W  ' + srcBadge + '</div>';
+          }
+          html += '</div>';
+        }
+
+        // Power buffer
+        var buf = d.powerBuffer || [];
+        if (buf.length > 0) {
+          html += '<div style="margin-top:6px;"><strong>Power buffer (last ' + buf.length + '):</strong> <span style="color:var(--text-muted)">' + buf.map(function(v) { return Math.round(v); }).join(', ') + ' W</span></div>';
+        }
+
+        el.innerHTML = html;
+      })
+      .catch(function(err) {
+        el.innerHTML = '<span style="color:#ff3b30">Error: ' + escHtml(err.message || String(err)) + '</span>';
+      });
+  }
+
+  function copyHanDiagnostic() {
+    var msgEl = document.getElementById('han-diag-copy-msg');
+    hApi('GET', '/han-diagnostic', null)
+      .then(function(d) {
+        var text = JSON.stringify(d, null, 2);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(function() {
+            if (msgEl) { msgEl.style.display = 'block'; msgEl.innerHTML = '<span style="color:#34c759">Copied to clipboard</span>'; }
+            setTimeout(function() { if (msgEl) msgEl.style.display = 'none'; }, 3000);
+          });
+        } else {
+          // Fallback: select text in a textarea
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          if (msgEl) { msgEl.style.display = 'block'; msgEl.innerHTML = '<span style="color:#34c759">Copied to clipboard</span>'; }
+          setTimeout(function() { if (msgEl) msgEl.style.display = 'none'; }, 3000);
+        }
+      })
+      .catch(function(err) {
+        if (msgEl) { msgEl.style.display = 'block'; msgEl.innerHTML = '<span style="color:#ff3b30">Error: ' + escHtml(err.message || String(err)) + '</span>'; }
+      });
+  }
+
   /**
    * Render charger-specific power details based on voltage system.
    */
@@ -1176,6 +1358,7 @@
         renderAllDevices();
         renderChargerDetails();  // Refresh charger details after loading
         loadMeterDevices();  // Load meter device dropdown
+        loadHanDiagnostic();  // Load HAN diagnostic info
         dbg('Load complete: ' + availableDevices.length + ' devices');
       })
       .catch(function(err) {
@@ -1575,6 +1758,7 @@
         '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>Lower thermostat</option>' +
         '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging (Zaptec/Enua)</option>' +
         '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee/Zaptec/Enua)</option>' +
+        '<option value="hoiax_power"'       + selOpt(entry.action,'hoiax_power')       + '>Stepped power (Høiax)</option>' +
       '</select>' +
       '<label class="toggle" title="Managed \u2014 toggle to remove">' +
         '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
@@ -1596,6 +1780,7 @@
         '<option value="target_temperature">Lower thermostat</option>' +
         '<option value="charge_pause">Pause EV charging (Zaptec/Enua)</option>' +
         '<option value="dynamic_current">Dynamic charging (Easee/Zaptec/Enua)</option>' +
+        '<option value="hoiax_power">Stepped power (Høiax)</option>' +
       '</select>' +
       '<label class="toggle" title="Toggle on to manage this device">' +
         '<input type="checkbox" onchange="toggleDevice(\'' + dev.id + '\',this.checked)">' +
@@ -1904,6 +2089,312 @@
         })
         .catch(function() {});
     }, 15000);
+  }
+
+  // ─── Log Tab ──────────────────────────────────────────────────────────────
+  var _appLogData = null;       // Full response from /app-log
+  var _appLogFilter = 'all';    // Current filter: 'all' | 'han' | 'charger' | etc.
+  var _appLogAutoRefreshTimer = null;
+
+  var LOG_CATEGORY_COLORS = {
+    han: '#34c759',
+    charger: '#007aff',
+    mitigation: '#ff9500',
+    energy: '#af52de',
+    cache: '#5ac8fa',
+    system: '#8e8e93'
+  };
+
+  function loadAppLog() {
+    hApi('GET', '/app-log', null)
+      .then(function(data) {
+        _appLogData = data;
+        renderAppLogEntries();
+        renderHanSummary(data.hanDiagnostic || {});
+        renderMitigationScan(data.lastMitigationScan || []);
+        renderSystemInfo(data);
+      })
+      .catch(function(err) {
+        var el = document.getElementById('app-log-entries');
+        if (el) el.innerHTML = '<span style="color:#ff3b30">Error loading log: ' + (err.message || err) + '</span>';
+      });
+  }
+
+  function filterAppLog(category) {
+    _appLogFilter = category;
+    // Update button active states
+    var btns = document.querySelectorAll('.log-filter-btn');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList[btns[i].getAttribute('data-filter') === category ? 'add' : 'remove']('active');
+    }
+    renderAppLogEntries();
+  }
+
+  function renderAppLogEntries() {
+    if (!_appLogData) return;
+    var el = document.getElementById('app-log-entries');
+    if (!el) return;
+
+    // Merge appLog and mitigationLog into one list
+    var entries = [];
+
+    // AppLog entries (already categorized)
+    var appLog = _appLogData.appLog || [];
+    appLog.forEach(function(e) {
+      entries.push({ time: e.time, category: e.category || 'system', message: e.message });
+    });
+
+    // MitigationLog entries (category = mitigation)
+    var mitLog = _appLogData.mitigationLog || [];
+    mitLog.forEach(function(e) {
+      entries.push({ time: e.time, category: 'mitigation', message: e.message });
+    });
+
+    // Sort newest first
+    entries.sort(function(a, b) {
+      return (b.time || '').localeCompare(a.time || '');
+    });
+
+    // Apply filter
+    if (_appLogFilter !== 'all') {
+      entries = entries.filter(function(e) { return e.category === _appLogFilter; });
+    }
+
+    if (entries.length === 0) {
+      el.innerHTML = '<span style="color:var(--text-muted)">No log entries' +
+        (_appLogFilter !== 'all' ? ' for category "' + _appLogFilter + '"' : '') + '</span>';
+      return;
+    }
+
+    var html = '';
+    entries.forEach(function(e) {
+      var color = LOG_CATEGORY_COLORS[e.category] || '#8e8e93';
+      var timeStr = e.time ? e.time.replace('T', ' ').substring(0, 19) : '??';
+      html += '<div style="margin-bottom:3px; line-height:1.4;">' +
+        '<span style="color:var(--text-muted)">' + timeStr + '</span> ' +
+        '<span style="display:inline-block; background:' + color + '; color:#fff; font-size:9px; padding:1px 5px; border-radius:3px; min-width:55px; text-align:center;">' +
+        (e.category || 'system').toUpperCase() + '</span> ' +
+        '<span>' + (e.message || '') + '</span>' +
+        '</div>';
+    });
+
+    el.innerHTML = html;
+  }
+
+  function renderHanSummary(han) {
+    var el = document.getElementById('log-han-summary');
+    if (!el) return;
+
+    if (!han || !han.hanConnected) {
+      el.innerHTML = '<span style="color:var(--text-muted)">No HAN meter connected</span>';
+      return;
+    }
+
+    var lastAge = han.lastReadingAgeSeconds != null ? han.lastReadingAgeSeconds + 's ago' : 'unknown';
+    var ageColor = (han.lastReadingAgeSeconds != null && han.lastReadingAgeSeconds < 15) ? '#34c759' : '#ff9500';
+
+    var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">' +
+      '<div>Status: <strong style="color:#34c759">Connected</strong></div>' +
+      '<div>Last reading: <strong style="color:' + ageColor + '">' + lastAge + '</strong></div>' +
+      '<div>Device: <strong>' + (han.hanDeviceName || 'N/A') + '</strong></div>' +
+      '<div>Brand: <strong>' + (han.hanBrand || 'N/A') + '</strong></div>' +
+      '<div>Source: <strong>' + (han.readingSource || 'none') + '</strong></div>' +
+      '<div>Mode: <strong>' + (han.selectionMode || 'auto') + '</strong></div>' +
+      '<div>Events: <strong>' + (han.eventCount || 0) + '</strong></div>' +
+      '<div>Polls: <strong>' + (han.pollCount || 0) + '</strong></div>' +
+      '<div>Spikes filtered: <strong>' + (han.spikeFilterCount || 0) + '</strong></div>' +
+      '<div>Reconnects: <strong>' + (han.watchdogReconnects || 0) + '</strong></div>' +
+      '</div>';
+
+    // Capabilities
+    if (han.capabilities && han.capabilities.length > 0) {
+      html += '<div style="margin-top:8px; color:var(--text-muted);">Capabilities: ' +
+        han.capabilities.join(', ') + '</div>';
+    }
+
+    // Recent raw readings
+    if (han.rawLog && han.rawLog.length > 0) {
+      html += '<div style="margin-top:8px;"><strong>Recent readings:</strong></div>';
+      html += '<div style="font-family:monospace; font-size:10px; background:var(--bg-surface); padding:6px; border-radius:6px; max-height:120px; overflow-y:auto;">';
+      han.rawLog.slice().reverse().forEach(function(r) {
+        var srcColor = r.source === 'event' ? '#34c759' : r.source === 'poll' ? '#ff9500' : r.source === 'spike-filtered' ? '#ff3b30' : '#8e8e93';
+        var t = r.time ? r.time.replace('T', ' ').substring(0, 19) : '??';
+        html += '<div><span style="color:var(--text-muted)">' + t + '</span> ' +
+          '<span style="color:' + srcColor + '">[' + (r.source || '?') + ']</span> ' +
+          '<strong>' + r.value + 'W</strong></div>';
+      });
+      html += '</div>';
+    }
+
+    // Power buffer
+    if (han.powerBuffer && han.powerBuffer.length > 0) {
+      html += '<div style="margin-top:6px; color:var(--text-muted); font-size:10px;">Power buffer (last ' +
+        han.powerBuffer.length + '): ' + han.powerBuffer.map(function(v) { return Math.round(v); }).join(', ') + '</div>';
+    }
+
+    el.innerHTML = html;
+  }
+
+  function renderMitigationScan(scan) {
+    var el = document.getElementById('log-mitigation-scan');
+    if (!el) return;
+
+    if (!scan || scan.length === 0) {
+      el.innerHTML = '<span style="color:var(--text-muted)">No mitigation scan data yet (scans run when power exceeds the limit)</span>';
+      return;
+    }
+
+    var html = '<table style="width:100%; font-size:11px; border-collapse:collapse;">' +
+      '<tr style="border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:4px;">Device</th><th style="text-align:left; padding:4px;">Action</th><th style="text-align:left; padding:4px;">Result</th></tr>';
+    scan.forEach(function(s) {
+      var color = s.result === 'SUCCESS' ? '#34c759' :
+                  s.result && s.result.indexOf('error') >= 0 ? '#ff3b30' :
+                  s.result && s.result.indexOf('disabled') >= 0 ? '#8e8e93' : 'var(--text-primary)';
+      html += '<tr style="border-bottom:1px solid var(--border-color);">' +
+        '<td style="padding:4px;">' + (s.name || '?') + '</td>' +
+        '<td style="padding:4px;">' + (s.action || '?') + '</td>' +
+        '<td style="padding:4px; color:' + color + '">' + (s.result || '?') + '</td></tr>';
+    });
+    html += '</table>';
+    el.innerHTML = html;
+  }
+
+  function renderSystemInfo(data) {
+    var el = document.getElementById('log-system-info');
+    if (!el) return;
+
+    var uptime = data.uptimeSeconds || 0;
+    var uptimeStr = Math.floor(uptime / 3600) + 'h ' + Math.floor((uptime % 3600) / 60) + 'm ' + (uptime % 60) + 's';
+
+    var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">' +
+      '<div>Uptime: <strong>' + uptimeStr + '</strong></div>' +
+      '<div>Current power: <strong>' + (data.currentPowerW || 0) + 'W</strong></div>' +
+      '<div>Power limit: <strong>' + (data.limitW || 0) + 'W</strong></div>' +
+      '<div>Over limit count: <strong>' + (data.overLimitCount || 0) + '</strong></div>' +
+      '<div>Device cache: <strong>' + (data.deviceCacheCount || 0) + ' devices</strong></div>' +
+      '<div>Mitigated: <strong>' + ((data.mitigatedDevices || []).length) + ' device(s)</strong></div>' +
+      '</div>';
+
+    // Settings summary
+    if (data.settings) {
+      var s = data.settings;
+      html += '<div style="margin-top:10px;"><strong>Settings:</strong></div>' +
+        '<div style="font-family:monospace; font-size:10px; background:var(--bg-surface); padding:6px; border-radius:6px;">' +
+        'enabled: ' + s.enabled + ' | profile: ' + s.profile + ' | limit: ' + s.powerLimitW + 'W<br>' +
+        'smoothing: ' + s.smoothingWindow + ' | hysteresis: ' + s.hysteresisCount + ' | cooldown: ' + s.cooldownSeconds + 's<br>' +
+        'voltage: ' + s.voltageSystem + ' | mainCircuit: ' + s.mainCircuitA + 'A | meter: ' + s.selectedMeterDeviceId +
+        '</div>';
+    }
+
+    // Mitigated devices
+    if (data.mitigatedDevices && data.mitigatedDevices.length > 0) {
+      html += '<div style="margin-top:10px;"><strong>Currently mitigated:</strong></div>';
+      data.mitigatedDevices.forEach(function(m) {
+        html += '<div style="font-size:11px; padding:2px 0;">- ' + m.deviceId + ' (' + m.action + ')</div>';
+      });
+    }
+
+    el.innerHTML = html;
+  }
+
+  function copyAppLog(section) {
+    var text = '';
+
+    if (section === 'all') {
+      // Full JSON dump of everything
+      text = JSON.stringify(_appLogData || {}, null, 2);
+    } else if (section === 'filtered') {
+      // Currently filtered log entries
+      if (!_appLogData) { text = '(no data)'; }
+      else {
+        var entries = (_appLogData.appLog || []).concat(
+          (_appLogData.mitigationLog || []).map(function(e) {
+            return { time: e.time, category: 'mitigation', message: e.message };
+          })
+        );
+        if (_appLogFilter !== 'all') {
+          entries = entries.filter(function(e) { return e.category === _appLogFilter; });
+        }
+        entries.sort(function(a, b) { return (b.time || '').localeCompare(a.time || ''); });
+        text = entries.map(function(e) {
+          return (e.time || '') + ' [' + (e.category || '') + '] ' + (e.message || '');
+        }).join('\n');
+      }
+    } else if (section === 'han-diagnostic') {
+      text = JSON.stringify((_appLogData || {}).hanDiagnostic || {}, null, 2);
+    } else if (section === 'mitigation-scan') {
+      text = JSON.stringify((_appLogData || {}).lastMitigationScan || [], null, 2);
+    } else if (section === 'system-info') {
+      var d = _appLogData || {};
+      text = JSON.stringify({
+        uptimeSeconds: d.uptimeSeconds,
+        currentPowerW: d.currentPowerW,
+        limitW: d.limitW,
+        overLimitCount: d.overLimitCount,
+        deviceCacheCount: d.deviceCacheCount,
+        mitigatedDevices: d.mitigatedDevices,
+        settings: d.settings
+      }, null, 2);
+    }
+
+    // Copy to clipboard
+    var msgEl = document.getElementById('log-copy-msg');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        if (msgEl) {
+          msgEl.style.display = 'block';
+          msgEl.style.color = '#34c759';
+          msgEl.textContent = 'Copied to clipboard (' + text.length + ' chars)';
+          setTimeout(function() { msgEl.style.display = 'none'; }, 3000);
+        }
+      }).catch(function() {
+        fallbackCopy(text, msgEl);
+      });
+    } else {
+      fallbackCopy(text, msgEl);
+    }
+  }
+
+  function fallbackCopy(text, msgEl) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      if (msgEl) {
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#34c759';
+        msgEl.textContent = 'Copied to clipboard (' + text.length + ' chars)';
+        setTimeout(function() { msgEl.style.display = 'none'; }, 3000);
+      }
+    } catch (e) {
+      if (msgEl) {
+        msgEl.style.display = 'block';
+        msgEl.style.color = '#ff3b30';
+        msgEl.textContent = 'Copy failed — please select and copy manually';
+        setTimeout(function() { msgEl.style.display = 'none'; }, 5000);
+      }
+    }
+    document.body.removeChild(ta);
+  }
+
+  function toggleLogAutoRefresh(enabled) {
+    if (_appLogAutoRefreshTimer) {
+      clearInterval(_appLogAutoRefreshTimer);
+      _appLogAutoRefreshTimer = null;
+    }
+    if (enabled) {
+      _appLogAutoRefreshTimer = setInterval(function() {
+        // Only refresh if log tab is visible
+        var logTab = document.getElementById('tab-log');
+        if (logTab && logTab.style.display !== 'none') {
+          loadAppLog();
+        }
+      }, 5000);
+    }
   }
 </script>
 </body>
