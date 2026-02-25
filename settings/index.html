@@ -1575,6 +1575,7 @@
         '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>Lower thermostat</option>' +
         '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging (Zaptec/Enua)</option>' +
         '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee/Zaptec/Enua)</option>' +
+        '<option value="hoiax_power"'       + selOpt(entry.action,'hoiax_power')       + '>Stepped power (Høiax)</option>' +
       '</select>' +
       '<label class="toggle" title="Managed \u2014 toggle to remove">' +
         '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
@@ -1596,6 +1597,7 @@
         '<option value="target_temperature">Lower thermostat</option>' +
         '<option value="charge_pause">Pause EV charging (Zaptec/Enua)</option>' +
         '<option value="dynamic_current">Dynamic charging (Easee/Zaptec/Enua)</option>' +
+        '<option value="hoiax_power">Stepped power (Høiax)</option>' +
       '</select>' +
       '<label class="toggle" title="Toggle on to manage this device">' +
         '<input type="checkbox" onchange="toggleDevice(\'' + dev.id + '\',this.checked)">' +

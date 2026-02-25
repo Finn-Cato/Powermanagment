@@ -865,9 +865,12 @@ class PowerGuardApp extends Homey.App {
           continue;  // Skip EV chargers here (handled above)
         }
         if (mitigated.has(entry.deviceId)) {
-          this.log(`[Mitigation] SKIP ${entry.name}: already mitigated`);
-          scanResults.push({ name: entry.name, action: entry.action, result: 'already mitigated' });
-          continue;
+          // Allow Høiax stepped devices to be further stepped down
+          if (entry.action !== 'hoiax_power') {
+            this.log(`[Mitigation] SKIP ${entry.name}: already mitigated`);
+            scanResults.push({ name: entry.name, action: entry.action, result: 'already mitigated' });
+            continue;
+          }
         }
         if (!this._canMitigate(entry)) {
           this.log(`[Mitigation] SKIP ${entry.name}: min runtime not met`);
@@ -900,7 +903,11 @@ class PowerGuardApp extends Homey.App {
           this.log(`[Mitigation] ${entry.name} caps: ${caps.join(', ')}`);
           this.log(`[Mitigation] ${entry.name} values: ${JSON.stringify(capInfo)}`);
 
-          const previousState = this._snapshotState(device);
+          // Check if already mitigated (re-entry for Høiax stepped power)
+          const existingMitigation = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
+
+          // Only snapshot on first mitigation — keep original state for full restore
+          const previousState = existingMitigation ? existingMitigation.previousState : this._snapshotState(device);
           const applied = await applyAction(device, entry.action);
           if (!applied) {
             this.log(`[Mitigation] SKIP ${entry.name}: applyAction returned false (already at minimum or no matching capability)`);
@@ -908,9 +915,15 @@ class PowerGuardApp extends Homey.App {
             continue;
           }
 
-          this._mitigatedDevices.push({ deviceId: entry.deviceId, action: entry.action, previousState, mitigatedAt: now });
+          if (existingMitigation) {
+            // Re-mitigation (Høiax step-down): update timestamp, keep original previousState
+            existingMitigation.mitigatedAt = now;
+            this._addLog(`Mitigated: ${device.name} (${entry.action}) — stepped down`);
+          } else {
+            this._mitigatedDevices.push({ deviceId: entry.deviceId, action: entry.action, previousState, mitigatedAt: now });
+            this._addLog(`Mitigated: ${device.name} (${entry.action})`);
+          }
           this._lastMitigationTime = now;
-          this._addLog(`Mitigated: ${device.name} (${entry.action})`);
           this._persistMitigatedDevices();
           this._fireTrigger('mitigation_applied', { device_name: device.name, action: entry.action });
           await this._updateVirtualDevice({ alarm: true });
@@ -1097,6 +1110,8 @@ class PowerGuardApp extends Homey.App {
       target_charger_current:  obj.target_charger_current  ? obj.target_charger_current.value  : undefined,
       target_circuit_current:  obj.target_circuit_current  ? obj.target_circuit_current.value  : undefined,
       toggleChargingCapability: obj.toggleChargingCapability ? obj.toggleChargingCapability.value : undefined,
+      max_power_3000:     obj.max_power_3000     ? obj.max_power_3000.value     : undefined,
+      max_power:          obj.max_power          ? obj.max_power.value          : undefined,
     };
   }
 
@@ -1205,7 +1220,9 @@ class PowerGuardApp extends Homey.App {
             caps.includes('target_circuit_current') ||
             caps.includes('charge_pause') ||
             caps.includes('charging_button') ||
-            caps.includes('toggleChargingCapability');
+            caps.includes('toggleChargingCapability') ||
+            caps.includes('max_power_3000') ||
+            caps.includes('max_power');
 
           // Check for known controllable device classes
           const isControllableClass =
@@ -1251,6 +1268,7 @@ class PowerGuardApp extends Homey.App {
             isZaptec:     (d.class === 'evcharger' && d.driver && d.driver.owner_uri === 'homey:app:com.zaptec'),
             isEnua:       (d.driver && d.driver.owner_uri === 'homey:app:no.enua'),
             isAdax:       (d.driverUri || '').includes('no.adax') || (d.driver && d.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app'),
+            isHoiax:      (d.driverUri || '').includes('no.hoiax') || (d.driver && d.driver.owner_uri === 'homey:app:no.hoiax'),
           };
         });
 
@@ -2479,23 +2497,19 @@ class PowerGuardApp extends Homey.App {
       
       this.log(`[FloorHeater]   FINAL -> Target: ${currentTarget}°C | Measure: ${currentMeasure}°C | Power: ${currentPowerW}W | On: ${isOn}`);
 
-      // ── Adax power estimation workaround ──
-      // The Adax Homey app reports constant rated wattage even when the heater
-      // element is off (thermostat satisfied). We estimate actual power from
-      // temperature state: if room is at or above target, the element is idle.
-      const isAdax = cached.isAdax ||
-        (liveDevice && ((liveDevice.driverUri || '').includes('no.adax') ||
-        (liveDevice.driver && liveDevice.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app')));
-      if (isAdax && currentMeasure != null && currentTarget != null) {
-        const ratedW = (hasPower && currentPowerW > 0) ? currentPowerW : 0;
+      // ── Heater power estimation workaround ──
+      // Some heater apps (e.g. Adax) report constant rated wattage even when
+      // the heating element is off (thermostat satisfied). For any heater/thermostat
+      // with both measure_temperature and target_temperature, estimate actual power:
+      // if the room is at or above target, the element is almost certainly idle.
+      if (currentMeasure != null && currentTarget != null && currentPowerW != null && currentPowerW > 0) {
         if (isOn === false) {
+          this.log(`[FloorHeater]   Power override: ${currentPowerW}W → 0W (heater is OFF)`);
           currentPowerW = 0;
         } else if (currentMeasure >= currentTarget) {
+          this.log(`[FloorHeater]   Power override: ${currentPowerW}W → 0W (room ${currentMeasure}°C >= target ${currentTarget}°C)`);
           currentPowerW = 0;  // Room at target → element idle
-        } else {
-          currentPowerW = ratedW;  // Room below target → element heating
         }
-        this.log(`[FloorHeater]   Adax power estimate: ${currentPowerW}W (rated=${ratedW}W, measure=${currentMeasure}°C, target=${currentTarget}°C, on=${isOn})`);
       }
       
       // Get zone name - try live device first, then cached
@@ -2689,13 +2703,11 @@ class PowerGuardApp extends Homey.App {
           } catch (_) {}
         }
 
-        // ── Adax power estimation workaround ──
-        // Adax Homey app reports constant rated wattage even when element is idle.
-        // Override with estimate based on temperature state.
-        const isAdax = device.isAdax ||
-          (device.driverUri || '').includes('no.adax') ||
-          (device.driver && device.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app');
-        if (isAdax && currentW > 0) {
+        // ── Heater power estimation workaround ──
+        // Some heater apps (e.g. Adax) report constant rated wattage even when
+        // the element is idle. Override based on temperature state.
+        const devCls = (device.class || '').toLowerCase();
+        if ((devCls === 'thermostat' || devCls === 'heater') && currentW > 0) {
           const obj = device.capabilitiesObj || {};
           const measT = obj.measure_temperature ? obj.measure_temperature.value : null;
           const targT = obj.target_temperature ? obj.target_temperature.value : null;

@@ -1,6 +1,6 @@
 'use strict';
 
-const { ACTIONS } = require('./constants');
+const { ACTIONS, HOIAX_POWER_STEPS } = require('./constants');
 
 const ACTION_CAPABILITY_MAP = {
   [ACTIONS.TURN_OFF]:    'onoff',
@@ -8,6 +8,7 @@ const ACTION_CAPABILITY_MAP = {
   [ACTIONS.TARGET_TEMP]: 'target_temperature',
   [ACTIONS.CHARGE_PAUSE]:'onoff',
   [ACTIONS.DYNAMIC_CURRENT]: 'target_current',
+  [ACTIONS.HOIAX_POWER]: 'max_power_3000',
 };
 
 function getAvailableActions(capabilities) {
@@ -15,12 +16,16 @@ function getAvailableActions(capabilities) {
   for (const [action, cap] of Object.entries(ACTION_CAPABILITY_MAP)) {
     if (capabilities.includes(cap)) available.push(action);
   }
+  // Also detect Høiax 200 via max_power if not already matched via max_power_3000
+  if (!available.includes(ACTIONS.HOIAX_POWER) && capabilities.includes('max_power')) {
+    available.push(ACTIONS.HOIAX_POWER);
+  }
   return available;
 }
 
 function isControllable(device) {
   const caps = device.capabilities || [];
-  return caps.includes('onoff') || caps.includes('dim') || caps.includes('target_temperature') || caps.includes('target_current');
+  return caps.includes('onoff') || caps.includes('dim') || caps.includes('target_temperature') || caps.includes('target_current') || caps.includes('max_power_3000') || caps.includes('max_power');
 }
 
 /**
@@ -115,6 +120,44 @@ async function applyAction(device, action) {
       }
       break;
     }
+
+    case ACTIONS.HOIAX_POWER: {
+      // Determine which max_power capability the device has (300 vs 200 model)
+      const maxPowerCap = caps.includes('max_power_3000') ? 'max_power_3000'
+                        : caps.includes('max_power') ? 'max_power'
+                        : null;
+
+      // If device is already off, no further reduction possible
+      if (caps.includes('onoff') && obj.onoff && obj.onoff.value === false) return false;
+
+      if (maxPowerCap) {
+        const currentLevel = obj[maxPowerCap] ? obj[maxPowerCap].value : null;
+        const steps = HOIAX_POWER_STEPS[maxPowerCap];
+        const currentIdx = steps.indexOf(currentLevel);
+
+        if (currentIdx >= 0 && currentIdx < steps.length - 1) {
+          // Step down one level (e.g. high_power → medium_power)
+          const nextLevel = steps[currentIdx + 1];
+          await device.setCapabilityValue({ capabilityId: maxPowerCap, value: nextLevel });
+          return true;
+        }
+
+        // At lowest step or unknown level → turn off entirely
+        if (caps.includes('onoff')) {
+          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+          return true;
+        }
+        return false;
+      }
+
+      // No max_power capability → fallback to onoff
+      if (caps.includes('onoff')) {
+        if (obj.onoff && obj.onoff.value === false) return false;
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+        return true;
+      }
+      return false;
+    }
   }
 
   return false;
@@ -188,6 +231,23 @@ async function restoreDevice(device, action, previousState) {
         return true;
       }
       break;
+    }
+
+    case ACTIONS.HOIAX_POWER: {
+      const maxPowerCap = caps.includes('max_power_3000') ? 'max_power_3000'
+                        : caps.includes('max_power') ? 'max_power'
+                        : null;
+
+      // Restore the original max_power level
+      if (maxPowerCap && previousState && previousState[maxPowerCap] !== undefined) {
+        await device.setCapabilityValue({ capabilityId: maxPowerCap, value: previousState[maxPowerCap] });
+      }
+      // Restore onoff state (turn back on if was on)
+      if (caps.includes('onoff')) {
+        const wasOn = previousState && previousState.onoff !== undefined ? previousState.onoff : true;
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: wasOn });
+      }
+      return true;
     }
   }
 
