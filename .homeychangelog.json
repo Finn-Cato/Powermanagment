@@ -1,4 +1,8 @@
 {
+  "0.2.1": {
+    "en": "Fixed Zaptec and Enua dynamic current control on Homey setups where getFlowCardActions() does not enumerate app flow cards. Now falls back to hardcoded known action IDs (installation_current_control / changeCurrentLimitAction) when discovery returns nothing, instead of silently skipping current adjustments.",
+    "no": "Fikset Zaptec og Enua dynamisk strømstyring på Homey-oppsett hvor getFlowCardActions() ikke lister app-flythandlinger. Faller nå tilbake til kjente action-IDer (installation_current_control / changeCurrentLimitAction) når oppdagelse ikke finner noe, i stedet for å hoppe over strømjusteringer."
+  },
   "0.2.0": {
     "en": "Dynamic flow action discovery: automatically finds the correct Flow action ID for Zaptec and Enua chargers at runtime. Improved test charger diagnostics with detailed Flow API reporting. No more hardcoded action IDs.",
     "no": "Dynamisk flow-action oppdagelse: finner automatisk riktig Flow action-ID for Zaptec og Enua ladere ved kj\u00f8ring. Forbedret ladertest-diagnostikk med detaljert Flow API-rapportering. Ingen flere hardkodede action-IDer."

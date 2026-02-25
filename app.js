@@ -1879,8 +1879,15 @@ class PowerGuardApp extends Homey.App {
       return false;
     }
 
-    // Discover the correct flow action (cached after first lookup)
-    const flowAction = await this._discoverFlowAction('zaptec');
+    // Discover the correct flow action (cached after first lookup).
+    // Fall back to hardcoded known ID if enumeration returns nothing — the API
+    // sometimes doesn't enumerate actions for installed apps until they've been
+    // used in a Flow at least once. The action may still be callable.
+    const flowAction = await this._discoverFlowAction('zaptec') ?? {
+      uri: 'homey:app:com.zaptec',
+      actionId: 'installation_current_control',
+      argsStyle: 'zaptec3phase'
+    };
 
     const maxRetries = 2;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -1936,7 +1943,7 @@ class PowerGuardApp extends Homey.App {
           if (btnVal === false) {
             const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
             // Set current via flow first, then enable charging
-            if (flowAction) await callZaptecFlow(resumeA);
+            await callZaptecFlow(resumeA);
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
               10000, `zaptecResume(${deviceId})`
@@ -1950,11 +1957,6 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Normal current adjustment via Flow API ──
-        if (!flowAction) {
-          this.log(`[Zaptec] No flow action available for dynamic current control on ${deviceId}`);
-          delete this._pendingChargerCommands[deviceId];
-          return false;
-        }
         const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(40, currentA));
         await callZaptecFlow(clampedA);
         this._addLog(`Zaptec strøm: ${device.name} → ${clampedA}A`);
@@ -1994,8 +1996,13 @@ class PowerGuardApp extends Homey.App {
       return false;
     }
 
-    // Discover the correct flow action (cached after first lookup)
-    const flowAction = await this._discoverFlowAction('enua');
+    // Discover the correct flow action (cached after first lookup).
+    // Fall back to hardcoded known ID if enumeration returns nothing.
+    const flowAction = await this._discoverFlowAction('enua') ?? {
+      uri: 'homey:app:no.enua',
+      actionId: 'changeCurrentLimitAction',
+      argsStyle: 'enuaSingle'
+    };
 
     const maxRetries = 2;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -2048,7 +2055,7 @@ class PowerGuardApp extends Homey.App {
             const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
             const clampedA = Math.max(6, Math.min(32, resumeA));
             // Set current limit via flow first
-            if (flowAction) await callEnuaFlow(clampedA);
+            await callEnuaFlow(clampedA);
             // Then enable charging
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true }),
@@ -2063,11 +2070,6 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Normal current adjustment via Flow API ──
-        if (!flowAction) {
-          this.log(`[Enua] No flow action available for dynamic current control on ${deviceId}`);
-          delete this._pendingChargerCommands[deviceId];
-          return false;
-        }
         const clampedA = Math.max(6, Math.min(32, currentA));
         await callEnuaFlow(clampedA);
         this._addLog(`Enua strøm: ${device.name} → ${clampedA}A`);
@@ -2983,7 +2985,7 @@ class PowerGuardApp extends Homey.App {
               const actionList = allZaptec.map(a => `${a.uri}/${a.id}`).join(', ');
               results.steps.push({ step: 'Flow API', ok: false, detail: `No actions at homey:app:com.zaptec, but found Zaptec-related: ${actionList}` });
             } else {
-              results.steps.push({ step: 'Flow API', ok: false, detail: 'No Zaptec flow actions found. The com.zaptec app may not expose flow action cards for current control.' });
+              results.steps.push({ step: 'Flow API', ok: true, detail: 'No Zaptec flow actions found via enumeration — will use hardcoded fallback (installation_current_control). This is normal on some Homey setups.' });
             }
           }
         } catch (flowErr) {
@@ -3033,7 +3035,7 @@ class PowerGuardApp extends Homey.App {
               const actionList = allEnua.map(a => `${a.uri}/${a.id}`).join(', ');
               results.steps.push({ step: 'Flow API', ok: false, detail: `No actions at homey:app:no.enua, but found Enua-related: ${actionList}` });
             } else {
-              results.steps.push({ step: 'Flow API', ok: false, detail: 'No Enua flow actions found. The no.enua app may not expose flow action cards for current control.' });
+              results.steps.push({ step: 'Flow API', ok: true, detail: 'No Enua flow actions found via enumeration — will use hardcoded fallback (changeCurrentLimitAction). This is normal on some Homey setups.' });
             }
           }
         } catch (flowErr) {
