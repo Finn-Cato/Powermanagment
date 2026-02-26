@@ -37,6 +37,8 @@ class PowerGuardApp extends Homey.App {
 
     this._mutex = new Mutex();
     this._powerBuffer = [];
+    this._spikeConsecutiveCount = 0;  // how many consecutive readings were spike-filtered
+    this._spikeLastFilteredValue = null; // last value that was spike-filtered
     this._overLimitCount = 0;
     this._mitigatedDevices = [];
     this._lastMitigationTime = 0;
@@ -464,6 +466,7 @@ class PowerGuardApp extends Homey.App {
       eventCount: this._hanEventCount,
       pollCount: this._hanPollCount,
       spikeFilterCount: this._hanSpikeCount,
+      spikeConsecutiveCount: this._spikeConsecutiveCount || 0,
       watchdogReconnects: this._hanWatchdogCount,
       rawLog: this._hanRawLog.slice(-20).map(function (e) {
         return { time: new Date(e.time).toISOString(), value: e.value, source: e.source };
@@ -676,14 +679,33 @@ class PowerGuardApp extends Homey.App {
       } else {
         this.log(`Spike ignored: ${rawValue} W (avg ${avg.toFixed(0)} W, charger headroom ${Math.round(maxChargerW)}W)`);
         this._hanSpikeCount++;
+        this._spikeConsecutiveCount++;
+        this._spikeLastFilteredValue = rawValue;
         this._pushHanRawLog(rawValue, 'spike-filtered');
         this._appLogEntry('han', `Spike filtered: ${rawValue}W (avg ${avg.toFixed(0)}W, charger headroom ${Math.round(maxChargerW)}W)`);
-        return;
+
+        // ── Sustained load change detection ──
+        // If the same "spike" level persists for 3+ consecutive readings it is a
+        // real load change (e.g. oven turned on), NOT a transient spike.
+        // Reset the power buffer so the new level becomes the new baseline.
+        const SPIKE_RESET_THRESHOLD = 3;
+        if (this._spikeConsecutiveCount >= SPIKE_RESET_THRESHOLD) {
+          this.log(`[HAN] Spike filter reset: ${this._spikeConsecutiveCount} consecutive filtered readings at ~${rawValue}W — accepting as new baseline (was avg ${avg.toFixed(0)}W)`);
+          this._appLogEntry('han', `Spike filter reset after ${this._spikeConsecutiveCount} consecutive readings: new baseline ~${rawValue}W (was ${avg.toFixed(0)}W)`);
+          this._powerBuffer = [rawValue, rawValue, rawValue];
+          this._spikeConsecutiveCount = 0;
+          this._spikeLastFilteredValue = null;
+          // Fall through to normal processing below
+        } else {
+          return;
+        }
       }
     }
 
     this._powerBuffer.push(rawValue);
     if (this._powerBuffer.length > 60) this._powerBuffer.shift();
+    this._spikeConsecutiveCount = 0;  // reset on every accepted reading
+    this._spikeLastFilteredValue = null;
 
     // Accumulate hourly energy (trapezoidal integration)
     this._accumulateHourlyEnergy(rawValue);
@@ -1169,6 +1191,8 @@ class PowerGuardApp extends Homey.App {
 
   _resetStatistics() {
     this._powerBuffer = [];
+    this._spikeConsecutiveCount = 0;
+    this._spikeLastFilteredValue = null;
     this._overLimitCount = 0;
     this._mitigationLog = [];
     this.log('Statistics reset');
@@ -1328,6 +1352,17 @@ class PowerGuardApp extends Homey.App {
         .filter(d => {
           if (!d) return false;
           const caps = d.capabilities || [];
+          const ownerUri = (d.driver && d.driver.owner_uri) || d.driverUri || '';
+
+          // Zaptec creates two virtual devices: the charger (charging_button, charge_mode, charging_mode)
+          // and the installation/meter device (meter_sum_current, meter_sum_month, etc.).
+          // Exclude the meter device — it has no charging control caps and cannot be controlled.
+          const isZaptecApp = ownerUri.includes('com.zaptec');
+          const zaptecChargingCaps = ['charging_button', 'charge_mode', 'charge_pause', 'charging_mode'];
+          if (isZaptecApp && !caps.some(c => zaptecChargingCaps.includes(c))) {
+            this.log(`[Filter] Excluding Zaptec meter/installation device "${d.name}" (no charging caps)`);
+            return false;
+          }
 
           // Check for controllable capabilities
           const hasControlCapability =
@@ -1340,6 +1375,7 @@ class PowerGuardApp extends Homey.App {
             caps.includes('dynamicChargerCurrent') ||
             caps.includes('target_circuit_current') ||
             caps.includes('charge_pause') ||
+            caps.includes('charge_mode') ||
             caps.includes('charging_button') ||
             caps.includes('toggleChargingCapability') ||
             caps.includes('max_power_3000') ||
@@ -1481,10 +1517,17 @@ class PowerGuardApp extends Homey.App {
     const cs = evData.chargerStatus;
 
     // Whitelist: statuses that mean a car IS physically connected
+    // Includes Easee/generic statuses (numeric + string) and Enua-specific strings
     const connectedStatuses = [
+      // Generic / Easee numeric
       2, 'awaiting_start', 'AWAITING_START', 'AwaitingStart',
       3, 'charging', 'CHARGING', 'Charging',
       4, 'completed', 'COMPLETED', 'Completed',
+      // Enua chargerStatusCapability values
+      'Connected', 'connected', 'CONNECTED',
+      'Paused', 'paused', 'PAUSED',
+      'ScheduledCharging', 'scheduledCharging', 'SCHEDULED_CHARGING',
+      'WaitingForSchedule', 'waitingForSchedule',
     ];
 
     if (connectedStatuses.includes(cs)) return true;
@@ -1495,7 +1538,7 @@ class PowerGuardApp extends Homey.App {
     // Secondary check: if charger is drawing meaningful power, something is connected
     if (evData.powerW > 100) return true;
 
-    // Everything else (status 1/disconnected, 5/error, null, unknown strings) → not connected
+    // Everything else (status 1/Standby/disconnected, 5/error, null) → not connected
     return false;
   }
 
@@ -1513,13 +1556,44 @@ class PowerGuardApp extends Homey.App {
 
     for (const entry of evEntries) {
       try {
-        const device = await withTimeout(
+        let device = await withTimeout(
           this._api.devices.getDevice({ id: entry.deviceId }),
           10000, `connectGetDevice(${entry.deviceId})`
         );
         if (!device) continue;
-        const caps = device.capabilities || [];
-        const obj  = device.capabilitiesObj || {};
+        let caps = device.capabilities || [];
+        let obj  = device.capabilitiesObj || {};
+
+        // ── Zaptec meter device auto-redirect ──
+        // Zaptec creates two Homey devices: the charger (has charging_button) and the
+        // installation/meter device (only has meter_sum_* caps). If the priority list
+        // points at the meter device, auto-find and use the real charger instead.
+        const _zaptecChargeCaps = ['charging_button', 'charge_mode', 'charge_pause', 'charging_mode'];
+        const _devOwner = (device.driver && device.driver.owner_uri) || device.driverUri || '';
+        if (_devOwner.includes('com.zaptec') && !caps.some(c => _zaptecChargeCaps.includes(c))) {
+          this.log(`[Zaptec] "${entry.name}" (${entry.deviceId}) appears to be the Zaptec meter/installation device. Searching for real charger...`);
+          try {
+            const allDevs = await withTimeout(this._api.devices.getDevices(), 10000, 'getAllDevicesForZaptecRedirect');
+            const realCharger = Object.values(allDevs).find(d => {
+              const dCaps = d.capabilities || [];
+              const dOwner = (d.driver && d.driver.owner_uri) || d.driverUri || '';
+              return dOwner.includes('com.zaptec') && dCaps.some(c => _zaptecChargeCaps.includes(c));
+            });
+            if (realCharger) {
+              this.log(`[Zaptec] Auto-redirecting "${entry.name}" → real charger "${realCharger.name}" (${realCharger.id})`);
+              this._appLogEntry('charger', `Zaptec auto-fix: using charger "${realCharger.name}" instead of meter device "${entry.name}"`);
+              if (!this._chargerDeviceRedirects) this._chargerDeviceRedirects = {};
+              this._chargerDeviceRedirects[entry.deviceId] = realCharger.id;
+              device = realCharger;
+              caps   = realCharger.capabilities || [];
+              obj    = realCharger.capabilitiesObj || {};
+            } else {
+              this.log(`[Zaptec] No real Zaptec charger device found to redirect to — commands will continue to target ${entry.deviceId}`);
+            }
+          } catch (rdErr) {
+            this.log(`[Zaptec] Redirect lookup failed: ${rdErr.message}`);
+          }
+        }
 
         // Store initial snapshot with full state
         this._evPowerData[entry.deviceId] = {
@@ -1569,7 +1643,10 @@ class PowerGuardApp extends Homey.App {
             if (this._evPowerData[entry.deviceId]) {
               this._evPowerData[entry.deviceId].chargerStatus = value;
               this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
-              this.log(`[EV] ${entry.name} chargerStatusCapability changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
+              // Cross-link: also update isCharging from status
+              this._evPowerData[entry.deviceId].isCharging = (value === 'Charging');
+              this.log(`[EV] ${entry.name} chargerStatusCapability changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}, charging: ${this._evPowerData[entry.deviceId].isCharging}`);
+              this._appLogEntry('charger', `${entry.name} Enua status: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}, charging: ${this._evPowerData[entry.deviceId].isCharging}`);
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_enua_status'] = enuaStatusInst;
@@ -1580,7 +1657,9 @@ class PowerGuardApp extends Homey.App {
           const enuaChargingInst = device.makeCapabilityInstance('toggleChargingCapability', (value) => {
             if (this._evPowerData[entry.deviceId]) {
               this._evPowerData[entry.deviceId].isCharging = value !== false;
-              this.log(`[EV] ${entry.name} toggleChargingCapability changed to: ${value}`);
+              // Cross-link: also re-evaluate isConnected when charging toggle changes
+              this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
+              this.log(`[EV] ${entry.name} toggleChargingCapability changed to: ${value} → charging: ${this._evPowerData[entry.deviceId].isCharging}, connected: ${this._evPowerData[entry.deviceId].isConnected}`);
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_enua_charging'] = enuaChargingInst;
@@ -1936,6 +2015,8 @@ class PowerGuardApp extends Homey.App {
    * @returns {'easee'|'zaptec'|'enua'|'unknown'}
    */
   _getChargerBrand(deviceId) {
+    // Resolve any device redirect (Zaptec meter device → real charger device)
+    deviceId = (this._chargerDeviceRedirects || {})[deviceId] || deviceId;
     const cache = this.homey.settings.get('_deviceCache') || [];
     const cached = cache.find(d => d.id === deviceId);
     if (!cached) return 'unknown';
@@ -1995,7 +2076,10 @@ class PowerGuardApp extends Homey.App {
         if (action) {
           const result = { uri: action.uri, actionId: action.id, argsStyle: 'enuaSingle' };
           this._flowActionCache[brand] = result;
-          this.log(`[Enua] Discovered flow action: ${action.uri}/${action.id}`);
+          // Log full action descriptor so we can verify the expected arg names (e.g. 'current', 'CurrentLimit', etc.)
+          const argNames = Array.isArray(action.args) ? action.args.map(a => a.name || a.id || JSON.stringify(a)).join(', ') : 'n/a';
+          this.log(`[Enua] Discovered flow action: ${action.uri}/${action.id} | args: [${argNames}]`);
+          this.log(`[Enua] Full action descriptor: ${JSON.stringify(action)}`);
           return result;
         }
         this.log(`[Enua] No current control flow action found. Available Enua actions: ${enuaActions.map(a => a.id).join(', ') || 'none'}`);
@@ -2017,6 +2101,9 @@ class PowerGuardApp extends Homey.App {
    */
   async _setZaptecCurrent(deviceId, currentA) {
     if (!this._api) return false;
+
+    // Resolve any device redirect (e.g. when priority list has the Zaptec meter device instead of charger)
+    deviceId = (this._chargerDeviceRedirects || {})[deviceId] || deviceId;
 
     // Pending command guard (same 15s guard as Easee)
     const pendingTs = this._pendingChargerCommands[deviceId];
@@ -2197,34 +2284,34 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Resume from pause: set current via flow, then enable charging ──
-        const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === deviceId);
-        const wasPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
-        if (wasPaused && device.capabilities.includes('toggleChargingCapability')) {
-          const chargingVal = device.capabilitiesObj?.toggleChargingCapability?.value;
-          if (chargingVal === false) {
-            const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
-            const clampedA = Math.max(6, Math.min(32, resumeA));
-            // Set current limit via flow first
-            await callEnuaFlow(clampedA);
-            // Then enable charging
-            await withTimeout(
-              device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true }),
-              10000, `enuaResume(${deviceId})`
-            );
-            this._addLog(`Enua resumed: ${device.name} → ${clampedA}A`);
-            this._appLogEntry('charger', `Enua resumed: ${device.name} → ${clampedA}A`);
-            if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
-            Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
-            delete this._pendingChargerCommands[deviceId];
-            return true;
-          }
+        // Check if toggleChargingCapability is currently false (charger was paused)
+        const chargingCapVal = device.capabilitiesObj?.toggleChargingCapability?.value;
+        const chargerStatus = device.capabilitiesObj?.chargerStatusCapability?.value;
+        const enuaIsPaused = chargingCapVal === false
+          || chargerStatus === 'Paused' || chargerStatus === 'paused';
+        if (enuaIsPaused && device.capabilities.includes('toggleChargingCapability')) {
+          const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
+          const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(32, resumeA));
+          // Set current limit via flow first
+          await callEnuaFlow(clampedA);
+          // Then enable charging
+          await withTimeout(
+            device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true }),
+            10000, `enuaResume(${deviceId})`
+          );
+          this._addLog(`Enua resumed: ${device.name} → ${clampedA}A`);
+          this._appLogEntry('charger', `Enua resumed: ${device.name} → ${clampedA}A (status was: ${chargerStatus})`);
+          if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+          Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
+          delete this._pendingChargerCommands[deviceId];
+          return true;
         }
 
         // ── Normal current adjustment via Flow API ──
-        const clampedA = Math.max(6, Math.min(32, currentA));
+        const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(32, currentA));
         await callEnuaFlow(clampedA);
         this._addLog(`Enua strøm: ${device.name} → ${clampedA}A`);
-        this._appLogEntry('charger', `Enua current: ${device.name} → ${clampedA}A`);
+        this._appLogEntry('charger', `Enua current: ${device.name} → ${clampedA}A (status: ${chargerStatus})`);
         if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
         Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
         delete this._pendingChargerCommands[deviceId];
@@ -3252,8 +3339,21 @@ class PowerGuardApp extends Homey.App {
         }
 
       } else {
-        // Unknown charger type
-        results.steps.push({ step: 'Charger type', ok: false, detail: `Unknown charger type. No dynamic current or charging_button found. Available: ${caps.join(', ')}` });
+        // Unknown charger type — check if this is the Zaptec meter/installation device
+        const ownerUri = (device.driver && device.driver.owner_uri) || device.driverUri || '';
+        const isZaptecMeter = ownerUri.includes('com.zaptec');
+        if (isZaptecMeter) {
+          results.steps.push({
+            step: 'Charger type',
+            ok: false,
+            detail: `This is the Zaptec installation/meter device (no charging_button found). ` +
+              `Zaptec creates two devices in Homey — please select the charger device (not the meter). ` +
+              `The app will attempt to auto-redirect to the real charger device automatically at startup. ` +
+              `Available caps: ${caps.join(', ')}`
+          });
+        } else {
+          results.steps.push({ step: 'Charger type', ok: false, detail: `Unknown charger type. No dynamic current or charging_button found. Available: ${caps.join(', ')}` });
+        }
       }
 
     } catch (err) {
