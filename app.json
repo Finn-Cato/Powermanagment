@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.2.23",
+  "version": "0.3.0",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -17,10 +17,22 @@
   ],
   "tags": {
     "en": [
-      "power", "energy", "limit", "HAN", "frient", "EV", "charger"
+      "power",
+      "energy",
+      "limit",
+      "HAN",
+      "frient",
+      "EV",
+      "charger"
     ],
     "no": [
-      "strøm", "effekt", "grense", "HAN", "frient", "elbil", "lader"
+      "strøm",
+      "effekt",
+      "grense",
+      "HAN",
+      "frient",
+      "elbil",
+      "lader"
     ]
   },
   "images": {
@@ -38,24 +50,81 @@
     "homey:manager:api"
   ],
   "api": {
-    "getAllData": { "method": "GET", "path": "/all" },
-    "getStatus": { "method": "GET", "path": "/status" },
-    "getSettings": { "method": "GET", "path": "/settings-all" },
-    "getDevices": { "method": "GET", "path": "/devices" },
-    "setSettings": { "method": "POST", "path": "/settings" },
-    "setPriorityList": { "method": "POST", "path": "/priority-list" },
-    "getDiagnostic": { "method": "GET", "path": "/diagnostic" },
-    "getCacheStatus": { "method": "GET", "path": "/cache-status" },
-    "refreshDeviceCache": { "method": "POST", "path": "/device-cache-refresh" },
-    "getPowerConsumption": { "method": "GET", "path": "/powerConsumption" },
-    "getDebugLog": { "method": "GET", "path": "/debugLog" },
-    "getFloorHeaters": { "method": "GET", "path": "/floorHeaters" },
-    "controlFloorHeater": { "method": "POST", "path": "/floorHeater-control" },
-    "testCharger": { "method": "POST", "path": "/test-charger" },
-    "applyCircuitLimits": { "method": "POST", "path": "/apply-circuit-limits" },
-    "getMeterDevices": { "method": "GET", "path": "/meter-devices" },
-    "getHanDiagnostic": { "method": "GET", "path": "/han-diagnostic" },
-    "setMeterDevice": { "method": "POST", "path": "/set-meter-device" },
-    "getAppLog": { "method": "GET", "path": "/app-log" }
+    "getAllData": {
+      "method": "GET",
+      "path": "/all"
+    },
+    "getStatus": {
+      "method": "GET",
+      "path": "/status"
+    },
+    "getSettings": {
+      "method": "GET",
+      "path": "/settings-all"
+    },
+    "getDevices": {
+      "method": "GET",
+      "path": "/devices"
+    },
+    "setSettings": {
+      "method": "POST",
+      "path": "/settings"
+    },
+    "setPriorityList": {
+      "method": "POST",
+      "path": "/priority-list"
+    },
+    "getDiagnostic": {
+      "method": "GET",
+      "path": "/diagnostic"
+    },
+    "getCacheStatus": {
+      "method": "GET",
+      "path": "/cache-status"
+    },
+    "refreshDeviceCache": {
+      "method": "POST",
+      "path": "/device-cache-refresh"
+    },
+    "getPowerConsumption": {
+      "method": "GET",
+      "path": "/powerConsumption"
+    },
+    "getDebugLog": {
+      "method": "GET",
+      "path": "/debugLog"
+    },
+    "getFloorHeaters": {
+      "method": "GET",
+      "path": "/floorHeaters"
+    },
+    "controlFloorHeater": {
+      "method": "POST",
+      "path": "/floorHeater-control"
+    },
+    "testCharger": {
+      "method": "POST",
+      "path": "/test-charger"
+    },
+    "applyCircuitLimits": {
+      "method": "POST",
+      "path": "/apply-circuit-limits"
+    },
+    "getMeterDevices": {
+      "method": "GET",
+      "path": "/meter-devices"
+    },
+    "getHanDiagnostic": {
+      "method": "GET",
+      "path": "/han-diagnostic"
+    },
+    "setMeterDevice": {
+      "method": "POST",
+      "path": "/set-meter-device"
+    },
+    "getAppLog": {
+      "method": "GET",
+      "path": "/app-log"
+    }
   }
 }

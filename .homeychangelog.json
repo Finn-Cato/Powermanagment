@@ -17,7 +17,7 @@
   },
   "0.2.0": {
     "en": "Dynamic flow action discovery: automatically finds the correct Flow action ID for Zaptec and Enua chargers at runtime. Improved test charger diagnostics with detailed Flow API reporting. No more hardcoded action IDs.",
-    "no": "Dynamisk flow-action oppdagelse: finner automatisk riktig Flow action-ID for Zaptec og Enua ladere ved kj\u00f8ring. Forbedret ladertest-diagnostikk med detaljert Flow API-rapportering. Ingen flere hardkodede action-IDer."
+    "no": "Dynamisk flow-action oppdagelse: finner automatisk riktig Flow action-ID for Zaptec og Enua ladere ved kjøring. Forbedret ladertest-diagnostikk med detaljert Flow API-rapportering. Ingen flere hardkodede action-IDer."
   },
   "0.1.9": {
     "en": "Added dynamic current control for Zaptec and Enua chargers via Homey Flow API. Zaptec uses installation_current_control (0-40A per phase), Enua uses changeCurrentLimitAction (6-32A). Auto-detects charger brand and routes to correct handler. Added Zaptec car-connected detection. Full Enua Charge E support with pause/resume and status monitoring.",
@@ -29,7 +29,7 @@
   },
   "0.1.7": {
     "en": "Fixed Easee Equalizer showing 0W: reads initial power value immediately on connect, faster first poll (2s), robust number handling for cloud-based meters.",
-    "no": "Fikset Easee Equalizer som viste 0W: leser initial effektverdi umiddelbart ved tilkobling, raskere f\u00f8rste poll (2s), robust tallh\u00e5ndtering for skybaserte m\u00e5lere."
+    "no": "Fikset Easee Equalizer som viste 0W: leser initial effektverdi umiddelbart ved tilkobling, raskere første poll (2s), robust tallhåndtering for skybaserte målere."
   },
   "0.1.6": {
     "en": "Added manual power meter selection on the System tab. Fixed auto-detect falsely matching devices like 'Hanna Thermostat'. Improved Futurehome HAN and Easee Equalizer support.",
@@ -42,5 +42,8 @@
   "0.1.4": {
     "en": "Initial release. Real-time power monitoring with HAN meter, smart EV charger control with dynamic current adjustment, thermostat management, priority-based mitigation, and Norwegian capacity tariff tracking.",
     "no": "Første utgivelse. Sanntids effektovervåking med HAN-måler, smart elbilladerstyring med dynamisk strømjustering, termostatstyring, prioritetsbasert tiltak, og norsk effekttariff-sporing."
+  },
+  "0.3.0": {
+    "en": "bugfix"
   }
 }
