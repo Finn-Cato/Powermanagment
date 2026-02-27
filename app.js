@@ -2961,6 +2961,14 @@ class PowerGuardApp extends Homey.App {
     // Scan all devices and identify floor heaters with control capabilities
     const allDevices = this.homey.settings.get('_deviceCache') || [];
     const floorHeaters = [];
+
+    // Always include devices from the priority list with target_temperature action,
+    // regardless of device name or class — so any device managed by PowerGuard shows up.
+    const managedThermostatIds = new Set(
+      (this._settings.priorityList || [])
+        .filter(e => e.action === 'target_temperature' && e.enabled !== false)
+        .map(e => e.deviceId)
+    );
     
     this.log(`[FloorHeater] ==== START FLOOR HEATER CHECK ====`);
     this.log(`[FloorHeater] Total devices in cache: ${allDevices.length}`);
@@ -2973,6 +2981,7 @@ class PowerGuardApp extends Homey.App {
       const cls = (cached.class || '').toLowerCase();
       
       // Identify thermostats / heaters (works for all brands: Futurehome, Z-Wave, Zigbee, etc.)
+      // Also always include any device in the priority list with target_temperature action.
       const isFloorHeater = cls === 'thermostat' || 
                             cls === 'heater' ||
                             name.includes('floor') || 
@@ -2980,7 +2989,8 @@ class PowerGuardApp extends Homey.App {
                             name.includes('heating') ||
                             name.includes('gulv') ||
                             name.includes('termostat') ||
-                            name.includes('thermostat');
+                            name.includes('thermostat') ||
+                            managedThermostatIds.has(cached.id);
       
       if (!isFloorHeater) continue;
       
