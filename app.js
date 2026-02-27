@@ -146,6 +146,10 @@ class PowerGuardApp extends Homey.App {
       this._settings = Object.assign({}, DEFAULT_SETTINGS);
     }
 
+    // Remove persisted mitigation entries whose action no longer matches the priority list
+    // (e.g. user changed action in the UI between sessions, or removed a device)
+    this._cleanStaleMitigatedEntries();
+
     // Restore cached devices from previous session
     try {
       const saved = this.homey.settings.get('_allDevicesCache');
@@ -164,6 +168,8 @@ class PowerGuardApp extends Homey.App {
       if (key === 'priorityList') {
         try { this.homey.api.realtime('priorityList', this.homey.settings.get('priorityList')); } catch (_) {}
         this._connectToEVChargers().catch(() => {});
+        // Clean up any persisted mitigation entries whose action changed in the new list
+        this._cleanStaleMitigatedEntries();
       }
       // When power limit or profile changes, immediately re-evaluate chargers
       if (['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA'].includes(key)) {
@@ -389,6 +395,34 @@ class PowerGuardApp extends Homey.App {
       this.homey.settings.set('_mitigatedDevices', this._mitigatedDevices);
     } catch (err) {
       this.error('Failed to persist mitigated devices:', err);
+    }
+  }
+
+  /**
+   * Remove mitigated-device entries whose recorded action no longer matches what the
+   * priority list expects. This cleans up stale data left when the user changes an
+   * entry's action in the UI, or removes a device from the priority list entirely.
+   * Safe to call any time after _settings has been populated.
+   */
+  _cleanStaleMitigatedEntries() {
+    const priorityList = this._settings.priorityList || [];
+    const actionMap = new Map(priorityList.map(e => [e.deviceId, e.action]));
+    const before = this._mitigatedDevices.length;
+    this._mitigatedDevices = this._mitigatedDevices.filter(m => {
+      const expectedAction = actionMap.get(m.deviceId);
+      if (expectedAction === undefined) {
+        this.log(`[Mitigation] Cleanup: removing stale entry for ${m.deviceId} — not in priority list`);
+        return false;
+      }
+      if (m.action !== 'hoiax_power' && expectedAction !== m.action) {
+        this.log(`[Mitigation] Cleanup: removing stale entry for ${m.deviceId} — action changed ${m.action} → ${expectedAction}`);
+        return false;
+      }
+      return true;
+    });
+    if (this._mitigatedDevices.length !== before) {
+      this.log(`[Mitigation] Cleaned ${before - this._mitigatedDevices.length} stale mitigated entries`);
+      this._persistMitigatedDevices();
     }
   }
 
@@ -1030,10 +1064,24 @@ class PowerGuardApp extends Homey.App {
         }
         if (mitigated.has(entry.deviceId)) {
           // Allow Høiax stepped devices to be further stepped down
-          if (entry.action !== 'hoiax_power') {
-            this.log(`[Mitigation] SKIP ${entry.name}: already mitigated`);
-            scanResults.push({ name: entry.name, action: entry.action, result: 'already mitigated' });
-            continue;
+          if (entry.action === 'hoiax_power') {
+            // fall through — stepped re-mitigation handled below
+          } else {
+            // Check if the stored action still matches the priority-list action.
+            // If the user changed the action (e.g. "dim" → "target_temperature") the
+            // persisted entry is stale: drop it so we can re-mitigate with the new action.
+            const existingAction = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId)?.action;
+            if (existingAction && existingAction !== entry.action) {
+              this.log(`[Mitigation] Action changed for ${entry.name}: ${existingAction} → ${entry.action} — clearing stale entry`);
+              this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== entry.deviceId);
+              mitigated.delete(entry.deviceId);
+              this._persistMitigatedDevices();
+              // fall through to mitigate fresh with the new action
+            } else {
+              this.log(`[Mitigation] SKIP ${entry.name}: already mitigated`);
+              scanResults.push({ name: entry.name, action: entry.action, result: 'already mitigated' });
+              continue;
+            }
           }
         }
         if (!this._canMitigate(entry)) {
@@ -1148,6 +1196,16 @@ class PowerGuardApp extends Homey.App {
           this._mitigatedDevices.pop();
           this._addLog(`Restored: ${device.name}`);
           this._appLogEntry('mitigation', `Restored: ${device.name}`);
+          this._persistMitigatedDevices();
+          if (this._mitigatedDevices.length === 0) {
+            this._fireTrigger('mitigation_cleared', {});
+            await this._updateVirtualDevice({ alarm: false });
+          }
+        } else {
+          // restoreDevice returned false (e.g. action no longer matches device capabilities).
+          // Remove the stuck entry so it doesn't block all future restores.
+          this.log(`[Restore] restoreDevice returned false for ${device.name} (action=${toRestore.action}) — removing stuck entry`);
+          this._mitigatedDevices.pop();
           this._persistMitigatedDevices();
           if (this._mitigatedDevices.length === 0) {
             this._fireTrigger('mitigation_cleared', {});
@@ -2959,7 +3017,9 @@ class PowerGuardApp extends Homey.App {
         return { ok: false, error: 'Device not found' };
       }
       
-      const caps = Object.keys(device.capabilitiesObj || {});
+      // Use capabilities array (most reliable) and capabilitiesObj for values
+      const caps = device.capabilities || [];
+      const obj  = device.capabilitiesObj || {};
       this.log(`[FloorHeater] Control: ${action} on "${device.name}" (value: ${value})`);
       this.log(`[FloorHeater]   Available caps: ${caps.join(', ')}`);
       
@@ -2993,6 +3053,15 @@ class PowerGuardApp extends Homey.App {
         if (!targetTempCap) {
           this.log(`[FloorHeater] No target temp cap found. Available: ${caps.join(', ')}`);
           return { ok: false, error: `${device.name} has no temperature control capability` };
+        }
+        // Switch to manual/heat mode first so thermostats with a cloud schedule
+        // (e.g. FutureHome) don't revert the temperature change immediately.
+        if (caps.includes('thermostat_mode')) {
+          const currentMode = obj.thermostat_mode ? obj.thermostat_mode.value : null;
+          if (currentMode !== 'heat') {
+            this.log(`[FloorHeater] ${device.name} switching thermostat_mode → heat (was: ${currentMode})`);
+            await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: 'heat' });
+          }
         }
         await device.setCapabilityValue({ capabilityId: targetTempCap, value: temp });
         this.log(`[FloorHeater] ${device.name} set to ${temp}°C via ${targetTempCap}`);

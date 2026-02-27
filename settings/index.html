@@ -159,9 +159,8 @@
     .h-step-btn:active { background: var(--border-color); }
     .h-temp-val { min-width: 32px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-primary); border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); padding: 0 2px; }
     .h-temp-val.is-dirty { color: var(--blue); }
-    .h-set-btn { padding: 4px 9px; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; color: #fff; background: var(--blue); flex-shrink: 0; }
+    .h-set-btn { height: 16px; padding: 0 6px; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 700; color: #fff; background: var(--blue); flex-shrink: 0; display: inline-flex; align-items: center; align-self: center; letter-spacing: 0.3px; }
     .h-set-btn:active { opacity: .7; }
-    .h-set-btn.is-hidden { display: none; }
     /* Slide toggle */
     .h-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer; }
     .h-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
@@ -1596,7 +1595,7 @@
               '<div class="h-cur">Now <b>' + cur + '</b>' + (h.hasTargetTemp ? arrow + tgtVal + '°' : '') + pwrLabel + '</div>' +
             '</div>' +
             '<div class="h-controls">' +
-              (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn' + (isDirty ? '' : ' is-hidden') + '" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')">Set</button>' : '') +
+              (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')" title="Apply temperature">Set</button>' : '') +
               (h.hasOnOff ? '<label class="h-toggle"><input type="checkbox"' + chk + ' onchange="controlHeater(\'' + id + '\', this.checked?\'on\':\'off\')" /><span class="h-track"></span><span class="h-thumb"></span></label>' : '') +
             '</div>' +
           '</div>';
@@ -1649,8 +1648,6 @@
     _heaterDirty[deviceId] = val;
     el.textContent = val.toFixed(1);
     el.classList.add('is-dirty');
-    var setBtn = document.getElementById('set-' + deviceId);
-    if (setBtn) setBtn.classList.remove('is-hidden');
   }
 
   function setHeaterTemp(deviceId) {
