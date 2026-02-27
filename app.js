@@ -1132,8 +1132,11 @@ class PowerGuardApp extends Homey.App {
           continue;  // Skip EV chargers here (handled above)
         }
         if (mitigated.has(entry.deviceId)) {
-          // Allow Høiax stepped devices to be further stepped down
-          if (entry.action === 'hoiax_power') {
+          // Allow Høiax stepped devices AND thermostats to be further stepped down.
+          // Each thermostat re-mitigation lowers temp by another 3°C from the current live value
+          // (floor 5°C). applyAction returns false when floor is reached, which stops stepping.
+          // previousState always holds the ORIGINAL pre-mitigation temp for a clean restore.
+          if (entry.action === 'hoiax_power' || entry.action === 'target_temperature') {
             // fall through — stepped re-mitigation handled below
           } else {
             // Check if the stored action still matches the priority-list action.
