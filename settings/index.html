@@ -372,6 +372,24 @@
         <button class="btn-primary"   onclick="saveAll()">Save settings</button>
       </div>
 
+      <div class="card" style="margin-top:16px;">
+        <h2>Power Correction Table</h2>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">Some Zigbee devices report power values 10× too high due to a firmware decimal error. Map a <b>Zigbee product ID</b> to a <b>multiplier</b> so PowerGuard corrects the reading before using it. Example: product ID <code>4512760</code> (Namron dimmer) with multiplier <code>0.1</code> divides by 10.</p>
+        <table id="corrections-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 8px;color:var(--text-muted);font-weight:500;">Zigbee Product ID</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--text-muted);font-weight:500;">Multiplier</th>
+            <th style="width:32px;"></th>
+          </tr></thead>
+          <tbody id="corrections-body"></tbody>
+        </table>
+        <div style="margin-top:10px;display:flex;gap:8px;">
+          <button class="btn-secondary" onclick="addCorrectionRow()" style="font-size:12px;padding:5px 12px;">+ Add row</button>
+          <button class="btn-primary" onclick="saveCorrections()" style="font-size:12px;padding:5px 12px;">Save corrections</button>
+        </div>
+        <div id="corrections-status" style="margin-top:6px;font-size:12px;"></div>
+      </div>
+
     </div><!-- /#tab-settings -->
 
     <!-- ── System tab ────────────────────────────────────────────────────── -->
@@ -744,6 +762,7 @@
       loadAppLog();
     } else {
       loadAll();
+      loadCorrections();
     }
   }
 
@@ -2321,6 +2340,7 @@
         renderAllDevices();
         renderChargerDetails();  // Initial render of charger power details
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
+        loadCorrections();  // Load power correction table
         dbg('Initial load: ' + availableDevices.length + ' devices');
 
         // Immediately update cache status bar since devices are loaded
@@ -2420,6 +2440,56 @@
     cache: '#5ac8fa',
     system: '#8e8e93'
   };
+
+  function loadCorrections() {
+    hApi('GET', '/power-corrections', null)
+      .then(function(data) {
+        var tbody = document.getElementById('corrections-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        var entries = Object.entries(data || {});
+        if (entries.length === 0) entries = [['4512760', '0.1']];
+        entries.forEach(function(kv) { addCorrectionRow(kv[0], kv[1]); });
+      })
+      .catch(function(err) {
+        var el = document.getElementById('corrections-status');
+        if (el) el.innerHTML = '<span style="color:#ff3b30;">Load error: ' + escHtml(err.message) + '</span>';
+      });
+  }
+
+  function addCorrectionRow(productId, multiplier) {
+    var tbody = document.getElementById('corrections-body');
+    if (!tbody) return;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="padding:4px 8px;"><input type="text" placeholder="e.g. 4512760" value="' + escHtml(String(productId || '')) + '" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-surface);color:var(--text-primary);" class="corr-id"></td>' +
+      '<td style="padding:4px 8px;"><input type="number" placeholder="e.g. 0.1" value="' + escHtml(String(multiplier != null ? multiplier : '')) + '" step="any" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-surface);color:var(--text-primary);" class="corr-mult"></td>' +
+      '<td style="padding:4px;text-align:center;"><button onclick="this.closest(\'tr\').remove()" style="background:none;border:none;color:#ff3b30;font-size:16px;cursor:pointer;line-height:1;">×</button></td>';
+    tbody.appendChild(tr);
+  }
+
+  function saveCorrections() {
+    var rows = document.querySelectorAll('#corrections-body tr');
+    var corrections = {};
+    for (var i = 0; i < rows.length; i++) {
+      var id = (rows[i].querySelector('.corr-id').value || '').trim();
+      var mult = rows[i].querySelector('.corr-mult').value.trim();
+      if (!id || mult === '') continue;
+      var n = parseFloat(mult);
+      if (!isFinite(n)) { alert('Invalid multiplier on row ' + (i + 1)); return; }
+      corrections[id] = n;
+    }
+    var el = document.getElementById('corrections-status');
+    if (el) el.innerHTML = '<span style="color:var(--text-muted);">Saving…</span>';
+    hApi('POST', '/power-corrections', corrections)
+      .then(function() {
+        if (el) el.innerHTML = '<span style="color:#34c759;">\u2713 Saved</span>';
+        setTimeout(function() { if (el) el.innerHTML = ''; }, 3000);
+      })
+      .catch(function(err) {
+        if (el) el.innerHTML = '<span style="color:#ff3b30;">Error: ' + escHtml(err.message) + '</span>';
+      });
+  }
 
   function loadFirmwareInfo() {
     var search = (document.getElementById('firmware-search').value || '').trim();

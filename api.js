@@ -340,4 +340,22 @@ module.exports = {
   async getEaseeStatus({ homey }) {
     return homey.app.getEaseeDirectAPIStatus();
   },
+
+  async getPowerCorrections({ homey }) {
+    return homey.settings.get('powerCorrections') ?? { '4512760': 0.1 };
+  },
+
+  async setPowerCorrections({ homey, body }) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'Expected an object' };
+    // Validate: keys = strings, values = finite numbers
+    const clean = {};
+    for (const [k, v] of Object.entries(body)) {
+      const n = Number(v);
+      if (!isFinite(n)) return { ok: false, error: `Invalid multiplier for "${k}": ${v}` };
+      clean[String(k).trim()] = n;
+    }
+    homey.settings.set('powerCorrections', clean);
+    if (homey.app && typeof homey.app._loadSettings === 'function') homey.app._loadSettings();
+    return { ok: true };
+  },
 };

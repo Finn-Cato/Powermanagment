@@ -372,6 +372,9 @@ class PowerGuardApp extends Homey.App {
       phaseDistribution: s.get('phaseDistribution') ?? DEFAULT_SETTINGS.phaseDistribution,
       mainCircuitA:      s.get('mainCircuitA')      ?? DEFAULT_SETTINGS.mainCircuitA,
       priorityList:      s.get('priorityList')      ?? DEFAULT_SETTINGS.priorityList,
+      // Map of zb_product_id (string) → scale factor for correcting buggy power readings.
+      // Default: Namron 4512760 reports 10× too high → multiply by 0.1.
+      powerCorrections: s.get('powerCorrections') ?? { '4512760': 0.1 },
     };
   }
 
@@ -1647,6 +1650,7 @@ class PowerGuardApp extends Homey.App {
             isEnua:       (d.driver && d.driver.owner_uri === 'homey:app:no.enua'),
             isAdax:       (d.driverUri || '').includes('no.adax') || (d.driver && d.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app'),
             isHoiax:      (d.driverUri || '').includes('no.hoiax') || (d.driver && d.driver.owner_uri === 'homey:app:no.hoiax'),
+            zbProductId:  (d.settings && d.settings.zb_product_id) ? String(d.settings.zb_product_id) : null,
           };
         });
 
@@ -3093,6 +3097,15 @@ class PowerGuardApp extends Homey.App {
           if (hasPower && source.capabilitiesObj.measure_power) {
             const v = source.capabilitiesObj.measure_power;
             currentPowerW = v.value !== undefined ? v.value : v;
+          }
+          // Apply per-device power correction if configured (e.g. Zigbee decimal error)
+          if (currentPowerW != null && cached.zbProductId) {
+            const corrections = (this._settings && this._settings.powerCorrections) || {};
+            const factor = corrections[cached.zbProductId];
+            if (factor != null && isFinite(factor)) {
+              this.log(`[FloorHeater]   Power correction for zb_product_id=${cached.zbProductId}: ${currentPowerW}W × ${factor} = ${currentPowerW * factor}W`);
+              currentPowerW = currentPowerW * factor;
+            }
           }
           if (hasOnOff && source.capabilitiesObj.onoff) {
             const v = source.capabilitiesObj.onoff;
