@@ -48,5 +48,9 @@
   },
   "0.3.2": {
     "en": "bugfix"
+  },
+  "0.3.21": {
+    "en": "Per-phase current control for EV chargers: app now reads live per-phase amps (A/B/C) from the HAN sensor (Futurehome HAN and Easee Equalizer supported) and uses them directly to calculate available charger current. Fixes charger being throttled to minimum when voltageSystem was misconfigured. Falls back to wattage-based calculation when phase data is unavailable.",
+    "no": "Fasebasert strømstyring for elbilladere: appen leser nå direktefase-ampere (A/B/C) fra HAN-sensoren (Futurehome HAN og Easee Equalizer støttes) og bruker disse til å beregne tilgjengelig ladestrøm. Fikser at laderen ble begrenset til minimum når voltageSystem var feilkonfigurert. Faller tilbake til watt-basert beregning når fasedata ikke er tilgjengelig."
   }
 }
