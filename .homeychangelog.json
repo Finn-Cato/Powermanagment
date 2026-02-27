@@ -1,4 +1,8 @@
 {
+  "0.3.23": {
+    "en": "Fix: EV charger no longer stays at 7A minimum when house base load alone exceeds the power limit. The phase-based control path now correctly pauses charging when household consumption (without the charger) exceeds the watt limit, matching the behavior of the wattage-based fallback path.",
+    "no": "Fix: EV-lader holdes ikke lenger på 7A minimum når husforbruket alene overstiger effektgrensen. Den fasebaserte styringsveien pauser nå ladingen korrekt når husforbruket (uten laderen) overstiger watt-grensen, tilsvarende oppførselen i den wattagebaserte reserveveien."
+  },
   "0.3.22": {
     "en": "Auto-detect electrical system phase count from HAN sensor: 'Auto-detect from HAN sensor' is now the default voltage system setting. The app reads live phase current data (L1/L2/L3) and meter capabilities to automatically determine whether the installation is single-phase (230V) or three-phase (400V). Manual override is still available. Settings page shows the detected system type in real time.",
     "no": "Auto-gjenkjenn fase-antall fra HAN-sensor: 'Auto-gjenkjenn fra HAN-sensor' er nå standard innstilling for spenningssystem. Appen leser sanntids fase-strøm (L1/L2/L3) og målerfunksjoner for å automatisk avgjøre om anlegget er enfase (230V) eller trefase (400V). Manuell overstyring er fortsatt mulig. Innstillingssiden viser oppdaget systemtype i sanntid."

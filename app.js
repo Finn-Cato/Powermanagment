@@ -2208,6 +2208,11 @@ class PowerGuardApp extends Homey.App {
       availableA = Math.min(availableA, limitCurrentA);
 
       if (availableA < minCurrent) {
+        // If household alone exceeds the watt limit, pause the charger entirely (true emergency)
+        if (nonChargerUsageForLimit > (limit - 200)) {
+          this.log(`EV calc (phase): household alone=${Math.round(nonChargerUsageForLimit)}W > limit=${Math.round(limit)}W → PAUSE`);
+          return null;
+        }
         this.log(`EV calc (phase): available ${availableA.toFixed(1)}A < min ${minCurrent}A → KEEP MIN`);
         return minCurrent;
       }
