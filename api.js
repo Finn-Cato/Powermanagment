@@ -222,8 +222,8 @@ module.exports = {
         const effectiveCharger =
           staticMax != null
             ? staticMax  // Homey cap ID47 directly available
-            : (mitigatedEntry && mitigatedEntry.previousState?.target_charger_current != null)
-              ? mitigatedEntry.previousState.target_charger_current  // pre-throttle snapshot
+            : (mitigatedEntry && mitigatedEntry.previousState?.targetCurrent != null)
+              ? mitigatedEntry.previousState.targetCurrent  // pre-throttle snapshot (key = targetCurrent)
               : liveCharger;  // not throttled, live value = ID47
 
         // Dump every capability value for diagnostics

@@ -1364,9 +1364,9 @@
             circuit_current:         (live.target_circuit_current != null && live.target_circuit_current > 0) ? Math.round(live.target_circuit_current) : null,
             allValues:               live.allValues || {},
           };
-          if (liveA != null && entry.circuitLimitA !== liveA) {
-            updated.push(entry.name + ': ' + (entry.circuitLimitA || 32) + 'A → ' + liveA + 'A' +
-              (live.mitigated ? ' (from snapshot—charger is currently throttled)' : ''));
+          // Never overwrite circuitLimitA while Power Guard is actively throttling the charger
+          if (liveA != null && entry.circuitLimitA !== liveA && !live.mitigated) {
+            updated.push(entry.name + ': ' + (entry.circuitLimitA || 32) + 'A → ' + liveA + 'A');
             entry.circuitLimitA = liveA;
           } else if (!silent && liveA != null) {
             dbg(entry.name + ': Max Current (ID47)=' + liveA + 'A' + (live.mitigated ? ' (pre-mitigation snapshot)' : ' (live)') + ' — already set');

@@ -290,11 +290,12 @@ async function restoreDevice(device, action, previousState) {
     }
 
     case ACTIONS.DYNAMIC_CURRENT: {
-      const dynCap = ['target_current', 'dynamicCircuitCurrentP1', 'dynamic_current']
+      const dynCap = ['target_current', 'target_charger_current', 'dynamicCircuitCurrentP1', 'dynamic_current']
         .find(function (c) { return caps.includes(c); });
       if (dynCap) {
-        const prevVal = (previousState && previousState.target_current !== undefined)
-          ? previousState.target_current : 16;
+        // Restore to the original pre-throttle current (targetCurrent key) or fallback to 16A
+        const prevVal = (previousState && (previousState.targetCurrent ?? previousState.target_current) !== undefined)
+          ? (previousState.targetCurrent ?? previousState.target_current) : 16;
         await device.setCapabilityValue({ capabilityId: dynCap, value: prevVal });
         return true;
       }
