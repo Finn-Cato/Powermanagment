@@ -2061,9 +2061,14 @@ class PowerGuardApp extends Homey.App {
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
       const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
-      // Skip if target hasn't changed (within 1A)
+      // Skip if target hasn't changed meaningfully
+      // null == null (both paused): skip re-sending pause command
+      if (alreadyTracked && targetCurrent === null && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null)) {
+        continue;
+      }
+      // Same current (within 1A, inclusive): skip re-send that would restart the 45s unconfirmed throttle
       if (alreadyTracked && targetCurrent !== null &&
-          Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) < 1) {
+          Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) <= 1) {
         continue;
       }
       // Skip if already at full and target is full
