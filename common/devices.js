@@ -263,24 +263,27 @@ async function restoreDevice(device, action, previousState) {
       break;
 
     case ACTIONS.TARGET_TEMP: {
-      // Adax: if we turned off via onoff, restore via onoff (not temp)
-      const isAdaxRestore = (device.driverUri || device.driverId || '').toLowerCase().includes('adax');
-      if (isAdaxRestore && caps.includes('onoff')) {
-        const wasOn = previousState && previousState.onoff !== undefined ? previousState.onoff : true;
-        await device.setCapabilityValue({ capabilityId: 'onoff', value: wasOn });
-        return true; // NOTE: ~20 min cloud delay before heater responds
+      // If the thermostat was turned off as step 2, turn it back ON first
+      // before restoring the temperature — regardless of brand.
+      if (caps.includes('onoff')) {
+        const isCurrentlyOff = obj.onoff && obj.onoff.value === false;
+        if (isCurrentlyOff) {
+          await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+          // Small delay so the device is ready to accept a temperature command
+          await new Promise(function(r) { setTimeout(r, 600); });
+        }
       }
       if (caps.includes('target_temperature')) {
         const prevTemp = previousState && previousState.target_temperature !== undefined
           ? previousState.target_temperature : 21;
-        // If we forced thermostat_mode to 'heat' during mitigation, restore the original mode first
+        // Restore original thermostat mode (e.g. back to 'auto' for FutureHome)
         if (caps.includes('thermostat_mode') && previousState && previousState.thermostat_mode !== undefined) {
           await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: previousState.thermostat_mode });
         }
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: prevTemp });
         return true;
       }
-      // Fallback: restore onoff if we used that instead
+      // Fallback: no target_temperature cap — restore onoff state
       if (caps.includes('onoff')) {
         const wasOn = previousState && previousState.onoff !== undefined ? previousState.onoff : true;
         await device.setCapabilityValue({ capabilityId: 'onoff', value: wasOn });

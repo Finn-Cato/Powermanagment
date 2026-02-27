@@ -1187,25 +1187,50 @@ class PowerGuardApp extends Homey.App {
           this.log(`[Mitigation] ${entry.name} caps: ${caps.join(', ')}`);
           this.log(`[Mitigation] ${entry.name} values: ${JSON.stringify(capInfo)}`);
 
-          // Check if already mitigated (re-entry for Høiax stepped power)
+          // Check if already mitigated (re-entry for Høiax / thermostat two-step)
           const existingMitigation = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
           // Only snapshot on first mitigation — keep original state for full restore
           const previousState = existingMitigation ? existingMitigation.previousState : this._snapshotState(device);
-          const applied = await applyAction(device, entry.action);
-          if (!applied) {
-            this.log(`[Mitigation] SKIP ${entry.name}: applyAction returned false (already at minimum or no matching capability)`);
-            scanResults.push({ name: entry.name, action: entry.action, result: `applyAction=false (caps: ${caps.join(',')}, vals: ${JSON.stringify(capInfo)})` });
-            continue;
-          }
 
-          if (existingMitigation) {
-            // Re-mitigation (Høiax step-down): update timestamp, keep original previousState
-            existingMitigation.mitigatedAt = now;
-            this._addLog(`Mitigated: ${device.name} (${entry.action}) — stepped down`);
+          // ── Thermostat two-step logic ──────────────────────────────────────────
+          // Step 1 (first mitigation):  lower temp by 3°C via applyAction
+          // Step 2 (re-mitigation):     turn thermostat OFF
+          // Restore:                    turn back ON → set to original temp
+          if (existingMitigation && entry.action === 'target_temperature') {
+            if (caps.includes('onoff')) {
+              if (obj.onoff && obj.onoff.value === false) {
+                // Already off (step 2 already done) — nothing more we can do
+                this.log(`[Mitigation] SKIP ${entry.name}: thermostat already off (step 2 done)`);
+                scanResults.push({ name: entry.name, action: entry.action, result: 'already off (step 2)' });
+                continue;
+              }
+              // Step 2: turn the thermostat off
+              await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+              existingMitigation.mitigatedAt = now;
+              this.log(`[Mitigation] SUCCESS: ${entry.name} thermostat step 2 — turned OFF`);
+            } else {
+              // No onoff capability — cannot turn off, nothing more to do
+              this.log(`[Mitigation] SKIP ${entry.name}: thermostat has no onoff cap, cannot do step 2`);
+              scanResults.push({ name: entry.name, action: entry.action, result: 'skip step 2 (no onoff cap)' });
+              continue;
+            }
           } else {
-            this._mitigatedDevices.push({ deviceId: entry.deviceId, action: entry.action, previousState, mitigatedAt: now });
-            this._addLog(`Mitigated: ${device.name} (${entry.action})`);
+            // Step 1 for thermostats, or Høiax stepped reduction
+            const applied = await applyAction(device, entry.action);
+            if (!applied) {
+              this.log(`[Mitigation] SKIP ${entry.name}: applyAction returned false (already at minimum or no matching capability)`);
+              scanResults.push({ name: entry.name, action: entry.action, result: `applyAction=false (caps: ${caps.join(',')}, vals: ${JSON.stringify(capInfo)})` });
+              continue;
+            }
+            if (existingMitigation) {
+              // Re-mitigation (Høiax step-down): update timestamp, keep original previousState
+              existingMitigation.mitigatedAt = now;
+              this._addLog(`Mitigated: ${device.name} (${entry.action}) — stepped down`);
+            } else {
+              this._mitigatedDevices.push({ deviceId: entry.deviceId, action: entry.action, previousState, mitigatedAt: now });
+              this._addLog(`Mitigated: ${device.name} (${entry.action})`);
+            }
           }
           this._lastMitigationTime = now;
           this._persistMitigatedDevices();
