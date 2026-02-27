@@ -17,6 +17,42 @@ module.exports = {
     return await homey.app.checkFloorHeaterConnections();
   },
 
+  async getFirmwareInfo({ homey, query }) {
+    // Temporary diagnostic: list all devices matching a search term with firmware info
+    const search = ((query && query.search) || '').toLowerCase();
+    const allDevices = homey.settings.get('_deviceCache') || [];
+    const api = homey.app._api;
+    const results = [];
+    for (const cached of allDevices) {
+      if (!cached) continue;
+      const name = (cached.name || '').toLowerCase();
+      const driver = (cached.driverId || cached.driverUri || '').toLowerCase();
+      if (search && !name.includes(search) && !driver.includes(search)) continue;
+      let fw = cached.settings && (cached.settings.zw_firmware_id || cached.settings.firmware || cached.settings.firmwareVersion) || null;
+      let hwVer = cached.settings && (cached.settings.zw_hardware_version || cached.settings.hardwareVersion) || null;
+      // Try to get live device for fresher settings
+      try {
+        if (api) {
+          const live = await api.devices.getDevice({ id: cached.id });
+          if (live && live.settings) {
+            fw = live.settings.zw_firmware_id || live.settings.zw_application_version || live.settings.firmware || live.settings.firmwareVersion || fw;
+            hwVer = live.settings.zw_hardware_version || live.settings.hardwareVersion || hwVer;
+          }
+        }
+      } catch (_) {}
+      results.push({
+        name: cached.name,
+        id: cached.id,
+        class: cached.class,
+        driver: cached.driverId || (cached.driverUri || '').replace(/^homey:app:/, ''),
+        firmware: fw,
+        hardwareVersion: hwVer,
+        allSettings: cached.settings || {},
+      });
+    }
+    return results;
+  },
+
   async controlFloorHeater({ homey, body }) {
     if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request' };
     return await homey.app.controlFloorHeater(body.deviceId, body.action, body.value);
