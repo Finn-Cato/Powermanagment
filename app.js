@@ -3098,15 +3098,6 @@ class PowerGuardApp extends Homey.App {
             const v = source.capabilitiesObj.measure_power;
             currentPowerW = v.value !== undefined ? v.value : v;
           }
-          // Apply per-device power correction if configured (e.g. Zigbee decimal error)
-          if (currentPowerW != null && cached.zbProductId) {
-            const corrections = (this._settings && this._settings.powerCorrections) || {};
-            const factor = corrections[cached.zbProductId];
-            if (factor != null && isFinite(factor)) {
-              this.log(`[FloorHeater]   Power correction for zb_product_id=${cached.zbProductId}: ${currentPowerW}W × ${factor} = ${currentPowerW * factor}W`);
-              currentPowerW = currentPowerW * factor;
-            }
-          }
           if (hasOnOff && source.capabilitiesObj.onoff) {
             const v = source.capabilitiesObj.onoff;
             isOn = v.value !== undefined ? v.value : v;
