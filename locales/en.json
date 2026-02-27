@@ -32,7 +32,7 @@
   "actions": {
     "onoff": "Turn off",
     "dim": "Dim to minimum",
-    "target_temperature": "Lower temperature",
+    "target_temperature": "Reduce heating",
     "charge_pause": "Pause charging"
   }
 }

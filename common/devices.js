@@ -1,5 +1,34 @@
 'use strict';
 
+// ══════════════════════════════════════════════════════════════════
+// common/devices.js  —  DEVICE ACTION HANDLERS
+// ══════════════════════════════════════════════════════════════════
+//
+//  This file contains the per-device mitigation and restore logic.
+//  Each device type is handled inside applyAction() / restoreDevice()
+//  as a separate case block.
+//
+//  Device types handled here:
+//
+//  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//  [A] HEATERS — Floor / Thermostat              action: target_temperature
+//      Brands: Adax Wi-Fi (no.adax), generic Homey thermostats
+//      Caps:   target_temperature                 ✅ STABLE
+//
+//  [B] WATER HEATER — Høiax Connected           action: hoiax_power
+//      Brand:  no.hoiax
+//      Caps:   max_power_3000 (Høiax 300) or max_power (Høiax 200)
+//      Steps:  high_power → medium_power → low_power → onoff=false
+//              (defined in HOIAX_POWER_STEPS in constants.js)     ✅ WORKING
+//
+//  [C] EV CHARGERS — generic pause/resume        action: charge_pause
+//      Dynamic current is handled in app.js Sections 7–9
+//      Caps:   onoff  or  toggleChargingCapability (Enua)
+//              Note: Zaptec and Easee dynamic current is NOT here —
+//              those go directly to _setZaptecCurrent / _setEaseeChargerCurrent
+//                                                                  ⚠️ ACTIVE
+//  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
+// ══════════════════════════════════════════════════════════════════
+
 const { ACTIONS, HOIAX_POWER_STEPS } = require('./constants');
 
 const ACTION_CAPABILITY_MAP = {
@@ -29,8 +58,9 @@ function isControllable(device) {
 }
 
 /**
- * Apply a mitigation action to a HomeyAPI device.
- * Uses { capabilityId, value } as required by homey-api v3.
+ * [A] HEATERS & GENERIC DEVICES — applyAction
+ * Handles: target_temperature (heaters), onoff/dim (generic), charge_pause (chargers),
+ *          dynamic_current (legacy fallback), hoiax_power (water heater)
  */
 async function applyAction(device, action) {
   const caps = device.capabilities || [];
@@ -53,9 +83,16 @@ async function applyAction(device, action) {
       }
       // Fallback: thermostat without onoff — lower temperature by 3°C to reduce heating
       if (caps.includes('target_temperature')) {
-        const current = obj.target_temperature ? obj.target_temperature.value : 20;
-        const newTemp = Math.max(5, current - 3);
+        const current = Number(obj.target_temperature?.value ?? 20);
         if (current <= 5) return false;  // Already at minimum
+        const newTemp = Math.max(5, current - 3);
+        // Switch to manual mode so schedule doesn't override the change (e.g. FutureHome)
+        if (caps.includes('thermostat_mode')) {
+          const currentMode = obj.thermostat_mode ? obj.thermostat_mode.value : null;
+          if (currentMode !== 'heat') {
+            await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: 'heat' });
+          }
+        }
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: newTemp });
         return true;
       }
@@ -75,12 +112,29 @@ async function applyAction(device, action) {
       }
       break;
 
-    case ACTIONS.TARGET_TEMP:
+    case ACTIONS.TARGET_TEMP: {
+      // Adax Wi-Fi heaters use cloud polling — commands have ~20 min delay.
+      // Using onoff=false is equally delayed but cuts heating harder than temp-3°C.
+      const isAdax = (device.driverUri || device.driverId || '').toLowerCase().includes('adax');
+      if (isAdax && caps.includes('onoff')) {
+        if (obj.onoff && obj.onoff.value === false) return false;
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+        return true; // NOTE: ~20 min cloud delay before heater responds
+      }
       if (caps.includes('target_temperature')) {
-        const current = obj.target_temperature ? obj.target_temperature.value : 20;
+        const current = Number(obj.target_temperature?.value ?? 20);
+        if (current <= 5) return false;  // Already at minimum
         // Lower by 3°C to reduce heating, with a floor of 5°C
         const newTemp = Math.max(5, current - 3);
-        if (current <= 5) return false;  // Already at minimum
+        // Some thermostats (e.g. FutureHome) follow a schedule — when in auto/schedule mode,
+        // any target_temperature change is overridden by the cloud schedule within seconds.
+        // Setting thermostat_mode='heat' (manual) before changing temp makes the change stick.
+        if (caps.includes('thermostat_mode')) {
+          const currentMode = obj.thermostat_mode ? obj.thermostat_mode.value : null;
+          if (currentMode !== 'heat') {
+            await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: 'heat' });
+          }
+        }
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: newTemp });
         return true;
       }
@@ -91,6 +145,7 @@ async function applyAction(device, action) {
         return true;
       }
       break;
+    }
 
     case ACTIONS.DYNAMIC_CURRENT: {
       // Try Easee-compatible dynamic current capabilities in order of preference
@@ -121,8 +176,8 @@ async function applyAction(device, action) {
       break;
     }
 
+    // ─── [B] WATER HEATER (Høiax): step down power level, then turn off ───
     case ACTIONS.HOIAX_POWER: {
-      // Determine which max_power capability the device has (300 vs 200 model)
       const maxPowerCap = caps.includes('max_power_3000') ? 'max_power_3000'
                         : caps.includes('max_power') ? 'max_power'
                         : null;
@@ -188,6 +243,10 @@ async function restoreDevice(device, action, previousState) {
       if (caps.includes('target_temperature')) {
         const prevTemp = previousState && previousState.target_temperature !== undefined
           ? previousState.target_temperature : 21;
+        // Restore original thermostat mode (e.g. back to 'auto'/'schedule' for FutureHome)
+        if (caps.includes('thermostat_mode') && previousState && previousState.thermostat_mode !== undefined) {
+          await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: previousState.thermostat_mode });
+        }
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: prevTemp });
         return true;
       }
@@ -201,10 +260,21 @@ async function restoreDevice(device, action, previousState) {
       }
       break;
 
-    case ACTIONS.TARGET_TEMP:
+    case ACTIONS.TARGET_TEMP: {
+      // Adax: if we turned off via onoff, restore via onoff (not temp)
+      const isAdaxRestore = (device.driverUri || device.driverId || '').toLowerCase().includes('adax');
+      if (isAdaxRestore && caps.includes('onoff')) {
+        const wasOn = previousState && previousState.onoff !== undefined ? previousState.onoff : true;
+        await device.setCapabilityValue({ capabilityId: 'onoff', value: wasOn });
+        return true; // NOTE: ~20 min cloud delay before heater responds
+      }
       if (caps.includes('target_temperature')) {
         const prevTemp = previousState && previousState.target_temperature !== undefined
           ? previousState.target_temperature : 21;
+        // If we forced thermostat_mode to 'heat' during mitigation, restore the original mode first
+        if (caps.includes('thermostat_mode') && previousState && previousState.thermostat_mode !== undefined) {
+          await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: previousState.thermostat_mode });
+        }
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: prevTemp });
         return true;
       }
@@ -215,6 +285,7 @@ async function restoreDevice(device, action, previousState) {
         return true;
       }
       break;
+    }
 
     case ACTIONS.DYNAMIC_CURRENT: {
       const dynCap = ['target_current', 'dynamicCircuitCurrentP1', 'dynamic_current']

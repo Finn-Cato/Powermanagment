@@ -29,6 +29,15 @@ function withTimeout(promise, ms, label = 'API call') {
 
 class PowerGuardApp extends Homey.App {
 
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 1 — CORE INFRASTRUCTURE                                         █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: onInit, settings, device cache, watchdog, flow cards,
+  //            helpers, profile, virtual device, status cache
+  //
+  //  ✅ STABLE — DO NOT TOUCH unless absolutely necessary
+  // ══════════════════════════════════════════════════════════════════
+
   async onInit() {
     this.log('========================================');
     this.log('Power Guard initialising...');
@@ -415,6 +424,16 @@ class PowerGuardApp extends Homey.App {
     this._cacheStatus();
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 2 — HAN / POWER METER                                           █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: HAN device brand detection, raw log, diagnostics,
+  //            connectToHAN, poll fallback, spike filter, phase readings
+  //
+  //  ✅ STABLE — DO NOT TOUCH unless absolutely necessary
+  //  NOTE: spike filter auto-reset (SPIKE_RESET_THRESHOLD) is in _onPowerReading
+  // ══════════════════════════════════════════════════════════════════
+
   // ─── HAN Port integration ──────────────────────────────────────────────────
 
   _getHANDeviceBrand() {
@@ -673,16 +692,40 @@ class PowerGuardApp extends Homey.App {
           maxChargerW += voltage * circuitA;
         }
       }
-      // If the jump is within charger capacity, allow it
-      if (rawValue <= avg + maxChargerW + 500) {
-        this.log(`Spike allowed (charger capacity ${Math.round(maxChargerW)}W): ${rawValue} W (avg ${avg.toFixed(0)} W)`);
+
+      // Also add headroom for heater cycling.
+      // Smart heaters (Adax etc.) always show onoff=true in Homey but their heating
+      // elements cycle on/off at the hardware level, creating real power jumps.
+      // We allow for up to the estimated peak wattage of all thermostat/heater devices
+      // so those cycling events are not incorrectly filtered as spikes.
+      let maxHeaterCycleW = 0;
+      if (this._powerConsumptionData) {
+        for (const d of Object.values(this._powerConsumptionData)) {
+          if (d.class === 'thermostat' || d.class === 'heater') {
+            maxHeaterCycleW += d.peak || 0;
+          }
+        }
+      }
+      // If we haven't built consumption data yet, use a conservative estimate based
+      // on how many heater entries are in the priority list.
+      if (maxHeaterCycleW === 0) {
+        const heaterEntries = (this._settings.priorityList || []).filter(e =>
+          e.action === 'target_temperature' && e.enabled !== false
+        );
+        maxHeaterCycleW = heaterEntries.length * 1000; // assume 1kW per heater
+      }
+
+      const totalHeadroom = maxChargerW + maxHeaterCycleW;
+      // If the jump is within charger + heater capacity, allow it
+      if (rawValue <= avg + totalHeadroom + 500) {
+        this.log(`Spike allowed (charger ${Math.round(maxChargerW)}W + heater ${Math.round(maxHeaterCycleW)}W headroom): ${rawValue}W (avg ${avg.toFixed(0)}W)`);
       } else {
-        this.log(`Spike ignored: ${rawValue} W (avg ${avg.toFixed(0)} W, charger headroom ${Math.round(maxChargerW)}W)`);
+        this.log(`Spike ignored: ${rawValue} W (avg ${avg.toFixed(0)} W, charger headroom ${Math.round(maxChargerW)}W, heater headroom ${Math.round(maxHeaterCycleW)}W)`);
         this._hanSpikeCount++;
         this._spikeConsecutiveCount++;
         this._spikeLastFilteredValue = rawValue;
         this._pushHanRawLog(rawValue, 'spike-filtered');
-        this._appLogEntry('han', `Spike filtered: ${rawValue}W (avg ${avg.toFixed(0)}W, charger headroom ${Math.round(maxChargerW)}W)`);
+        this._appLogEntry('han', `Spike filtered: ${rawValue}W (avg ${avg.toFixed(0)}W, charger ${Math.round(maxChargerW)}W, heater ${Math.round(maxHeaterCycleW)}W headroom)`);
 
         // ── Sustained load change detection ──
         // If the same "spike" level persists for 3+ consecutive readings it is a
@@ -730,6 +773,15 @@ class PowerGuardApp extends Homey.App {
     if (typeof value !== 'number') return;
     // Phase values stored for diagnostics only (not shown on virtual device yet)
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 3 — ENERGY TRACKING & CAPACITY TARIFF                           █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: hourly energy accumulation (kWh), effekttariff (capacity
+  //            tariff) — tracks monthly peak-hours for Norwegian grid tariff
+  //
+  //  ✅ STABLE — DO NOT TOUCH unless absolutely necessary
+  // ══════════════════════════════════════════════════════════════════
 
   // ─── Hourly Energy Tracking ───────────────────────────────────────────────
 
@@ -888,6 +940,18 @@ class PowerGuardApp extends Homey.App {
       wouldBeNewDailyPeak,
     };
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 4 — POWER LIMITS & MITIGATION ENGINE                            █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: _checkLimits, _triggerMitigation, _canMitigate, _triggerRestore
+  //  Device types handled via common/devices.js applyAction/restoreDevice:
+  //    • Heaters (target_temperature / Adax / generic thermostat)
+  //    • Water heater (hoiax_power — Høiax Connected)
+  //    • EV chargers (charge_pause / dynamic_current — routed to Sections 6–9)
+  //
+  //  ✅ STABLE — DO NOT TOUCH unless absolutely necessary
+  // ══════════════════════════════════════════════════════════════════
 
   // ─── Limit checking ───────────────────────────────────────────────────────
 
@@ -1248,6 +1312,7 @@ class PowerGuardApp extends Homey.App {
       onoff:              obj.onoff              ? obj.onoff.value              : undefined,
       dim:                obj.dim                ? obj.dim.value                : undefined,
       target_temperature: obj.target_temperature ? obj.target_temperature.value : undefined,
+      thermostat_mode:    obj.thermostat_mode    ? obj.thermostat_mode.value    : undefined,
       target_current:          obj.target_current          ? obj.target_current.value          : undefined,
       target_charger_current:  obj.target_charger_current  ? obj.target_charger_current.value  : undefined,
       target_circuit_current:  obj.target_circuit_current  ? obj.target_circuit_current.value  : undefined,
@@ -1445,6 +1510,19 @@ class PowerGuardApp extends Homey.App {
       }
     }
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 5 — EV CHARGERS — GENERAL ENGINE                                 █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: circuit limit application, car connection detection,
+  //            capability listeners for all brands, charger confirmation
+  //            tracking, EV data polling, fast power-based adjustment,
+  //            optimal current calculation
+  //  All charger brands share this engine; brand-specific control is in
+  //  Sections 6–8 (Zaptec, Enua, Easee).
+  //
+  //  ⚠️ ACTIVE — Changes here affect ALL charger brands
+  // ══════════════════════════════════════════════════════════════════
 
   /**
    * Push the configured circuit limits from the priority list to each
@@ -2007,7 +2085,16 @@ class PowerGuardApp extends Homey.App {
     return targetCurrent;
   }
 
-  // ─── Charger Brand Detection & Flow-Based Current Control ──────────────
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 6 — EV CHARGERS — BRAND DETECTION & FLOW DISCOVERY               █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: _getChargerBrand (capability-based), _discoverFlowAction
+  //            (discovers & caches Zaptec / Enua flow card action IDs)
+  //  This is the router — _setChargerCurrent() in Section 5 calls here first,
+  //  then dispatches to Section 7 (Zaptec), 8 (Enua), or 9 (Easee).
+  //
+  //  ⚠️ ACTIVE — may need updates when new charger brands are added
+  // ══════════════════════════════════════════════════════════════════
 
   /**
    * Detect charger brand from cached device capabilities.
@@ -2099,6 +2186,20 @@ class PowerGuardApp extends Homey.App {
    * @param {number|null} currentA - Target current in amps, or null to pause
    * @returns {Promise<boolean>} true if successful
    */
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 7 — EV CHARGER — ZAPTEC GO                                        █
+  // ══════════════════════════════════════════════════════════════════
+  //  Homey app: com.zaptec
+  //  Pause:   charging_button = false
+  //  Resume:  charging_button = true  (after setting current via Flow API)
+  //  Current: Flow action ‘installation_current_control’
+  //           args: { device, current1, current2, current3 }  (per-phase amps)
+  //  Auto-redirect: If priority list has the meter/installation device instead
+  //                 of the charger, _chargerDeviceRedirects auto-fixes it.
+  //
+  //  ⚠️ ACTIVE — Flow action arg names may differ across Zaptec firmware
+  // ══════════════════════════════════════════════════════════════════
+
   async _setZaptecCurrent(deviceId, currentA) {
     if (!this._api) return false;
 
@@ -2223,6 +2324,21 @@ class PowerGuardApp extends Homey.App {
    * @param {number|null} currentA - Target current in amps, or null to pause
    * @returns {Promise<boolean>} true if successful
    */
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 8 — EV CHARGER — ENUA CHARGE E                                    █
+  // ══════════════════════════════════════════════════════════════════
+  //  Homey app: no.enua
+  //  Pause:   toggleChargingCapability = false
+  //  Resume:  toggleChargingCapability = true  (after setting current via Flow API)
+  //  Current: Flow action ‘changeCurrentLimitAction’
+  //           args: { device, current: <amps> }  — verify arg name in full diagnostic log
+  //  Status:  chargerStatusCapability — values: Charging, Connected, Paused,
+  //           ScheduledCharging, WaitingForSchedule, Disconnected
+  //  Min current: CHARGER_DEFAULTS.minCurrent (7A)
+  //
+  //  ⚠️ ACTIVE — flow action arg name (‘current’) needs runtime verification
+  // ══════════════════════════════════════════════════════════════════
+
   async _setEnuaCurrent(deviceId, currentA) {
     if (!this._api) return false;
 
@@ -2341,6 +2457,19 @@ class PowerGuardApp extends Homey.App {
    * @param {number} circuitLimitA - Circuit breaker limit in amps (default 32)
    * @returns {Promise<boolean>} true if set successfully
    */
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 9 — EV CHARGER — EASEE                                            █
+  // ══════════════════════════════════════════════════════════════════
+  //  Homey app: no.easee
+  //  Pause:   dynamic_charger_current / dynamicChargerCurrent = 0
+  //  Current: setCapabilityValue on dynamic_charger_current or dynamicChargerCurrent
+  //           + target_circuit_current if available
+  //  Circuit limit: applyCircuitLimitsToChargers writes to target_charger_current (Ladegrense)
+  //                 — this is the permanent max, not the dynamic limit
+  //
+  //  ✅ WORKING — Reasonably stable, test before changing
+  // ══════════════════════════════════════════════════════════════════
+
   async _setEaseeChargerCurrent(deviceId, currentA, circuitLimitA = 32) {
     if (!this._api) return false;
 
@@ -2552,6 +2681,17 @@ class PowerGuardApp extends Homey.App {
 
 
 
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 10 — DIAGNOSTICS & SETTINGS PAGE API                              █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: getDiagnosticInfo, debug log, getDevicesForSettings,
+  //            getStatus, getAppLog, getPowerConsumption,
+  //            testEaseeCharger (charger diagnostics UI),
+  //            _updatePowerConsumption, onUninit
+  //
+  //  ✅ STABLE — Exposed via api.js to the settings UI
+  // ══════════════════════════════════════════════════════════════════
+
   getDiagnosticInfo() {
     const hasApi = !!this._api;
     const cache  = this.homey.settings.get('_deviceCache') || [];
@@ -2606,6 +2746,21 @@ class PowerGuardApp extends Homey.App {
     this.log('[devices] serving from cache, count:', list.length);
     return list;
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 11 — HEATERS — FLOOR / THERMOSTAT (Adax, generic)                 █
+  // ══════════════════════════════════════════════════════════════════
+  //  Included: checkFloorHeaterConnections (connection probe + zone grouping),
+  //            controlFloorHeater (manual on/off/temp from settings UI)
+  //  Action used by mitigation engine: ‘target_temperature’ (via devices.js)
+  //  Brands: Adax Wi-Fi (no.adax), generic Homey thermostats (any target_temperature)
+  //
+  //  ✅ WORKING — Stable, tested
+  //
+  //  NOTE: Water heater (Høiax) uses action ‘hoiax_power’ handled entirely
+  //        in common/devices.js — no separate section needed in app.js
+  //        Høiax brand: no.hoiax | caps: max_power_3000 or max_power
+  // ══════════════════════════════════════════════════════════════════
 
   async checkFloorHeaterConnections() {
     // Scan all devices and identify floor heaters with control capabilities
@@ -2681,6 +2836,7 @@ class PowerGuardApp extends Homey.App {
       
       const hasOnOff = caps.includes('onoff');
       const hasPower = caps.includes('measure_power');
+      const hasThermostatMode = caps.includes('thermostat_mode');
       const canControl = targetTempCap !== null || hasOnOff;
       
       this.log(`[FloorHeater]   targetTempCap: ${targetTempCap || 'NONE'} | measureTempCap: ${measureTempCap || 'NONE'} | onoff: ${hasOnOff}`);
@@ -2691,6 +2847,7 @@ class PowerGuardApp extends Homey.App {
       let currentMeasure = null;
       let currentPowerW = null;
       let isOn = null;
+      let thermostatMode = null;
       
       try {
         const source = liveDevice || cached;
@@ -2710,6 +2867,10 @@ class PowerGuardApp extends Homey.App {
           if (hasOnOff && source.capabilitiesObj.onoff) {
             const v = source.capabilitiesObj.onoff;
             isOn = v.value !== undefined ? v.value : v;
+          }
+          if (hasThermostatMode && source.capabilitiesObj.thermostat_mode) {
+            const v = source.capabilitiesObj.thermostat_mode;
+            thermostatMode = v.value !== undefined ? v.value : v;
           }
           this.log(`[FloorHeater]   Values from ${liveDevice ? 'LIVE' : 'CACHED'} device`);
         }
@@ -2768,6 +2929,7 @@ class PowerGuardApp extends Homey.App {
         currentMeasure: currentMeasure,
         currentPowerW: currentPowerW,
         isOn: isOn,
+        thermostatMode: thermostatMode || null,
         capabilities: caps,
         timestamp: new Date().toISOString()
       });
@@ -2926,18 +3088,38 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Heater power estimation workaround ──
-        // Some heater apps (e.g. Adax) report constant rated wattage even when
-        // the element is idle. Override based on temperature state.
+        // Smart heaters (e.g. Adax) are always onoff=true in Homey but their
+        // heating element cycles at hardware level. We estimate actual draw
+        // based on how close the room is to setpoint:
+        //   ≥ target+0.0: element off/idle        → 0W
+        //   target-0.5 to target: near setpoint, light cycling  → 20% rated
+        //   target-2.0 to target-0.5: moderate cycling           → 50% rated
+        //   < target-2.0: actively heating                       → 100% rated
         const devCls = (device.class || '').toLowerCase();
         if ((devCls === 'thermostat' || devCls === 'heater') && currentW > 0) {
-          const obj = device.capabilitiesObj || {};
-          const measT = obj.measure_temperature ? obj.measure_temperature.value : null;
-          const targT = obj.target_temperature ? obj.target_temperature.value : null;
-          const onoff = obj.onoff ? obj.onoff.value : null;
-          if (onoff === false) {
+          // If this device has already been mitigated, show 0W immediately
+          // (command was sent; heater will respond within ~20 min for cloud devices)
+          const isMitigated = (this._mitigatedDevices || []).some(m => m.deviceId === devId);
+          if (isMitigated) {
             currentW = 0;
-          } else if (measT != null && targT != null && measT >= targT) {
-            currentW = 0;  // Room at target → element idle
+          } else {
+            const obj = device.capabilitiesObj || {};
+            const measT = obj.measure_temperature ? obj.measure_temperature.value : null;
+            const targT = obj.target_temperature ? obj.target_temperature.value : null;
+            const onoff = obj.onoff ? obj.onoff.value : null;
+            if (onoff === false) {
+              currentW = 0;
+            } else if (measT != null && targT != null) {
+              const diff = targT - measT; // positive = room colder than target
+              if (diff <= 0) {
+                currentW = 0;           // at or above target — element fully idle
+              } else if (diff < 0.5) {
+                currentW = Math.round(currentW * 0.20); // near setpoint, light cycling
+              } else if (diff < 2.0) {
+                currentW = Math.round(currentW * 0.50); // moderate cycling
+              }
+              // else diff >= 2.0 → keep rated 100% (actively heating)
+            }
           }
         }
         

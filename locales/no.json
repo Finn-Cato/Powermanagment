@@ -32,7 +32,7 @@
   "actions": {
     "onoff": "Slå av",
     "dim": "Dim til minimum",
-    "target_temperature": "Senk temperatur",
+    "target_temperature": "Reduser varme",
     "charge_pause": "Pause lading"
   }
 }
