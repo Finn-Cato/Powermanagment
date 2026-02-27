@@ -1781,6 +1781,11 @@
             var isHeat = h.thermostatMode === 'heat';
             modeLabel = '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:' + (isHeat ? 'rgba(249,115,22,.15)' : 'rgba(0,0,0,.06)') + ';color:' + (isHeat ? 'var(--orange)' : 'var(--text-muted)') + ';letter-spacing:.03em;white-space:nowrap;">' + escHtml(h.thermostatMode) + '</span>';
           }
+          var activeLabel = '';
+          if (h.mitigated) {
+            var stepText = h.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
+            activeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
+          }
           // Show wattage if available, otherwise show "● ON" when device is on but has no power sensor
           var pwrLabel = (hasPowerData && Number(h.currentPowerW) > 5)
             ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(h.currentPowerW) + 'W</span>'
@@ -1790,7 +1795,7 @@
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
             '<span class="h-dot"></span>' +
             '<div class="h-info">' +
-              '<div class="h-name">' + escHtml(h.name) + modeLabel + '</div>' +
+              '<div class="h-name">' + escHtml(h.name) + modeLabel + activeLabel + '</div>' +
               '<div class="h-cur">Now <b>' + cur + '</b>' + (h.hasTargetTemp ? arrow + tgtVal + '°' : '') + pwrLabel + '</div>' +
             '</div>' +
             '<div class="h-controls">' +

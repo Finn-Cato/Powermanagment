@@ -3143,6 +3143,12 @@ class PowerGuardApp extends Homey.App {
         zoneName = driverStr.replace(/^homey:app:/, '').replace(/[:.]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || '';
       }
 
+      // Check if this heater is currently being controlled by the mitigation engine
+      const mitigEntry = (this._mitigatedDevices || []).find(m => m.deviceId === cached.id);
+      const mitigated = !!mitigEntry;
+      // step 1 = lowered 3°C (device still on), step 2 = turned off
+      const mitigationStep = mitigated ? (isOn === false ? 2 : 1) : 0;
+
       floorHeaters.push({
         deviceId: cached.id,
         name: cached.name,
@@ -3160,6 +3166,8 @@ class PowerGuardApp extends Homey.App {
         currentPowerW: currentPowerW,
         isOn: isOn,
         thermostatMode: thermostatMode || null,
+        mitigated: mitigated,
+        mitigationStep: mitigationStep,
         capabilities: caps,
         timestamp: new Date().toISOString()
       });
