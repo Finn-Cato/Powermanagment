@@ -18,36 +18,34 @@ module.exports = {
   },
 
   async getFirmwareInfo({ homey, query }) {
-    // Temporary diagnostic: list all devices matching a search term with firmware info
     const search = ((query && query.search) || '').toLowerCase();
-    const allDevices = homey.settings.get('_deviceCache') || [];
     const api = homey.app._api;
+    if (!api) return { error: 'API not ready — try again in a moment' };
+    // Fetch all devices fresh so we get their .settings
+    const all = await api.devices.getDevices();
     const results = [];
-    for (const cached of allDevices) {
-      if (!cached) continue;
-      const name = (cached.name || '').toLowerCase();
-      const driver = (cached.driverId || cached.driverUri || '').toLowerCase();
+    for (const d of Object.values(all || {})) {
+      if (!d) continue;
+      const name = (d.name || '').toLowerCase();
+      const driverId = (d.driverId || '').toLowerCase();
+      const driverUri = (d.driverUri || '').toLowerCase();
+      const driver = driverId || driverUri;
       if (search && !name.includes(search) && !driver.includes(search)) continue;
-      let fw = cached.settings && (cached.settings.zw_firmware_id || cached.settings.firmware || cached.settings.firmwareVersion) || null;
-      let hwVer = cached.settings && (cached.settings.zw_hardware_version || cached.settings.hardwareVersion) || null;
-      // Try to get live device for fresher settings
-      try {
-        if (api) {
-          const live = await api.devices.getDevice({ id: cached.id });
-          if (live && live.settings) {
-            fw = live.settings.zw_firmware_id || live.settings.zw_application_version || live.settings.firmware || live.settings.firmwareVersion || fw;
-            hwVer = live.settings.zw_hardware_version || live.settings.hardwareVersion || hwVer;
-          }
-        }
-      } catch (_) {}
+      const s = d.settings || {};
+      // Z-Wave firmware fields
+      const fw = s.zw_firmware_id || s.zw_application_version ||
+        // Zigbee / generic firmware fields
+        s.firmware || s.firmwareVersion || s.sw_version || s.softwareVersion ||
+        s.application_version || s.applicationVersion || null;
+      const hwVer = s.zw_hardware_version || s.hardwareVersion || s.hw_version || null;
       results.push({
-        name: cached.name,
-        id: cached.id,
-        class: cached.class,
-        driver: cached.driverId || (cached.driverUri || '').replace(/^homey:app:/, ''),
+        name: d.name,
+        id: d.id,
+        class: d.class,
+        driver: driverId || driverUri.replace(/^homey:app:/, ''),
         firmware: fw,
         hardwareVersion: hwVer,
-        allSettings: cached.settings || {},
+        allSettings: s,
       });
     }
     return results;
