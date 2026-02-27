@@ -129,6 +129,10 @@
     "getAppLog": {
       "method": "GET",
       "path": "/app-log"
+    },
+    "getFirmwareInfo": {
+      "method": "GET",
+      "path": "/firmwareInfo"
     }
   }
 }
