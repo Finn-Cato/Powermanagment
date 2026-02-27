@@ -452,52 +452,6 @@
         </div>
       </div>
 
-      <!-- ── Section 12 — Easee Direct API ─────────────────────────── -->
-      <div class="card">
-        <h2>Easee Direct API</h2>
-        <p style="font-size:12px;color:var(--text-muted);margin:0 0 14px 0;">
-          Connect directly to the Easee cloud API to read the permanent max current (ID47) reliably,
-          independent of the Homey Easee app.
-        </p>
-
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-          <span style="font-size:12px;font-weight:500;color:var(--text-primary);">Status:</span>
-          <span id="easee-api-status-badge"
-            style="font-size:11px;padding:2px 10px;border-radius:10px;background:var(--border-color);color:var(--text-muted);">
-            ⏳ Checking…
-          </span>
-        </div>
-
-        <div class="row" style="margin-bottom:10px;">
-          <div class="label-group">
-            <label for="easee-username">Username</label>
-            <span class="hint">Easee account username (phone number incl. country code, e.g. +4799887766)</span>
-          </div>
-          <div class="control">
-            <input type="text" id="easee-username" placeholder="+47xxxxxxxx" autocomplete="username"
-              style="width:200px;">
-          </div>
-        </div>
-
-        <div class="row" style="margin-bottom:14px;">
-          <div class="label-group">
-            <label for="easee-password">Password</label>
-            <span class="hint">Easee account password (stored only as an auth token — the password itself is never saved)</span>
-          </div>
-          <div class="control">
-            <input type="password" id="easee-password" placeholder="••••••••" autocomplete="current-password"
-              style="width:200px;">
-          </div>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button class="btn-primary" onclick="connectEaseeDirectAPI()" style="font-size:12px;padding:6px 16px;">
-            🔗 Connect
-          </button>
-          <div id="easee-login-msg" style="font-size:12px;color:var(--text-muted);display:none;"></div>
-        </div>
-      </div>
-
       <div class="save-row">
         <button class="btn-secondary" onclick="loadAll()">Discard</button>
         <button class="btn-primary"   onclick="saveAll()">Save</button>
@@ -1581,7 +1535,6 @@
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
         loadMeterDevices();  // Load meter device dropdown
         loadHanDiagnostic();  // Load HAN diagnostic info
-        loadEaseeAPIStatus();  // Refresh Easee Direct API connection badge
         dbg('Load complete: ' + availableDevices.length + ' devices');
       })
       .catch(function(err) {
@@ -2704,104 +2657,6 @@
         }
       }, 5000);
     }
-  }
-
-  // ══════════════════════════════════════════════════════════════════
-  // ██ SECTION 12 — DIRECT EASEE REST API                           ██
-  // ══════════════════════════════════════════════════════════════════
-  //  a. loadEaseeAPIStatus()    — fetch & render connection badge
-  //  b. connectEaseeDirectAPI() — submit credentials → POST /easee-login
-  // ══════════════════════════════════════════════════════════════════
-
-  /**
-   * Fetch the current Easee Direct API connection status from the app
-   * and update the badge in the UI.
-   */
-  function loadEaseeAPIStatus() {
-    var badge = document.getElementById('easee-api-status-badge');
-    hApi('GET', '/easee-status', null)
-      .then(function(res) {
-        if (!badge) return;
-        if (res && res.connected) {
-          badge.textContent = '✅ Connected' + (res.username ? ' (' + res.username + ')' : '');
-          badge.style.background = '#d4edda';
-          badge.style.color = '#155724';
-        } else {
-          badge.textContent = '🔴 Not connected';
-          badge.style.background = '#f8d7da';
-          badge.style.color = '#721c24';
-        }
-      })
-      .catch(function() {
-        if (badge) {
-          badge.textContent = '⚠️ Unknown';
-          badge.style.background = 'var(--border-color)';
-          badge.style.color = 'var(--text-muted)';
-        }
-      });
-  }
-
-  /**
-   * Read username/password from the form, POST to /easee-login,
-   * and update the status badge.
-   */
-  function connectEaseeDirectAPI() {
-    var usernameEl = document.getElementById('easee-username');
-    var passwordEl = document.getElementById('easee-password');
-    var msgEl = document.getElementById('easee-login-msg');
-    var badge = document.getElementById('easee-api-status-badge');
-
-    var username = (usernameEl && usernameEl.value) ? usernameEl.value.trim() : '';
-    var password = (passwordEl && passwordEl.value) ? passwordEl.value : '';
-
-    if (!username || !password) {
-      if (msgEl) {
-        msgEl.style.display = 'block';
-        msgEl.style.color = '#ff3b30';
-        msgEl.textContent = 'Please enter both username and password.';
-      }
-      return;
-    }
-
-    if (msgEl) {
-      msgEl.style.display = 'block';
-      msgEl.style.color = 'var(--text-muted)';
-      msgEl.textContent = '⏳ Connecting…';
-    }
-    if (badge) {
-      badge.textContent = '⏳ Connecting…';
-      badge.style.background = 'var(--border-color)';
-      badge.style.color = 'var(--text-muted)';
-    }
-
-    hApi('POST', '/easee-login', { username: username, password: password })
-      .then(function(res) {
-        if (res && res.ok) {
-          if (msgEl) {
-            msgEl.style.color = '#34c759';
-            msgEl.textContent = '✅ Connected successfully! Password cleared for security.';
-          }
-          if (passwordEl) passwordEl.value = '';
-          loadEaseeAPIStatus();
-        } else {
-          var errMsg = (res && res.error) ? res.error : 'Connection failed';
-          if (msgEl) {
-            msgEl.style.color = '#ff3b30';
-            msgEl.textContent = '❌ ' + errMsg;
-          }
-          if (badge) {
-            badge.textContent = '🔴 Not connected';
-            badge.style.background = '#f8d7da';
-            badge.style.color = '#721c24';
-          }
-        }
-      })
-      .catch(function(err) {
-        if (msgEl) {
-          msgEl.style.color = '#ff3b30';
-          msgEl.textContent = '❌ Error: ' + (err.message || err);
-        }
-      });
   }
 </script>
 </body>

@@ -9,7 +9,6 @@ const path = require('path');
 const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
 const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS } = require('./common/constants');
-const EaseeAPI = require('./common/EaseeAPI');
 
 /**
  * Promise wrapper with timeout — prevents hung API calls from blocking the mitigation cycle.
@@ -228,13 +227,6 @@ class PowerGuardApp extends Homey.App {
     // It will populate when HAN readings arrive or when the tab is first opened
     this._writeDebugLog('===== APP STARTED =====' );
     this._appLogEntry('system', 'App started');
-
-    // Initialise direct Easee REST API (credentials loaded from settings)
-    try {
-      await this._initEaseeDirectAPI();
-    } catch (err) {
-      this.error('[EaseeAPI] Init error (non-fatal):', err);
-    }
 
     this.log('Power Guard ready (device cache: ' +
       (this._deviceCacheReady ? 'YES' : 'NO') + ')');
@@ -2600,7 +2592,7 @@ class PowerGuardApp extends Homey.App {
           if (isOff) {
             // Use startCurrent (11A) for reliable resume — ensures charger starts properly
             const resumeCurrent = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
-            // First set the target current, then turn on (Easee needs current set before resume)
+
             const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
               .find(cap => (device.capabilities || []).includes(cap));
             if (dynCap) {
@@ -2630,7 +2622,7 @@ class PowerGuardApp extends Homey.App {
           }
         }
 
-        // Normal current adjustment
+        // Normal current adjustment — Homey capability
         const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
           .find(cap => (device.capabilities || []).includes(cap));
 
@@ -3587,11 +3579,10 @@ class PowerGuardApp extends Homey.App {
         const currentVal = obj[dynCap] ? obj[dynCap].value : null;
         results.steps.push({ step: 'Current capability', ok: true, detail: `${dynCap} = ${currentVal}A` });
 
-        // Test write — set to current value (no actual change, just test the API call)
         try {
           const testVal = currentVal || 16;
           await device.setCapabilityValue({ capabilityId: dynCap, value: testVal });
-          results.steps.push({ step: 'Write test', ok: true, detail: `Successfully wrote ${dynCap} = ${testVal}A (same value, safe test)` });
+          results.steps.push({ step: 'Write test', ok: true, detail: `Wrote ${dynCap} = ${testVal}A` });
           results.success = true;
         } catch (err) {
           results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write ${dynCap}: ${err.message}` });
@@ -3620,128 +3611,6 @@ class PowerGuardApp extends Homey.App {
     }
 
     return results;
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // █ SECTION 12 — DIRECT EASEE REST API                                     █
-  // ══════════════════════════════════════════════════════════════════════════
-  //  Provides a direct connection to the Easee cloud API, independent of the
-  //  Homey Easee app.  This gives reliable access to:
-  //    • ID47  maxChargerCurrent   (FLASH / non-volatile) — permanent max
-  //    • ID48  dynamicChargerCurrent (volatile, resets on reboot) — automation
-  //
-  //  a. _initEaseeDirectAPI()              — called in onInit, loads tokens
-  //  b. getEaseeDirectAPI()                — returns EaseeAPI instance or null
-  //  c. getEaseeMaxChargerCurrent(id)      — reads ID47 from /config endpoint
-  //  d. setEaseeDynamicChargerCurrent(id,A)— writes ID48 (automation-safe)
-  //  e. loginEaseeDirectAPI(user, pass)    — called from settings UI "Connect"
-  //  f. getEaseeDirectAPIStatus()          — returns { connected, username }
-  // ══════════════════════════════════════════════════════════════════════════
-
-  /**
-   * Initialise the direct Easee REST API client.
-   * Loads any previously saved tokens from Homey settings.
-   * Called once during onInit — safe to fail (non-fatal).
-   */
-  async _initEaseeDirectAPI() {
-    this._easeeAPI = new EaseeAPI(this.homey);
-    try {
-      await this._easeeAPI.loadTokens();
-      const hasToken = !!this.homey.settings.get('easee_access_token');
-      if (hasToken) {
-        this.log('[EaseeAPI] Tokens loaded from settings — direct API ready');
-      } else {
-        this.log('[EaseeAPI] No credentials stored yet — UI login required');
-      }
-    } catch (err) {
-      this.log('[EaseeAPI] Could not load tokens:', err.message);
-    }
-  }
-
-  /**
-   * Returns the EaseeAPI instance if it has been initialised, otherwise null.
-   */
-  getEaseeDirectAPI() {
-    return this._easeeAPI || null;
-  }
-
-  /**
-   * Returns true if the direct API has a stored access token.
-   */
-  isEaseeDirectAPIConnected() {
-    return !!(this._easeeAPI && this.homey.settings.get('easee_access_token'));
-  }
-
-  /**
-   * Read the permanent max charger current (ID47 — FLASH, non-volatile).
-   * This is the installer-configured maximum — use as the "unthrottled" baseline.
-   * @param {string} chargerId  Easee charger serial / ID
-   * @returns {number|null}  amps, or null on failure
-   */
-  async getEaseeMaxChargerCurrent(chargerId) {
-    const api = this.getEaseeDirectAPI();
-    if (!api) return null;
-    try {
-      const config = await api.getChargerConfig(chargerId);
-      const val = config && config.maxChargerCurrent;
-      if (val != null && val > 0) return val;
-      return null;
-    } catch (err) {
-      this.log(`[EaseeAPI] getEaseeMaxChargerCurrent(${chargerId}) failed:`, err.message);
-      return null;
-    }
-  }
-
-  /**
-   * Set the dynamic charger current (ID48 — volatile, automation-safe).
-   * Resets to maxChargerCurrent on charger reboot / cable unplug.
-   * @param {string} chargerId  Easee charger serial / ID
-   * @param {number} amps       Target current in amps (0 = pause charging)
-   * @returns {boolean} true on success
-   */
-  async setEaseeDynamicChargerCurrent(chargerId, amps) {
-    const api = this.getEaseeDirectAPI();
-    if (!api) return false;
-    try {
-      await api.setDynamicChargerCurrent(chargerId, amps);
-      this.log(`[EaseeAPI] setDynamicChargerCurrent(${chargerId}, ${amps}A) — OK`);
-      return true;
-    } catch (err) {
-      this.log(`[EaseeAPI] setDynamicChargerCurrent(${chargerId}, ${amps}A) failed:`, err.message);
-      return false;
-    }
-  }
-
-  /**
-   * Authenticate with the Easee API and persist tokens.
-   * Called from the settings UI "Connect" button via the /easee-login API route.
-   * @param {string} username   Easee account username (phone number)
-   * @param {string} password   Easee account password
-   * @returns {{ ok: boolean, error?: string }}
-   */
-  async loginEaseeDirectAPI(username, password) {
-    if (!username || !password) return { ok: false, error: 'Username and password are required' };
-    try {
-      if (!this._easeeAPI) this._easeeAPI = new EaseeAPI(this.homey);
-      await this._easeeAPI.login(username, password);
-      // Persist username (never persist password)
-      this.homey.settings.set('easee_username', username);
-      this.log(`[EaseeAPI] Login successful for user: ${username}`);
-      return { ok: true };
-    } catch (err) {
-      this.log('[EaseeAPI] Login failed:', err.message);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  /**
-   * Return the current connection status of the direct Easee API.
-   * @returns {{ connected: boolean, username: string|null }}
-   */
-  getEaseeDirectAPIStatus() {
-    const connected = this.isEaseeDirectAPIConnected();
-    const username = this.homey.settings.get('easee_username') || null;
-    return { connected, username };
   }
 
 }
