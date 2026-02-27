@@ -75,6 +75,7 @@ class PowerGuardApp extends Homey.App {
     this._hanSpikeCount = 0;
     this._hanWatchdogCount = 0;
     this._hanRawLog = [];         // Ring buffer: last 20 raw readings {time, value, source}
+    this._phaseCurrents = {};    // Latest per-phase amps from HAN: {capId: amps}
     this._evPowerData = {};
     this._evCapabilityInstances = {};
     this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
@@ -525,6 +526,7 @@ class PowerGuardApp extends Homey.App {
         return { time: new Date(e.time).toISOString(), value: e.value, source: e.source };
       }),
       powerBuffer: this._powerBuffer.slice(-10),
+      phaseCurrents: this._phaseCurrents || {},
     };
   }
 
@@ -646,7 +648,10 @@ class PowerGuardApp extends Homey.App {
     const phaseCapabilities = [
       'measure_power.phase1', 'measure_power.phase2', 'measure_power.phase3',
       'measure_current.L1', 'measure_current.L2', 'measure_current.L3',
+      // Futurehome HAN and similar meters use phase_a/b/c naming
+      'measure_current.phase_a', 'measure_current.phase_b', 'measure_current.phase_c',
       'measure_voltage.L1', 'measure_voltage.L2', 'measure_voltage.L3',
+      'measure_voltage.phase_a', 'measure_voltage.phase_b', 'measure_voltage.phase_c',
     ];
     for (const phase of phaseCapabilities) {
       if (Array.isArray(hanDevice.capabilities) && hanDevice.capabilities.includes(phase)) {
@@ -689,6 +694,18 @@ class PowerGuardApp extends Homey.App {
           this._pushHanRawLog(value, 'poll');
           this._appLogEntry('han', `Poll fallback: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
           this._onPowerReading(value);
+        }
+
+        // Always update per-phase current data from poll regardless of event age
+        // This is critical for charger control accuracy
+        const phaseCaps = [
+          'measure_current.phase_a', 'measure_current.phase_b', 'measure_current.phase_c',
+          'measure_current.L1', 'measure_current.L2', 'measure_current.L3',
+        ];
+        for (const cap of phaseCaps) {
+          if (capObj[cap] && capObj[cap].value != null) {
+            this._onPhaseReading(cap, Number(capObj[cap].value));
+          }
         }
       } else {
         this.log('[HAN Poll] measure_power value is null or missing');
@@ -805,7 +822,25 @@ class PowerGuardApp extends Homey.App {
 
   _onPhaseReading(capId, value) {
     if (typeof value !== 'number') return;
-    // Phase values stored for diagnostics only (not shown on virtual device yet)
+    if (!this._phaseCurrents) this._phaseCurrents = {};
+    this._phaseCurrents[capId] = value;
+  }
+
+  /**
+   * Returns per-phase currents {a, b, c} in amps if available from the HAN device.
+   * Supports Futurehome HAN (measure_current.phase_a/b/c) and
+   * Easee Equalizer / other meters (measure_current.L1/L2/L3).
+   * Returns null if phase data is not available.
+   */
+  _getPhaseCurrents() {
+    if (!this._phaseCurrents) return null;
+    const p = this._phaseCurrents;
+    const a = p['measure_current.phase_a'] ?? p['measure_current.L1'] ?? null;
+    const b = p['measure_current.phase_b'] ?? p['measure_current.L2'] ?? null;
+    const c = p['measure_current.phase_c'] ?? p['measure_current.L3'] ?? null;
+    if (a === null || b === null || c === null) return null;
+    if (a < 0 || b < 0 || c < 0) return null;
+    return { a, b, c };
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -2092,13 +2127,67 @@ class PowerGuardApp extends Homey.App {
     const evData = this._evPowerData[chargerEntry.deviceId];
     const chargerPowerW = evData?.powerW || 0;
     const offeredCurrent = evData?.offeredCurrent;
+    const mainFuseA = this._settings.mainCircuitA || 25;
 
+    // ── Per-phase current control (preferred) ────────────────────────────────
+    // When the HAN sensor provides per-phase amps, use them directly for fuse
+    // headroom calculation. This is more accurate than wattage-based math and
+    // works correctly regardless of the voltageSystem setting.
+    const phaseCurrents = this._getPhaseCurrents();
+    if (phaseCurrents) {
+      // Estimate charger's contribution per phase
+      // offeredCurrent is the most accurate source (it IS the per-phase amps)
+      let chargerCurrentPerPhase = 0;
+      if (offeredCurrent > 0 && chargerPowerW > 200) {
+        chargerCurrentPerPhase = offeredCurrent;
+      } else if (chargerPowerW > 200 && chargerPhases > 0) {
+        // Derive from measured power: assume symmetric load across phases
+        chargerCurrentPerPhase = chargerPowerW / (chargerPhases * 230);
+      }
+
+      // Non-charger current on each phase (household-only amperage)
+      const nonA = Math.max(0, phaseCurrents.a - (chargerPhases >= 1 ? chargerCurrentPerPhase : 0));
+      const nonB = Math.max(0, phaseCurrents.b - (chargerPhases >= 2 ? chargerCurrentPerPhase : 0));
+      const nonC = Math.max(0, phaseCurrents.c - (chargerPhases >= 3 ? chargerCurrentPerPhase : 0));
+
+      // Emergency: if non-charger load alone maxes out any phase the charger uses
+      const safetyMarginA = 1.5;
+      const maxNonChargerPhaseA = chargerPhases >= 3
+        ? Math.max(nonA, nonB, nonC)
+        : chargerPhases >= 2 ? Math.max(nonA, nonB) : nonA;
+      if (maxNonChargerPhaseA >= mainFuseA - safetyMarginA) {
+        this.log(`EV calc (phase): household maxes fuse (${maxNonChargerPhaseA.toFixed(1)}A on a phase) → PAUSE`);
+        return null;
+      }
+
+      // Available headroom = most constrained phase the charger uses
+      let availableA = maxCurrent;
+      if (chargerPhases >= 1) availableA = Math.min(availableA, mainFuseA - nonA - safetyMarginA);
+      if (chargerPhases >= 2) availableA = Math.min(availableA, mainFuseA - nonB - safetyMarginA);
+      if (chargerPhases >= 3) availableA = Math.min(availableA, mainFuseA - nonC - safetyMarginA);
+
+      // Also respect the wattage limit (e.g. user set 15 000 W cap)
+      const nonChargerUsageForLimit = currentUsage - chargerPowerW;
+      const limitHeadroomW = limit - nonChargerUsageForLimit - 200;
+      const limitCurrentA = limitHeadroomW / (chargerPhases === 1 ? 230 : 692);
+      availableA = Math.min(availableA, limitCurrentA);
+
+      if (availableA < minCurrent) {
+        this.log(`EV calc (phase): available ${availableA.toFixed(1)}A < min ${minCurrent}A → KEEP MIN`);
+        return minCurrent;
+      }
+
+      const targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, Math.floor(availableA)));
+      this.log(`EV calc (phase): A=${phaseCurrents.a.toFixed(1)} B=${phaseCurrents.b.toFixed(1)} C=${phaseCurrents.c.toFixed(1)}, nonCharger A=${nonA.toFixed(1)} B=${nonB.toFixed(1)} C=${nonC.toFixed(1)}, avail=${availableA.toFixed(1)}A → ${targetCurrent}A`);
+      return targetCurrent;
+    }
+
+    // ── Fallback: wattage-based calculation (no per-phase data) ─────────────
     // Calculate household usage without this charger
     const nonChargerUsage = currentUsage - chargerPowerW;
 
     // Cap available power at main fuse limit
     // This prevents allocating more power than the physical fuse can handle
-    const mainFuseA = this._settings.mainCircuitA || 25;
     const systemPhases = (this._settings.voltageSystem || '').includes('3phase') ? 3 : 1;
     const systemVoltage = 230;
     const maxFuseDrainW = Math.round((systemPhases === 3 ? 1.732 : 1) * systemVoltage * mainFuseA);
