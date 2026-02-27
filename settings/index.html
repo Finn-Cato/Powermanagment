@@ -414,9 +414,11 @@
           </div>
           <div class="control">
             <select id="s-voltageSystem">
-              <option value="230v-1phase">230V Single-phase (Home)</option>
-              <option value="400v-3phase">400V Three-phase (Industrial)</option>
+              <option value="auto">✨ Auto-detect from HAN sensor</option>
+              <option value="230v-1phase">230V Single-phase</option>
+              <option value="400v-3phase">400V Three-phase</option>
             </select>
+            <div id="voltage-detected-badge" style="font-size:11px; margin-top:4px; color:var(--text-muted);"></div>
           </div>
         </div>
       </div>
@@ -655,6 +657,7 @@
   var _H              = null;
   var priorityList    = [];
   var availableDevices = [];
+  var _detectedVoltageSystem = '230v-1phase';  // filled from API on load
   var _lastChargerStatus = {};  // deviceId → { status, statusLabel, currentA, powerW }
   var _lastChargerLimits = {};   // deviceId → { maxCurrent (ID47), dynamic_charger_current (ID48), circuit_current, mitigated, allValues }
   var _mitigatedDeviceIds = {};  // deviceId → true when Power Guard is controlling a device
@@ -960,7 +963,8 @@
     document.getElementById('s-enabled').checked = s.enabled !== false;
     document.getElementById('s-enabled-toggle').checked = s.enabled !== false;
     document.getElementById('s-profile').value   = s.profile || 'normal';
-    document.getElementById('s-voltageSystem').value = s.voltageSystem || '230v-1phase';
+    document.getElementById('s-voltageSystem').value = s.voltageSystem || 'auto';
+    _updateVoltageDetectedBadge();
     setNum('s-powerLimitW',     s.powerLimitW,    10000);
     setNum('s-cooldownSeconds', s.cooldownSeconds, 30);
     setNum('s-phase1LimitA',    s.phase1LimitA,   0);
@@ -1202,10 +1206,10 @@
       return;
     }
 
-    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    var voltageSystem = _resolveVoltageSystem();
     var mainCircuitA = parseInt(document.getElementById('s-mainCircuitA').value) || 25;
-    var voltageLabel = voltageSystem === '230v-1phase' ? '230V' : '400V';
-    var voltageMultiplier = voltageSystem === '230v-1phase' ? 230 : 692;
+    var voltageLabel = voltageSystem === '400v-3phase' ? '400V' : '230V';
+    var voltageMultiplier = voltageSystem === '400v-3phase' ? 692 : 230;
 
     var html = '<table style="width:100%; border-collapse:collapse;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
@@ -1486,8 +1490,28 @@
       });
   }
 
+  // Returns the active voltageSystem string, resolving 'auto' via server detection
+  function _resolveVoltageSystem() {
+    var selected = document.getElementById('s-voltageSystem').value;
+    return (selected === 'auto') ? _detectedVoltageSystem : selected;
+  }
+
+  // Shows a badge describing what was detected (or nothing when manually overridden)
+  function _updateVoltageDetectedBadge() {
+    var badge = document.getElementById('voltage-detected-badge');
+    if (!badge) return;
+    var selected = document.getElementById('s-voltageSystem').value;
+    if (selected === 'auto') {
+      var label = _detectedVoltageSystem === '400v-3phase' ? '3-phase (400V)' : '1-phase (230V)';
+      badge.textContent = 'ℹ️ Auto-detected: ' + label;
+      badge.style.color = 'var(--color-success, #34c759)';
+    } else {
+      badge.textContent = '';
+    }
+  }
+
   function getVoltageConverter() {
-    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    var voltageSystem = _resolveVoltageSystem();
     // Returns a function that converts amperage to watts
     if (voltageSystem === '400v-3phase') {
       // 400V 3-phase: P = √3 × 400V × A = 692 × A (per phase)
@@ -1499,7 +1523,7 @@
   }
 
   function getMaxAmpFromWatt(wattW) {
-    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    var voltageSystem = _resolveVoltageSystem();
     if (voltageSystem === '400v-3phase') {
       return Math.round(wattW / 692);
     } else {
@@ -1526,6 +1550,7 @@
           if (settings[k] == null) settings[k] = defs[k];
         });
         dbg('Settings loaded: ' + JSON.stringify(settings).substring(0, 200));
+        _detectedVoltageSystem = data.detectedVoltageSystem || '230v-1phase';
         applySettings(settings);
         updateStatusUI(status);
         availableDevices = Array.isArray(devices) ? devices : [];
@@ -1579,7 +1604,7 @@
       spikeMultiplier: getFloatValue('s-spikeMultiplier', 2.0),
       hysteresisCount: getNumValue('s-hysteresisCount', 3),
       cooldownSeconds: getNumValue('s-cooldownSeconds', 30),
-      voltageSystem:   getStringValue('s-voltageSystem', '230v-1phase'),
+      voltageSystem:   getStringValue('s-voltageSystem', 'auto'),
       phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
       mainCircuitA:    getNumValue('s-mainCircuitA', 25),
       classFilters:    _classFilters,
@@ -2231,6 +2256,7 @@
     var voltageSelect = document.getElementById('s-voltageSystem');
     if (voltageSelect) {
       voltageSelect.addEventListener('change', function() {
+        _updateVoltageDetectedBadge();
         updatePhaseConfigVisibility();
         saveAll();
       });
@@ -2261,6 +2287,7 @@
           if (settings[k] == null) settings[k] = defs[k];
         });
 
+        _detectedVoltageSystem = data.detectedVoltageSystem || '230v-1phase';
         applySettings(settings);
         updateStatusUI(data.status || {});
         availableDevices = Array.isArray(data.devices) ? data.devices : [];

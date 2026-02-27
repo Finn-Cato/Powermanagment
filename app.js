@@ -843,6 +843,40 @@ class PowerGuardApp extends Homey.App {
     return { a, b, c };
   }
 
+  /**
+   * Detect whether this installation is single-phase or three-phase.
+   * Detection order:
+   *   1. Live phase readings: if L2 or L3 carries > 0.3 A → 3-phase
+   *   2. HAN capabilities: if meter exposes L2/L3 capability → 3-phase meter → 3-phase install
+   *   3. Manual override: voltageSystem setting (only when NOT 'auto')
+   *   4. Default: 1-phase (safe assumption when no data)
+   * Returns 1 or 3.
+   */
+  _detectSystemPhases() {
+    // 1. Live phase current data is the most reliable signal
+    if (this._phaseCurrents) {
+      const b = this._phaseCurrents['measure_current.L2'] ?? this._phaseCurrents['measure_current.phase_b'] ?? 0;
+      const c = this._phaseCurrents['measure_current.L3'] ?? this._phaseCurrents['measure_current.phase_c'] ?? 0;
+      if (b > 0.3 || c > 0.3) return 3;
+    }
+    // 2. HAN capabilities — if the meter reports L2/L3, the install is 3-phase
+    if (this._hanDevice) {
+      const caps = this._hanDevice.capabilities || [];
+      const has3PhaseCap = caps.some(cap =>
+        cap === 'measure_current.L2' || cap === 'measure_current.L3' ||
+        cap === 'measure_current.phase_b' || cap === 'measure_current.phase_c'
+      );
+      if (has3PhaseCap) return 3;
+    }
+    // 3. Manual override: respect the explicit user setting
+    const vs = this._settings && this._settings.voltageSystem;
+    if (vs && vs !== 'auto') {
+      return vs.includes('3phase') ? 3 : 1;
+    }
+    // 4. Safe default
+    return 1;
+  }
+
   // ══════════════════════════════════════════════════════════════════
   // █ SECTION 3 — ENERGY TRACKING & CAPACITY TARIFF                           █
   // ══════════════════════════════════════════════════════════════════
@@ -1395,6 +1429,7 @@ class PowerGuardApp extends Homey.App {
       limitW: this._getEffectiveLimit(),
       mitigatedDevices: this._mitigatedDevices.map(function (m) { return { deviceId: m.deviceId, action: m.action }; }),
       overLimitCount: this._overLimitCount,
+      detectedVoltageSystem: this._detectSystemPhases() === 3 ? '400v-3phase' : '230v-1phase',
     };
   }
 
@@ -2188,7 +2223,7 @@ class PowerGuardApp extends Homey.App {
 
     // Cap available power at main fuse limit
     // This prevents allocating more power than the physical fuse can handle
-    const systemPhases = (this._settings.voltageSystem || '').includes('3phase') ? 3 : 1;
+    const systemPhases = this._detectSystemPhases();
     const systemVoltage = 230;
     const maxFuseDrainW = Math.round((systemPhases === 3 ? 1.732 : 1) * systemVoltage * mainFuseA);
 

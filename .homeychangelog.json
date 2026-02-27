@@ -1,4 +1,8 @@
 {
+  "0.3.22": {
+    "en": "Auto-detect electrical system phase count from HAN sensor: 'Auto-detect from HAN sensor' is now the default voltage system setting. The app reads live phase current data (L1/L2/L3) and meter capabilities to automatically determine whether the installation is single-phase (230V) or three-phase (400V). Manual override is still available. Settings page shows the detected system type in real time.",
+    "no": "Auto-gjenkjenn fase-antall fra HAN-sensor: 'Auto-gjenkjenn fra HAN-sensor' er nå standard innstilling for spenningssystem. Appen leser sanntids fase-strøm (L1/L2/L3) og målerfunksjoner for å automatisk avgjøre om anlegget er enfase (230V) eller trefase (400V). Manuell overstyring er fortsatt mulig. Innstillingssiden viser oppdaget systemtype i sanntid."
+  },
   "0.2.22": {
     "en": "New diagnostic Log tab for remote debugging: consolidated app log with category filters (HAN, Charger, Mitigation, Energy, Cache, System), color-coded badges, copy-to-clipboard (filtered or full JSON), auto-refresh, HAN meter summary, mitigation scan results, and system info. Makes it easy to share diagnostic data when reporting issues.",
     "no": "Ny diagnostikk-loggfane for feilsøking: samlet app-logg med kategorifiltre (HAN, Lader, Tiltak, Energi, Cache, System), fargekodede merkelapper, kopier til utklippstavle (filtrert eller full JSON), auto-oppdatering, HAN-måler-sammendrag, tiltak-skanneresultater og systeminfo. Gjør det enkelt å dele diagnostikkdata ved feilrapportering."
