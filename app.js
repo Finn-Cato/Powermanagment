@@ -3349,6 +3349,16 @@ class PowerGuardApp extends Homey.App {
           } catch (_) {}
         }
 
+        // Apply per-device power correction if configured (e.g. Zigbee decimal error)
+        if (currentW && device.settings) {
+          const zbPid = device.settings.zb_product_id ? String(device.settings.zb_product_id) : null;
+          if (zbPid) {
+            const corrections = (this._settings && this._settings.powerCorrections) || {};
+            const factor = corrections[zbPid];
+            if (factor != null && isFinite(factor)) currentW = currentW * factor;
+          }
+        }
+
         // ── Heater power estimation workaround ──
         // Smart heaters (e.g. Adax) are always onoff=true in Homey but their
         // heating element cycles at hardware level. We estimate actual draw
