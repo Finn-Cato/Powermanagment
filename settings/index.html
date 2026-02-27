@@ -1766,7 +1766,10 @@
 
         list.innerHTML = heaters.map(function(h) {
           var isOn = !!h.isOn;
-          var drawing = h.currentPowerW != null && Number(h.currentPowerW) > 0;
+          // Show as "drawing" (orange highlight) if we have positive wattage,
+          // OR if the device is on but has no power sensor (fall back to onoff state).
+          var hasPowerData = h.currentPowerW != null;
+          var drawing = hasPowerData ? Number(h.currentPowerW) > 0 : isOn;
           var cur = h.currentMeasure != null ? Number(h.currentMeasure).toFixed(1) + '°' : '–';
           var id  = h.deviceId;
           var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
@@ -1778,7 +1781,10 @@
             var isHeat = h.thermostatMode === 'heat';
             modeLabel = '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:' + (isHeat ? 'rgba(249,115,22,.15)' : 'rgba(0,0,0,.06)') + ';color:' + (isHeat ? 'var(--orange)' : 'var(--text-muted)') + ';letter-spacing:.03em;white-space:nowrap;">' + escHtml(h.thermostatMode) + '</span>';
           }
-          var pwrLabel = (h.currentPowerW != null && Number(h.currentPowerW) > 5) ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(h.currentPowerW) + 'W</span>' : '';
+          // Show wattage if available, otherwise show "● ON" when device is on but has no power sensor
+          var pwrLabel = (hasPowerData && Number(h.currentPowerW) > 5)
+            ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(h.currentPowerW) + 'W</span>'
+            : (!hasPowerData && isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
           var arrow = h.hasTargetTemp ? ' → ' : '';
 
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
