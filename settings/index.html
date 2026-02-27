@@ -584,6 +584,17 @@
         </div>
       </div>
 
+      <!-- Device Firmware Info -->
+      <div class="card">
+        <h2>Device Firmware Info</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin:0 0 10px 0;">Search devices by name or driver to read their firmware version from Homey.</p>
+        <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
+          <input type="text" id="firmware-search" placeholder="e.g. namron, dimmer…" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-surface); color:var(--text-primary);" onkeydown="if(event.key==='Enter') loadFirmwareInfo()">
+          <button class="btn-secondary" onclick="loadFirmwareInfo()" style="font-size:12px; padding:6px 14px;">Search</button>
+        </div>
+        <div id="firmware-results" style="font-size:12px; color:var(--text-muted);">Enter a search term above and click Search.</div>
+      </div>
+
     </div><!-- /#tab-log -->
 
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
@@ -2409,6 +2420,34 @@
     cache: '#5ac8fa',
     system: '#8e8e93'
   };
+
+  function loadFirmwareInfo() {
+    var search = (document.getElementById('firmware-search').value || '').trim();
+    var el = document.getElementById('firmware-results');
+    if (!search) { el.innerHTML = '<span style="color:#ff3b30;">Enter a search term first.</span>'; return; }
+    el.innerHTML = '<span style="color:var(--text-muted);">Loading…</span>';
+    hApi('GET', '/firmwareInfo?search=' + encodeURIComponent(search), null)
+      .then(function(data) {
+        if (!data || data.length === 0) {
+          el.innerHTML = '<span style="color:var(--text-muted);">No devices found matching "' + escHtml(search) + '".</span>';
+          return;
+        }
+        el.innerHTML = data.map(function(d) {
+          var settings = Object.entries(d.allSettings || {}).map(function(kv) {
+            return '<span style="color:var(--text-muted);">' + escHtml(kv[0]) + ':</span> ' + escHtml(String(kv[1]));
+          }).join('<br>');
+          return '<div style="padding:8px 0; border-bottom:1px solid var(--border-light);">' +
+            '<div style="font-weight:600; color:var(--text-primary);">' + escHtml(d.name) + '</div>' +
+            '<div style="color:var(--text-muted); font-size:11px; margin-top:2px;">Driver: ' + escHtml(d.driver) + ' &nbsp;|&nbsp; Class: ' + escHtml(d.class || '–') + '</div>' +
+            '<div style="margin-top:4px;"><b>Firmware:</b> ' + escHtml(String(d.firmware ?? '–')) + ' &nbsp; <b>HW:</b> ' + escHtml(String(d.hardwareVersion ?? '–')) + '</div>' +
+            (settings ? '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted);">All settings</summary><div style="font-size:11px;line-height:1.8;padding-top:4px;">' + settings + '</div></details>' : '') +
+            '</div>';
+        }).join('');
+      })
+      .catch(function(err) {
+        el.innerHTML = '<span style="color:#ff3b30;">Error: ' + escHtml(err.message) + '</span>';
+      });
+  }
 
   function loadAppLog() {
     hApi('GET', '/app-log', null)
