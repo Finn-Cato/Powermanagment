@@ -190,6 +190,84 @@ module.exports = {
     return app.applyCircuitLimitsToChargers();
   },
 
+  // Read live target_charger_current (and target_circuit_current) from each configured charger.
+  // Returns a map of { [deviceId]: { target_charger_current, target_circuit_current, caps } }
+  async getChargerLimits({ homey }) {
+    const app = homey.app;
+    if (!app._api) return {};
+    const priorityList = homey.settings.get('priorityList') || [];
+    const chargers = priorityList.filter(e =>
+      (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false
+    );
+    const limits = {};
+    for (const entry of chargers) {
+      try {
+        const device = await app._api.devices.getDevice({ id: entry.deviceId });
+        if (!device) { limits[entry.deviceId] = null; continue; }
+        const caps = device.capabilities || [];
+        const obj  = device.capabilitiesObj || {};
+
+        // ID47 = maxChargerCurrent  = permanent Ladergrense (non-volatile FLASH, set by installer)
+        // ID48 = dynamicChargerCurrent = Midlertidig ladegrense (volatile, reset on reboot, for automation)
+        //
+        // PowerGuard throttles via dynamic_charger_current (ID48) when available, otherwise
+        // falls back to target_charger_current (ID47). When using the fallback, target_charger_current
+        // is overwritten to the throttled value (e.g. 7A), so reading it live is unreliable.
+        //
+        // Priority for reading the true Max Current (Ladergrense):
+        //   1. Direct Easee REST API  getChargerConfig().maxChargerCurrent (ID47) — most reliable
+        //   2. max_charger_current cap — if the Homey Easee app exposes ID47 separately (never throttled)
+        //   3. pre-mitigation snapshot of target_charger_current — captured before PowerGuard throttled it
+        //   4. live target_charger_current — only when charger is not currently mitigated
+        const mitigatedEntry = (app._mitigatedDevices || []).find(m => m.deviceId === entry.deviceId);
+        const liveCircuit  = obj.target_circuit_current?.value ?? null;
+        const liveCharger  = obj.target_charger_current?.value ?? null;
+
+        // --- Try direct Easee REST API (ID47) ---
+        // The Easee Homey app stores the Easee charger serial in device.data.id
+        let directMaxCurrent = null;
+        const easeeSerial = device.data?.id || null;
+        if (easeeSerial && app.isEaseeDirectAPIConnected && app.isEaseeDirectAPIConnected()) {
+          directMaxCurrent = await app.getEaseeMaxChargerCurrent(easeeSerial);
+        }
+
+        // Prefer max_charger_current (ID47 permanent) if the Homey Easee app exposes it
+        const staticMax = caps.includes('max_charger_current') && (obj.max_charger_current?.value ?? null) > 0
+          ? (obj.max_charger_current?.value ?? null) : null;
+
+        const effectiveCharger =
+          directMaxCurrent != null
+            ? directMaxCurrent  // Direct Easee API — most reliable, never throttled
+            : staticMax != null
+              ? staticMax  // Homey cap ID47 directly available
+              : (mitigatedEntry && mitigatedEntry.previousState?.target_charger_current != null)
+                ? mitigatedEntry.previousState.target_charger_current  // pre-throttle snapshot
+                : liveCharger;  // not throttled, live value = ID47
+
+        // Dump every capability value for diagnostics
+        const allValues = {};
+        caps.forEach(c => { if (obj[c] && obj[c].value != null) allValues[c] = obj[c].value; });
+
+        limits[entry.deviceId] = {
+          target_charger_current: effectiveCharger,
+          target_circuit_current: liveCircuit,
+          max_charger_current:    caps.includes('max_charger_current')    ? (obj.max_charger_current?.value    ?? null) : null,
+          max_circuit_current:    caps.includes('max_circuit_current')    ? (obj.max_circuit_current?.value    ?? null) : null,
+          dynamic_charger_current: caps.includes('dynamic_charger_current') ? (obj.dynamic_charger_current?.value ?? null) : null,
+          dynamic_circuit_current: caps.includes('dynamic_circuit_current') ? (obj.dynamic_circuit_current?.value ?? null) : null,
+          easeeDirectAPI: directMaxCurrent != null,
+          easeeSerial,
+          mitigated: !!mitigatedEntry,
+          caps: caps.filter(c => c.includes('current') || c.includes('charger') || c.includes('circuit') || c.includes('max')),
+          allValues,
+        };
+      } catch (_) {
+        limits[entry.deviceId] = null;
+      }
+    }
+    return limits;
+  },
+
   async getMeterDevices({ homey }) {
     return homey.app.getMeterDevices();
   },
@@ -226,5 +304,26 @@ module.exports = {
 
   async getAppLog({ homey }) {
     return homey.app.getAppLog();
+  },
+
+  // ─── Section 12 — Direct Easee REST API ──────────────────────────────────
+
+  /**
+   * Authenticate against the Easee cloud with a username + password.
+   * Tokens are stored in Homey settings for subsequent calls.
+   * Called from the settings UI "Connect" button.
+   */
+  async easeeLogin({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request body' };
+    const { username, password } = body;
+    return homey.app.loginEaseeDirectAPI(username, password);
+  },
+
+  /**
+   * Return the current Easee direct API connection status.
+   * Used by the settings UI to show connected/disconnected badge.
+   */
+  async getEaseeStatus({ homey }) {
+    return homey.app.getEaseeDirectAPIStatus();
   },
 };

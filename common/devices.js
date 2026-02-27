@@ -148,8 +148,10 @@ async function applyAction(device, action) {
     }
 
     case ACTIONS.DYNAMIC_CURRENT: {
-      // Try Easee-compatible dynamic current capabilities in order of preference
-      const dynCap = ['target_current', 'dynamicCircuitCurrentP1', 'dynamic_current']
+      // Try volatile/dynamic caps first (ID48 = dynamicChargerCurrent, won't wear FLASH).
+      // Only fall back to target_charger_current (ID47 = permanent Ladergrense) if
+      // the Homey Easee app doesn't expose a volatile capability for this charger model.
+      const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'target_current', 'dynamicCircuitCurrentP1', 'dynamic_current']
         .find(function (c) { return caps.includes(c); });
       if (dynCap) {
         const currentVal = obj[dynCap] ? (obj[dynCap].value != null ? obj[dynCap].value : 16) : 16;

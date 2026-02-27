@@ -110,6 +110,10 @@
       "method": "POST",
       "path": "/apply-circuit-limits"
     },
+    "getChargerLimits": {
+      "method": "GET",
+      "path": "/get-charger-limits"
+    },
     "getMeterDevices": {
       "method": "GET",
       "path": "/meter-devices"
@@ -125,6 +129,14 @@
     "getAppLog": {
       "method": "GET",
       "path": "/app-log"
+    },
+    "easeeLogin": {
+      "method": "POST",
+      "path": "/easee-login"
+    },
+    "getEaseeStatus": {
+      "method": "GET",
+      "path": "/easee-status"
     }
   }
 }
