@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.3.23",
+  "version": "0.3.24",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -52,9 +52,15 @@
   "drivers": [
     {
       "id": "ev-charger",
-      "name": { "en": "EV Charger", "no": "Elbillader" },
+      "name": {
+        "en": "EV Charger",
+        "no": "Elbillader"
+      },
       "class": "other",
-      "capabilities": ["onoff", "measure_power"],
+      "capabilities": [
+        "onoff",
+        "measure_power"
+      ],
       "images": {
         "small": "/drivers/ev-charger/assets/small.png",
         "large": "/drivers/ev-charger/assets/large.png",
@@ -63,9 +69,15 @@
     },
     {
       "id": "power-guard",
-      "name": { "en": "Power Guard", "no": "Power Guard" },
+      "name": {
+        "en": "Power Guard",
+        "no": "Power Guard"
+      },
       "class": "other",
-      "capabilities": ["onoff", "measure_power"],
+      "capabilities": [
+        "onoff",
+        "measure_power"
+      ],
       "images": {
         "small": "/drivers/power-guard/assets/small.png",
         "large": "/drivers/power-guard/assets/large.png",
@@ -74,9 +86,16 @@
     },
     {
       "id": "thermostat",
-      "name": { "en": "Thermostat", "no": "Termostat" },
+      "name": {
+        "en": "Thermostat",
+        "no": "Termostat"
+      },
       "class": "thermostat",
-      "capabilities": ["onoff", "target_temperature", "measure_temperature"],
+      "capabilities": [
+        "onoff",
+        "target_temperature",
+        "measure_temperature"
+      ],
       "images": {
         "small": "/drivers/thermostat/assets/small.png",
         "large": "/drivers/thermostat/assets/large.png",
