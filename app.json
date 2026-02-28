@@ -54,19 +54,34 @@
       "id": "ev-charger",
       "name": { "en": "EV Charger", "no": "Elbillader" },
       "class": "other",
-      "capabilities": ["onoff", "measure_power"]
+      "capabilities": ["onoff", "measure_power"],
+      "images": {
+        "small": "/drivers/ev-charger/assets/small.png",
+        "large": "/drivers/ev-charger/assets/large.png",
+        "xlarge": "/drivers/ev-charger/assets/xlarge.png"
+      }
     },
     {
       "id": "power-guard",
       "name": { "en": "Power Guard", "no": "Power Guard" },
       "class": "other",
-      "capabilities": ["onoff", "measure_power"]
+      "capabilities": ["onoff", "measure_power"],
+      "images": {
+        "small": "/drivers/power-guard/assets/small.png",
+        "large": "/drivers/power-guard/assets/large.png",
+        "xlarge": "/drivers/power-guard/assets/xlarge.png"
+      }
     },
     {
       "id": "thermostat",
       "name": { "en": "Thermostat", "no": "Termostat" },
       "class": "thermostat",
-      "capabilities": ["onoff", "target_temperature", "measure_temperature"]
+      "capabilities": ["onoff", "target_temperature", "measure_temperature"],
+      "images": {
+        "small": "/drivers/thermostat/assets/small.png",
+        "large": "/drivers/thermostat/assets/large.png",
+        "xlarge": "/drivers/thermostat/assets/xlarge.png"
+      }
     }
   ],
   "api": {
