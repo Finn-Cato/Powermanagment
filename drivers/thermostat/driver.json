@@ -10,5 +10,10 @@
     "target_temperature",
     "measure_temperature"
   ],
+  "images": {
+    "small": "./assets/small.png",
+    "large": "./assets/large.png",
+    "xlarge": "./assets/xlarge.png"
+  },
   "icon": "assets/icon.svg"
 }
