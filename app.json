@@ -49,6 +49,23 @@
   "permissions": [
     "homey:manager:api"
   ],
+  "drivers": [
+    {
+      "id": "ev-charger",
+      "name": { "en": "EV Charger", "no": "Elbillader" },
+      "class": "other"
+    },
+    {
+      "id": "power-guard",
+      "name": { "en": "Power Guard", "no": "Power Guard" },
+      "class": "other"
+    },
+    {
+      "id": "thermostat",
+      "name": { "en": "Thermostat", "no": "Termostat" },
+      "class": "thermostat"
+    }
+  ],
   "api": {
     "getAllData": {
       "method": "GET",
