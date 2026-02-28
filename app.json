@@ -53,17 +53,20 @@
     {
       "id": "ev-charger",
       "name": { "en": "EV Charger", "no": "Elbillader" },
-      "class": "other"
+      "class": "other",
+      "capabilities": ["onoff", "measure_power", "toggleChargingCapability"]
     },
     {
       "id": "power-guard",
       "name": { "en": "Power Guard", "no": "Power Guard" },
-      "class": "other"
+      "class": "other",
+      "capabilities": ["onoff", "measure_power"]
     },
     {
       "id": "thermostat",
       "name": { "en": "Thermostat", "no": "Termostat" },
-      "class": "thermostat"
+      "class": "thermostat",
+      "capabilities": ["onoff", "target_temperature", "measure_temperature"]
     }
   ],
   "api": {
