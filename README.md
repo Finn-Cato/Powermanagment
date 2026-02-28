@@ -10,7 +10,7 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 
 | Type | Supported |
 |------|-----------|
-| **EV Charger** | Easee Home, Easee Pro, Zaptec Go/Go2/Home/Pro, Enua Charge E in test|
+| **EV Charger** | Easee Home, Easee Pro, Zaptec Go/Go2/Home/Pro, Enua Charge E |
 | **Power Meter** | Any HAN meter with `measure_power` — Frient, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer, and more |
 | **Thermostats** | Any brand — auto-detects capabilities (Futurehome, Z-Wave, Zigbee, etc.) |
 | **Water Heaters** | Hoiax Connected 300/200 — stepped power reduction |
@@ -191,3 +191,52 @@ Consolidated diagnostic log for remote debugging:
 ## License
 
 GPL-3.0
+
+---
+
+## Changelog
+
+### v0.3.23
+Fix: illegal continue crash in EV charger adjustment loop caused by a premature closing brace during Enua consolidation. Multi-brand dispatch (Easee / Enua / Zaptec) correctly restored inside the loop.
+
+### v0.3.21
+Per-phase current control for EV chargers: reads live per-phase amps (A/B/C) from the HAN sensor and uses them directly to calculate available charger current. Falls back to wattage-based calculation when phase data is unavailable. Auto-detects electrical phase count from HAN sensor — no more manual voltageSystem setting required.
+
+### v0.3.0 – v0.3.2
+UI redesign, heater tab improvements, stale mitigation fixes, store submission prep.
+
+### v0.2.23
+Enua improvements, Zaptec meter device fix, spike filter lockout fix.
+
+### v0.2.22
+New diagnostic **Log** tab for remote debugging: consolidated app log with category filters (HAN, Charger, Mitigation, Energy, Cache, System), color-coded badges, copy-to-clipboard, auto-refresh, HAN meter summary, mitigation scan results, and system info.
+
+### v0.2.21
+Høiax Connected 300/200 stepped power control: new action reduces water heater power one level per mitigation cycle (3000W → 1750W → 1250W → off). Driver icons updated. Thermostat mitigation now lowers by 3°C per cycle instead of stepping down to 5°C.
+
+### v0.2.2
+Adax heater power estimation: detects when Adax reports constant rated wattage and estimates actual power from temperature state. Thermostat mitigation changed from setting to 5°C to lowering by 3°C from current target.
+
+### v0.2.1
+Fixed Zaptec and Enua dynamic current control on Homey setups where `getFlowCardActions()` does not enumerate app flow cards. Falls back to hardcoded known action IDs (`installation_current_control` / `changeCurrentLimitAction`).
+
+### v0.2.0
+Dynamic flow action discovery: automatically finds the correct Flow action ID for Zaptec and Enua chargers at runtime. Improved test charger diagnostics with detailed Flow API reporting.
+
+### v0.1.9
+Added dynamic current control for Zaptec and Enua chargers via Homey Flow API. Auto-detects charger brand and routes to correct handler. Full Enua Charge E support with pause/resume and status monitoring.
+
+### v0.1.8
+Fixed charger test diagnostic for Zaptec Go: now correctly detects `charging_button` capability.
+
+### v0.1.7
+Fixed Easee Equalizer showing 0W: reads initial power value immediately on connect, faster first poll (2s), robust number handling for cloud-based meters.
+
+### v0.1.6
+Added manual power meter selection on the System tab. Fixed auto-detect falsely matching devices like "Hanna Thermostat". Improved Futurehome HAN and Easee Equalizer support.
+
+### v0.1.5
+Added support for Easee Equalizer as HAN meter source and Zaptec charger detection. Expanded per-phase monitoring for Easee devices.
+
+### v0.1.4
+Initial release. Real-time power monitoring with HAN meter, smart EV charger control with dynamic current adjustment, thermostat management, priority-based mitigation, and Norwegian capacity tariff tracking.
