@@ -17,6 +17,40 @@ module.exports = {
     return await homey.app.checkFloorHeaterConnections();
   },
 
+  async getFirmwareInfo({ homey, query }) {
+    const search = ((query && query.search) || '').toLowerCase();
+    const api = homey.app._api;
+    if (!api) return { error: 'API not ready — try again in a moment' };
+    // Fetch all devices fresh so we get their .settings
+    const all = await api.devices.getDevices();
+    const results = [];
+    for (const d of Object.values(all || {})) {
+      if (!d) continue;
+      const name = (d.name || '').toLowerCase();
+      const driverId = (d.driverId || '').toLowerCase();
+      const driverUri = (d.driverUri || '').toLowerCase();
+      const driver = driverId || driverUri;
+      if (search && !name.includes(search) && !driver.includes(search)) continue;
+      const s = d.settings || {};
+      // Z-Wave firmware fields
+      const fw = s.zw_firmware_id || s.zw_application_version ||
+        // Zigbee / generic firmware fields
+        s.firmware || s.firmwareVersion || s.sw_version || s.softwareVersion ||
+        s.application_version || s.applicationVersion || null;
+      const hwVer = s.zw_hardware_version || s.hardwareVersion || s.hw_version || null;
+      results.push({
+        name: d.name,
+        id: d.id,
+        class: d.class,
+        driver: driverId || driverUri.replace(/^homey:app:/, ''),
+        firmware: fw,
+        hardwareVersion: hwVer,
+        allSettings: s,
+      });
+    }
+    return results;
+  },
+
   async controlFloorHeater({ homey, body }) {
     if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request' };
     return await homey.app.controlFloorHeater(body.deviceId, body.action, body.value);
@@ -190,6 +224,64 @@ module.exports = {
     return app.applyCircuitLimitsToChargers();
   },
 
+  // Read live target_charger_current (and target_circuit_current) from each configured charger.
+  // Returns a map of { [deviceId]: { target_charger_current, target_circuit_current, caps } }
+  async getChargerLimits({ homey }) {
+    const app = homey.app;
+    if (!app._api) return {};
+    const priorityList = homey.settings.get('priorityList') || [];
+    const chargers = priorityList.filter(e =>
+      (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false
+    );
+    const limits = {};
+    for (const entry of chargers) {
+      try {
+        const device = await app._api.devices.getDevice({ id: entry.deviceId });
+        if (!device) { limits[entry.deviceId] = null; continue; }
+        const caps = device.capabilities || [];
+        const obj  = device.capabilitiesObj || {};
+
+        // Priority for reading the true Max Current (Ladergrense):
+        //   1. max_charger_current cap — if the Homey Easee app exposes ID47 separately (never throttled)
+        //   2. pre-mitigation snapshot of target_charger_current — captured before PowerGuard throttled it
+        //   3. live target_charger_current — only when charger is not currently mitigated
+        const mitigatedEntry = (app._mitigatedDevices || []).find(m => m.deviceId === entry.deviceId);
+        const liveCircuit  = obj.target_circuit_current?.value ?? null;
+        const liveCharger  = obj.target_charger_current?.value ?? null;
+
+        // Prefer max_charger_current (ID47 permanent) if the Homey Easee app exposes it
+        const staticMax = caps.includes('max_charger_current') && (obj.max_charger_current?.value ?? null) > 0
+          ? (obj.max_charger_current?.value ?? null) : null;
+
+        const effectiveCharger =
+          staticMax != null
+            ? staticMax  // Homey cap ID47 directly available
+            : (mitigatedEntry && mitigatedEntry.previousState?.targetCurrent != null)
+              ? mitigatedEntry.previousState.targetCurrent  // pre-throttle snapshot (key = targetCurrent)
+              : liveCharger;  // not throttled, live value = ID47
+
+        // Dump every capability value for diagnostics
+        const allValues = {};
+        caps.forEach(c => { if (obj[c] && obj[c].value != null) allValues[c] = obj[c].value; });
+
+        limits[entry.deviceId] = {
+          target_charger_current: effectiveCharger,
+          target_circuit_current: liveCircuit,
+          max_charger_current:    caps.includes('max_charger_current')    ? (obj.max_charger_current?.value    ?? null) : null,
+          max_circuit_current:    caps.includes('max_circuit_current')    ? (obj.max_circuit_current?.value    ?? null) : null,
+          dynamic_charger_current: caps.includes('dynamic_charger_current') ? (obj.dynamic_charger_current?.value ?? null) : null,
+          dynamic_circuit_current: caps.includes('dynamic_circuit_current') ? (obj.dynamic_circuit_current?.value ?? null) : null,
+          mitigated: !!mitigatedEntry,
+          caps: caps.filter(c => c.includes('current') || c.includes('charger') || c.includes('circuit') || c.includes('max')),
+          allValues,
+        };
+      } catch (_) {
+        limits[entry.deviceId] = null;
+      }
+    }
+    return limits;
+  },
+
   async getMeterDevices({ homey }) {
     return homey.app.getMeterDevices();
   },
@@ -226,5 +318,44 @@ module.exports = {
 
   async getAppLog({ homey }) {
     return homey.app.getAppLog();
+  },
+
+  // ─── Section 12 — Direct Easee REST API ──────────────────────────────────
+
+  /**
+   * Authenticate against the Easee cloud with a username + password.
+   * Tokens are stored in Homey settings for subsequent calls.
+   * Called from the settings UI "Connect" button.
+   */
+  async easeeLogin({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid request body' };
+    const { username, password } = body;
+    return homey.app.loginEaseeDirectAPI(username, password);
+  },
+
+  /**
+   * Return the current Easee direct API connection status.
+   * Used by the settings UI to show connected/disconnected badge.
+   */
+  async getEaseeStatus({ homey }) {
+    return homey.app.getEaseeDirectAPIStatus();
+  },
+
+  async getPowerCorrections({ homey }) {
+    return homey.settings.get('powerCorrections') ?? { '4512760': 0.1 };
+  },
+
+  async setPowerCorrections({ homey, body }) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return { ok: false, error: 'Expected an object' };
+    // Validate: keys = strings, values = finite numbers
+    const clean = {};
+    for (const [k, v] of Object.entries(body)) {
+      const n = Number(v);
+      if (!isFinite(n)) return { ok: false, error: `Invalid multiplier for "${k}": ${v}` };
+      clean[String(k).trim()] = n;
+    }
+    homey.settings.set('powerCorrections', clean);
+    if (homey.app && typeof homey.app._loadSettings === 'function') homey.app._loadSettings();
+    return { ok: true };
   },
 };

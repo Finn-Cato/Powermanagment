@@ -1,0 +1,14 @@
+{
+  "id": "thermostat",
+  "name": {
+    "en": "Thermostat",
+    "no": "Termostat"
+  },
+  "class": "thermostat",
+  "capabilities": [
+    "onoff",
+    "target_temperature",
+    "measure_temperature"
+  ],
+  "icon": "assets/icon.svg"
+}

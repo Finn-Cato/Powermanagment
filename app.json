@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.2.22",
+  "version": "0.3.23",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -49,7 +49,31 @@
   "permissions": [
     "homey:manager:api"
   ],
+  "drivers": [
+    {
+      "id": "ev-charger",
+      "name": { "en": "EV Charger", "no": "Elbillader" },
+      "class": "other",
+      "capabilities": ["onoff", "measure_power"]
+    },
+    {
+      "id": "power-guard",
+      "name": { "en": "Power Guard", "no": "Power Guard" },
+      "class": "other",
+      "capabilities": ["onoff", "measure_power"]
+    },
+    {
+      "id": "thermostat",
+      "name": { "en": "Thermostat", "no": "Termostat" },
+      "class": "thermostat",
+      "capabilities": ["onoff", "target_temperature", "measure_temperature"]
+    }
+  ],
   "api": {
+    "getAllData": {
+      "method": "GET",
+      "path": "/all"
+    },
     "getStatus": {
       "method": "GET",
       "path": "/status"
@@ -73,10 +97,6 @@
     "getDiagnostic": {
       "method": "GET",
       "path": "/diagnostic"
-    },
-    "getAllData": {
-      "method": "GET",
-      "path": "/all"
     },
     "getCacheStatus": {
       "method": "GET",
@@ -110,6 +130,10 @@
       "method": "POST",
       "path": "/apply-circuit-limits"
     },
+    "getChargerLimits": {
+      "method": "GET",
+      "path": "/get-charger-limits"
+    },
     "getMeterDevices": {
       "method": "GET",
       "path": "/meter-devices"
@@ -125,547 +149,18 @@
     "getAppLog": {
       "method": "GET",
       "path": "/app-log"
-    }
-  },
-  "drivers": [
-    {
-      "id": "power-guard",
-      "name": {
-        "en": "Power Guard",
-        "no": "Power Guard"
-      },
-      "class": "other",
-      "capabilities": [
-        "measure_power",
-        "alarm_generic",
-        "onoff"
-      ],
-      "images": {
-        "small": "/drivers/power-guard/assets/small.png",
-        "large": "/drivers/power-guard/assets/large.png",
-        "xlarge": "/drivers/power-guard/assets/xlarge.png"
-      },
-      "capabilitiesOptions": {
-        "measure_power": {
-          "title": {
-            "en": "Current Power",
-            "no": "Nåværende effekt"
-          },
-          "units": "W",
-          "decimals": 0
-        },
-        "alarm_generic": {
-          "title": {
-            "en": "Power Limit Exceeded",
-            "no": "Effektgrense overskredet"
-          }
-        },
-        "onoff": {
-          "title": {
-            "en": "Guard Enabled",
-            "no": "Vakt aktivert"
-          }
-        }
-      },
-      "pair": [
-        {
-          "id": "list_devices",
-          "template": "list_devices",
-          "navigation": {
-            "next": "add_devices"
-          }
-        },
-        {
-          "id": "add_devices",
-          "template": "add_devices"
-        }
-      ],
-      "settings": [
-        {
-          "id": "enabled",
-          "type": "checkbox",
-          "label": {
-            "en": "Guard active",
-            "no": "Vakt aktiv"
-          },
-          "value": true
-        },
-        {
-          "id": "profile",
-          "type": "dropdown",
-          "label": {
-            "en": "Protection mode",
-            "no": "Beskyttelsesmodus"
-          },
-          "value": "normal",
-          "values": [
-            {
-              "id": "normal",
-              "label": {
-                "en": "Normal",
-                "no": "Normal"
-              }
-            },
-            {
-              "id": "strict",
-              "label": {
-                "en": "Strict (90% of limit)",
-                "no": "Streng (90% av grensen)"
-              }
-            },
-            {
-              "id": "solar",
-              "label": {
-                "en": "Solar-friendly",
-                "no": "Sol-vennlig"
-              }
-            }
-          ]
-        },
-        {
-          "id": "powerLimitW",
-          "type": "number",
-          "label": {
-            "en": "Maximum power (W)",
-            "no": "Maks effekt (W)"
-          },
-          "hint": {
-            "en": "Your grid connection limit, e.g. 10000 for 10 kW."
-          },
-          "value": 10000,
-          "attr": {
-            "min": 100,
-            "max": 100000,
-            "step": 500
-          }
-        },
-        {
-          "id": "cooldownSeconds",
-          "type": "number",
-          "label": {
-            "en": "Seconds before acting",
-            "no": "Sekunder før tiltak"
-          },
-          "hint": {
-            "en": "How long the limit must be exceeded before a device is turned off."
-          },
-          "value": 30,
-          "attr": {
-            "min": 5,
-            "max": 300,
-            "step": 5
-          }
-        },
-        {
-          "id": "hysteresisCount",
-          "type": "number",
-          "label": {
-            "en": "Readings before acting",
-            "no": "Avlesninger før tiltak"
-          },
-          "hint": {
-            "en": "Number of consecutive high readings before mitigation fires."
-          },
-          "value": 3,
-          "attr": {
-            "min": 1,
-            "max": 10,
-            "step": 1
-          }
-        },
-        {
-          "id": "smoothingWindow",
-          "type": "number",
-          "label": {
-            "en": "Smoothing window (readings)",
-            "no": "Glatting (avlesninger)"
-          },
-          "hint": {
-            "en": "Moving-average window size. Lower = faster reaction."
-          },
-          "value": 5,
-          "attr": {
-            "min": 1,
-            "max": 20,
-            "step": 1
-          }
-        },
-        {
-          "id": "spikeMultiplier",
-          "type": "number",
-          "label": {
-            "en": "Spike ignore threshold (×avg)",
-            "no": "Pigg-grense (×gjennomsnitt)"
-          },
-          "hint": {
-            "en": "Readings this many times above average are ignored as spikes."
-          },
-          "value": 2,
-          "attr": {
-            "min": 1,
-            "max": 10,
-            "step": 1
-          }
-        },
-        {
-          "id": "phase1LimitA",
-          "type": "number",
-          "label": {
-            "en": "Phase 1 limit (A) — 0 = off",
-            "no": "Fase 1-grense (A) — 0 = av"
-          },
-          "value": 0,
-          "attr": {
-            "min": 0,
-            "max": 63,
-            "step": 1
-          }
-        },
-        {
-          "id": "phase2LimitA",
-          "type": "number",
-          "label": {
-            "en": "Phase 2 limit (A) — 0 = off",
-            "no": "Fase 2-grense (A) — 0 = av"
-          },
-          "value": 0,
-          "attr": {
-            "min": 0,
-            "max": 63,
-            "step": 1
-          }
-        },
-        {
-          "id": "phase3LimitA",
-          "type": "number",
-          "label": {
-            "en": "Phase 3 limit (A) — 0 = off",
-            "no": "Fase 3-grense (A) — 0 = av"
-          },
-          "value": 0,
-          "attr": {
-            "min": 0,
-            "max": 63,
-            "step": 1
-          }
-        }
-      ]
     },
-    {
-      "id": "ev-charger",
-      "name": {
-        "en": "EV Charger",
-        "no": "EV-lader"
-      },
-      "class": "socket",
-      "images": {
-        "small": "/drivers/ev-charger/assets/small.png",
-        "large": "/drivers/ev-charger/assets/large.png",
-        "xlarge": "/drivers/ev-charger/assets/xlarge.png"
-      },
-      "capabilities": [
-        "measure_power",
-        "onoff"
-      ],
-      "capabilitiesOptions": {
-        "measure_power": {
-          "title": {
-            "en": "Power consumption",
-            "no": "Strømforbruk"
-          },
-          "units": "W",
-          "decimals": 0
-        },
-        "onoff": {
-          "title": {
-            "en": "Charging",
-            "no": "Lading"
-          }
-        }
-      },
-      "pair": [
-        {
-          "id": "list_devices",
-          "template": "list_devices",
-          "navigation": {
-            "next": "add_devices"
-          }
-        },
-        {
-          "id": "add_devices",
-          "template": "add_devices"
-        }
-      ]
+    "getFirmwareInfo": {
+      "method": "GET",
+      "path": "/firmwareInfo"
     },
-    {
-      "id": "thermostat",
-      "name": {
-        "en": "Thermostat",
-        "no": "Termostat"
-      },
-      "class": "thermostat",
-      "images": {
-        "small": "/drivers/thermostat/assets/small.png",
-        "large": "/drivers/thermostat/assets/large.png",
-        "xlarge": "/drivers/thermostat/assets/xlarge.png"
-      },
-      "capabilities": [
-        "target_temperature",
-        "measure_temperature",
-        "onoff",
-        "thermostat_mode"
-      ],
-      "capabilitiesOptions": {
-        "target_temperature": {
-          "title": {
-            "en": "Target temperature",
-            "no": "Ønsket temperatur"
-          },
-          "min": 5,
-          "max": 35,
-          "step": 0.5
-        },
-        "measure_temperature": {
-          "title": {
-            "en": "Current temperature",
-            "no": "Nåværende temperatur"
-          }
-        },
-        "onoff": {
-          "title": {
-            "en": "Heating",
-            "no": "Oppvarming"
-          }
-        },
-        "thermostat_mode": {
-          "title": {
-            "en": "Mode",
-            "no": "Modus"
-          }
-        }
-      },
-      "pair": [
-        {
-          "id": "list_devices",
-          "template": "list_devices",
-          "navigation": {
-            "next": "add_devices"
-          }
-        },
-        {
-          "id": "add_devices",
-          "template": "add_devices"
-        }
-      ]
+    "getPowerCorrections": {
+      "method": "GET",
+      "path": "/power-corrections"
+    },
+    "setPowerCorrections": {
+      "method": "POST",
+      "path": "/power-corrections"
     }
-  ],
-  "flow": {
-    "triggers": [
-      {
-        "id": "power_limit_exceeded",
-        "title": {
-          "en": "Power limit exceeded",
-          "no": "Effektgrense overskredet"
-        },
-        "titleFormatted": {
-          "en": "Power limit exceeded ([[power]] W)",
-          "no": "Effektgrense overskredet ([[power]] W)"
-        },
-        "tokens": [
-          {
-            "name": "power",
-            "type": "number",
-            "title": {
-              "en": "Current power (W)",
-              "no": "Nåværende effekt (W)"
-            }
-          }
-        ]
-      },
-      {
-        "id": "mitigation_applied",
-        "title": {
-          "en": "Mitigation step applied",
-          "no": "Tiltak utført"
-        },
-        "titleFormatted": {
-          "en": "Mitigation applied to [[device_name]]",
-          "no": "Tiltak utført på [[device_name]]"
-        },
-        "tokens": [
-          {
-            "name": "device_name",
-            "type": "string",
-            "title": {
-              "en": "Device name",
-              "no": "Enhetsnavn"
-            }
-          },
-          {
-            "name": "action",
-            "type": "string",
-            "title": {
-              "en": "Action taken",
-              "no": "Handling utført"
-            }
-          }
-        ]
-      },
-      {
-        "id": "mitigation_cleared",
-        "title": {
-          "en": "Mitigation cleared",
-          "no": "Tiltak fjernet"
-        }
-      },
-      {
-        "id": "profile_changed",
-        "title": {
-          "en": "Profile changed",
-          "no": "Profil endret"
-        },
-        "titleFormatted": {
-          "en": "Profile changed to [[profile]]",
-          "no": "Profil endret til [[profile]]"
-        },
-        "tokens": [
-          {
-            "name": "profile",
-            "type": "string",
-            "title": {
-              "en": "New profile",
-              "no": "Ny profil"
-            }
-          }
-        ]
-      }
-    ],
-    "conditions": [
-      {
-        "id": "guard_enabled",
-        "title": {
-          "en": "Power Guard is !{{enabled|disabled}}",
-          "no": "Power Guard er !{{aktivert|deaktivert}}"
-        }
-      },
-      {
-        "id": "is_over_limit",
-        "title": {
-          "en": "Power is !{{over|under}} limit",
-          "no": "Effekt er !{{over|under}} grense"
-        }
-      },
-      {
-        "id": "profile_is",
-        "title": {
-          "en": "Active profile is...",
-          "no": "Aktiv profil er..."
-        },
-        "titleFormatted": {
-          "en": "Active profile !{{is|is not}} [[profile]]",
-          "no": "Aktiv profil !{{er|er ikke}} [[profile]]"
-        },
-        "args": [
-          {
-            "name": "profile",
-            "type": "dropdown",
-            "title": {
-              "en": "Profile",
-              "no": "Profil"
-            },
-            "values": [
-              {
-                "id": "normal",
-                "label": {
-                  "en": "Normal",
-                  "no": "Normal"
-                }
-              },
-              {
-                "id": "strict",
-                "label": {
-                  "en": "Strict",
-                  "no": "Streng"
-                }
-              },
-              {
-                "id": "solar",
-                "label": {
-                  "en": "Solar-friendly",
-                  "no": "Sol-vennlig"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    ],
-    "actions": [
-      {
-        "id": "enable_guard",
-        "title": {
-          "en": "Enable Power Guard",
-          "no": "Aktiver Power Guard"
-        }
-      },
-      {
-        "id": "disable_guard",
-        "title": {
-          "en": "Disable Power Guard",
-          "no": "Deaktiver Power Guard"
-        }
-      },
-      {
-        "id": "set_profile",
-        "title": {
-          "en": "Set profile",
-          "no": "Sett profil"
-        },
-        "titleFormatted": {
-          "en": "Set profile to [[profile]]",
-          "no": "Sett profil til [[profile]]"
-        },
-        "args": [
-          {
-            "name": "profile",
-            "type": "dropdown",
-            "title": {
-              "en": "Profile",
-              "no": "Profil"
-            },
-            "values": [
-              {
-                "id": "normal",
-                "label": {
-                  "en": "Normal",
-                  "no": "Normal"
-                }
-              },
-              {
-                "id": "strict",
-                "label": {
-                  "en": "Strict",
-                  "no": "Streng"
-                }
-              },
-              {
-                "id": "solar",
-                "label": {
-                  "en": "Solar-friendly",
-                  "no": "Sol-vennlig"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "id": "reset_statistics",
-        "title": {
-          "en": "Reset statistics",
-          "no": "Nullstill statistikk"
-        }
-      }
-    ]
   }
 }

@@ -10,7 +10,7 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 
 | Type | Supported |
 |------|-----------|
-| **EV Charger** | Easee Home, Easee Pro, Zaptec Go/Go2/Home/Pro, Enua Charge E |
+| **EV Charger** | Easee Home, Easee Pro, Zaptec Go/Go2/Home/Pro, Enua Charge E in test|
 | **Power Meter** | Any HAN meter with `measure_power` — Frient, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer, and more |
 | **Thermostats** | Any brand — auto-detects capabilities (Futurehome, Z-Wave, Zigbee, etc.) |
 | **Water Heaters** | Hoiax Connected 300/200 — stepped power reduction |

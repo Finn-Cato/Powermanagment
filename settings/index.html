@@ -8,32 +8,46 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
+      --brand: #e8441a;
+      --brand-soft: rgba(232,68,26,.08);
+      --orange: #f97316;
+      --green: #22c55e;
+      --blue: #3b82f6;
       --text-primary: #1d1d1f;
       --text-muted: #636366;
       --text-secondary: #3a3a3c;
       --text-tertiary: #aaa;
-      --bg-body: #f5f5f7;
+      --bg-body: #eef2f8;
       --bg-card: #fff;
       --bg-surface: #f5f5f7;
-      --bg-tab-bar: #f2f2f7;
+      --bg-tab-bar: #fff;
+      --bg-input: #fff;
       --border-color: #e5e5ea;
-      --border-light: #f0f0f0;
+      --border-light: #f0f0f5;
       --input-border: #d1d1d6;
       --divider-color: #ebebeb;
+      --shadow-sm: 0 1px 4px rgba(0,0,0,.07);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.1);
       --shadow: rgba(0,0,0,.08);
       --toggle-off: #ccc;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --radius-xs: 6px;
     }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: var(--bg-body); color: var(--text-primary); }
     .container { max-width: 760px; margin: 0 auto; padding: 12px 8px 40px; }
-    h1  { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #e8441a; }
-    .header-top { position: relative; display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
-    .header-title { flex: 1; }
-    .subtitle { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+    h1  { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #fff; }
+    .header-top { position: relative; display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: var(--radius); padding: 18px 20px 14px; overflow: hidden; }
+    .header-top::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at 80% 50%, rgba(232,68,26,.22) 0%, transparent 60%); pointer-events:none; }
+    .header-title { flex: 1; position: relative; z-index: 1; }
+    .header-top h1 span { color: var(--brand); }
+    .subtitle { font-size: 13px; color: rgba(255,255,255,.55); margin-bottom: 0; }
     #guard-toggle { width: 30px; height: 18px; }
     #guard-toggle .slider { border-radius: 18px; }
     #guard-toggle .slider:before { height: 14px; width: 14px; }
-    h2  { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
-    .card { background: var(--bg-card); border-radius: 12px; padding: 12px 10px; margin-bottom: 12px; box-shadow: 0 1px 4px var(--shadow); }
+    h2  { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    h2::before { content:''; width:3px; height:16px; border-radius:2px; background:var(--brand); flex-shrink:0; }
+    .card { background: var(--bg-card); border-radius: var(--radius); padding: 16px 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light); }
     .row { display: flex; align-items: flex-start; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-light); gap: 12px; }
     .row:last-child { border-bottom: none; padding-bottom: 0; }
     .row:first-child { padding-top: 0; }
@@ -52,9 +66,9 @@
     .btn-secondary { background: var(--border-color); color: var(--text-primary); }
     .btn-small     { padding: 5px 12px; font-size: 12px; }
     .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .stat-box { background: var(--bg-surface); border-radius: 10px; padding: 12px 14px; }
+    .stat-box { background: var(--bg-surface); border-radius: var(--radius-sm); padding: 12px 14px; border-left: 3px solid var(--brand); }
     .stat-box .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
-    .stat-box .stat-value { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+    .stat-box .stat-value { font-size: 22px; font-weight: 800; color: var(--text-primary); }
     .stat-box .stat-sub   { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
     .advanced-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: var(--text-muted); margin-top: 4px; user-select: none; }
     .advanced-toggle:hover { color: var(--text-primary); }
@@ -63,12 +77,12 @@
     .log-time  { color: var(--text-tertiary); margin-right: 6px; }
     .save-row  { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
     /* Tabs */
-    .tab-bar { display: flex; flex-wrap: nowrap; gap: 0; margin-bottom: 16px; padding: 3px; background: var(--bg-tab-bar); border-radius: 10px; }
-    .tab-btn { background: none; border: none; padding: 8px 4px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-radius: 8px; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; flex: 1 1 0; justify-content: center; min-width: 0; -webkit-tap-highlight-color: transparent; }
+    .tab-bar { display: flex; flex-wrap: nowrap; gap: 0; margin-bottom: 16px; padding: 0 4px; background: var(--bg-tab-bar); border-radius: var(--radius); box-shadow: var(--shadow-sm); border: 1px solid var(--border-light); }
+    .tab-btn { background: none; border: none; border-bottom: 2.5px solid transparent; padding: 10px 4px 7px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; flex: 1 1 0; justify-content: center; min-width: 0; -webkit-tap-highlight-color: transparent; }
     .tab-btn .tab-icon { font-size: 18px; line-height: 1; }
     .tab-btn .tab-label { font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
-    .tab-btn.active { color: var(--text-primary); background: var(--bg-card); font-weight: 600; box-shadow: 0 1px 3px var(--shadow); }
-    .tab-btn:hover:not(.active) { color: var(--text-primary); background: rgba(255,255,255,0.5); }
+    .tab-btn.active { color: var(--brand); background: var(--brand-soft); border-bottom-color: var(--brand); font-weight: 700; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+    .tab-btn:hover:not(.active) { color: var(--text-primary); background: rgba(0,0,0,.03); }
     /* Device list */
     .dev-list { list-style: none; padding-left: 0; margin-left: 0; }
     .dev-list li { display: flex; align-items: center; gap: 2px; padding: 2px 4px 2px 2px; border-radius: 4px; margin-bottom: 0; }
@@ -129,32 +143,52 @@
       input[type=number] { width: 90px; }
     }
     /* ── Heater Row Styles ──────────────────────────────────────────────── */
-    .heater-list { display: flex; flex-direction: column; gap: 6px; }
-    .heater-row {
-      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-      background: var(--bg-surface); border-radius: 10px; border: 1px solid var(--border-light);
-    }
-    .heater-row.is-on { border: 2px solid #ff9500; padding: 7px 9px; }
+    .heater-list { display: flex; flex-direction: column; padding-left: 14px; }
+    .heater-row { display:flex; align-items:center; gap:10px; padding:10px 0 10px 11px; border-bottom:1px solid var(--border-light); border-left:3px solid transparent; margin-left:-14px; transition:border-color .2s, background .2s; }
+    .heater-row:last-child { border-bottom: none; }
+    .heater-row.is-on { border-left-color:var(--orange); background:rgba(249,115,22,.04); border-radius:0 var(--radius-xs) var(--radius-xs) 0; }
+    .h-dot { width:7px; height:7px; border-radius:50%; background:var(--border-color); flex-shrink:0; transition:background .3s; }
+    .heater-row.is-on .h-dot { background:var(--orange); box-shadow:0 0 5px rgba(249,115,22,.5); }
     .h-info { flex: 1; min-width: 0; }
-    .h-name { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; word-break: break-word; }
+    .h-name { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; word-break: break-word; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
     .h-cur { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
     .h-cur b { color: var(--text-primary); font-weight: 600; }
     .h-controls { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-    .h-stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; height: 28px; background: var(--bg-card); }
-    .h-step-btn { width: 28px; height: 28px; border: none; background: transparent; color: var(--text-primary); font-size: 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
+    .h-stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; height: 26px; background: var(--bg-card); }
+    .h-step-btn { width: 26px; height: 26px; border: none; background: transparent; color: var(--text-primary); font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
     .h-step-btn:active { background: var(--border-color); }
-    .h-temp-val { min-width: 32px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-primary); border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); padding: 0 2px; }
-    .h-temp-val.is-dirty { color: #007AFF; }
-    .h-set-btn { padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 600; color: #fff; background: #007AFF; flex-shrink: 0; }
+    .h-temp-val { min-width: 32px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-primary); border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); padding: 0 2px; }
+    .h-temp-val.is-dirty { color: var(--blue); }
+    .h-set-btn { height: 16px; padding: 0 6px; border: none; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: 700; color: #fff; background: var(--blue); flex-shrink: 0; display: inline-flex; align-items: center; align-self: center; letter-spacing: 0.3px; }
     .h-set-btn:active { opacity: .7; }
-    .h-set-btn.is-hidden { display: none; }
     /* Slide toggle */
     .h-toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer; }
     .h-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-    .h-toggle .h-track { position: absolute; inset: 0; border-radius: 10px; background: #ccc; transition: background .25s; }
+    .h-toggle .h-track { position: absolute; inset: 0; border-radius: 10px; background: var(--toggle-off); transition: background .25s; }
     .h-toggle input:checked + .h-track { background: #34c759; }
     .h-toggle .h-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .25s; }
     .h-toggle input:checked ~ .h-thumb { transform: translateX(16px); }
+    /* Dark mode */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-body: #0f172a; --bg-card: #1e293b; --bg-surface: #162032;
+        --bg-tab-bar: #1e293b; --bg-input: #162032;
+        --border-color: #334155; --border-light: #253449; --input-border: #334155;
+        --divider-color: #253449;
+        --shadow: rgba(0,0,0,.3); --shadow-sm: 0 1px 4px rgba(0,0,0,.3); --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+        --text-primary: #f1f5f9; --text-secondary: #cbd5e1; --text-muted: #64748b; --text-tertiary: #475569;
+        --toggle-off: #334155; --brand-soft: rgba(232,68,26,.15);
+      }
+    }
+    .homey-dark-mode {
+      --bg-body: #0f172a; --bg-card: #1e293b; --bg-surface: #162032;
+      --bg-tab-bar: #1e293b; --bg-input: #162032;
+      --border-color: #334155; --border-light: #253449; --input-border: #334155;
+      --divider-color: #253449;
+      --shadow: rgba(0,0,0,.3); --shadow-sm: 0 1px 4px rgba(0,0,0,.3); --shadow-md: 0 4px 16px rgba(0,0,0,.4);
+      --text-primary: #f1f5f9; --text-secondary: #cbd5e1; --text-muted: #64748b; --text-tertiary: #475569;
+      --toggle-off: #334155; --brand-soft: rgba(232,68,26,.15);
+    }
   </style>
 </head>
 <body>
@@ -162,7 +196,7 @@
 
 <div class="header-top">
   <div class="header-title">
-    <h1>Power Guard</h1>
+    <h1>Power <span>Guard</span></h1>
     <p class="subtitle">Automatically turns off devices before you exceed your power limit.</p>
   </div>
 </div>
@@ -338,6 +372,24 @@
         <button class="btn-primary"   onclick="saveAll()">Save settings</button>
       </div>
 
+      <div class="card" style="margin-top:16px;">
+        <h2>Power Correction Table</h2>
+        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">Some Zigbee devices report power values 10× too high due to a firmware decimal error. Map a <b>Zigbee product ID</b> to a <b>multiplier</b> so PowerGuard corrects the reading before using it. Example: product ID <code>4512760</code> (Namron dimmer) with multiplier <code>0.1</code> divides by 10.</p>
+        <table id="corrections-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead><tr>
+            <th style="text-align:left;padding:4px 8px;color:var(--text-muted);font-weight:500;">Zigbee Product ID</th>
+            <th style="text-align:left;padding:4px 8px;color:var(--text-muted);font-weight:500;">Multiplier</th>
+            <th style="width:32px;"></th>
+          </tr></thead>
+          <tbody id="corrections-body"></tbody>
+        </table>
+        <div style="margin-top:10px;display:flex;gap:8px;">
+          <button class="btn-secondary" onclick="addCorrectionRow()" style="font-size:12px;padding:5px 12px;">+ Add row</button>
+          <button class="btn-primary" onclick="saveCorrections()" style="font-size:12px;padding:5px 12px;">Save corrections</button>
+        </div>
+        <div id="corrections-status" style="margin-top:6px;font-size:12px;"></div>
+      </div>
+
     </div><!-- /#tab-settings -->
 
     <!-- ── System tab ────────────────────────────────────────────────────── -->
@@ -379,10 +431,14 @@
             <span class="hint">Select your electrical system type. This affects power calculations for EV charger control.</span>
           </div>
           <div class="control">
-            <select id="s-voltageSystem">
-              <option value="230v-1phase">230V Single-phase (Home)</option>
-              <option value="400v-3phase">400V Three-phase (Industrial)</option>
-            </select>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+              <select id="s-voltageSystem">
+                <option value="auto">✨ Auto-detect from HAN sensor</option>
+                <option value="230v-1phase">230V Single-phase</option>
+                <option value="400v-3phase">400V Three-phase</option>
+              </select>
+              <div id="voltage-detected-badge" style="font-size:11px; color:var(--text-muted);"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -391,8 +447,8 @@
         <h2>Managed Chargers</h2>
         <div class="row" style="margin-bottom:12px;">
           <div class="label-group">
-            <label>Main circuit breaker</label>
-            <span class="hint">Max amperage for the charger circuit. Used to cap individual charger limits.</span>
+            <label>Circuit breaker (total)</label>
+            <span class="hint">Physical fuse for the whole EV circuit. The per-charger Max Current below cannot exceed this.</span>
           </div>
           <div class="control">
             <input type="number" id="s-mainCircuitA" min="10" max="100" step="1" value="25">
@@ -404,12 +460,16 @@
         </div>
 
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
-          <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px;">
+          <button class="btn-primary" onclick="syncChargerLimitsFromDevices()" style="font-size:12px; padding:6px 14px;">
+            📥 Sync from charger
+          </button>
+          <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px; margin-left:6px;">
             🔌 Test charger control
           </button>
           <button class="btn-secondary" onclick="showDiagnostics()" style="font-size:12px; padding:6px 14px; margin-left:6px;">
             🔍 Diagnostics
           </button>
+          <div id="charger-sync-msg" style="margin-top:6px; font-size:11px; color:var(--text-muted); display:none;"></div>
           <div id="charger-test-result" style="margin-top:8px; font-size:12px; display:none;"></div>
         </div>
       </div>
@@ -420,14 +480,15 @@
       </div>
 
     </div><!-- /#tab-system -->
-
-    <!-- ── Consumption tab ───────────────────────────────────────────────── -->
     <div id="tab-consumption" style="display:none">
 
       <div class="card">
         <h2>Power Consumption by Device</h2>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5;">
+          📊 <strong>Read-only monitoring.</strong> This tab shows live power readings from all your Homey devices. It has no effect on the system — nothing here controls or changes any device.
+        </div>
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:500">
-          Device type filters
+          Filter by device type
         </div>
         <div id="device-type-filters" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;">
           <!-- Filters will be populated here -->
@@ -541,6 +602,17 @@
         </div>
       </div>
 
+      <!-- Device Firmware Info -->
+      <div class="card">
+        <h2>Device Firmware Info</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin:0 0 10px 0;">Search devices by name or driver to read their firmware version from Homey.</p>
+        <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
+          <input type="text" id="firmware-search" placeholder="e.g. namron, dimmer…" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-surface); color:var(--text-primary);" onkeydown="if(event.key==='Enter') loadFirmwareInfo()">
+          <button class="btn-secondary" onclick="loadFirmwareInfo()" style="font-size:12px; padding:6px 14px;">Search</button>
+        </div>
+        <div id="firmware-results" style="font-size:12px; color:var(--text-muted);">Enter a search term above and click Search.</div>
+      </div>
+
     </div><!-- /#tab-log -->
 
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
@@ -589,6 +661,20 @@
 </div>
 
 <script>
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 1 — CORE INFRASTRUCTURE                              ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. Dark mode       — CSS-only (no JS needed)
+  //  b. dbg()           — debug logging helper
+  //  c. State vars      — priorityList, availableDevices, _last* caches
+  //  d. hApi()          — Homey API promise wrapper
+  //  e. savePriorityList() — POST priority list back to app
+  //  f. UI helpers      — showError, showToast, escHtml, showTab,
+  //                       toggleAdvanced, showMain, showConnectCard
+  //
+  //  ✅ STABLE — core plumbing, rarely needs touching
+  // ══════════════════════════════════════════════════════════════════
+
   // ── Dark mode ──────────────────────────────────────────────────────────────
   // All dark mode is handled in CSS only:
   //   1. @media (prefers-color-scheme: dark) — OS-level dark mode
@@ -605,7 +691,9 @@
   var _H              = null;
   var priorityList    = [];
   var availableDevices = [];
+  var _detectedVoltageSystem = '230v-1phase';  // filled from API on load
   var _lastChargerStatus = {};  // deviceId → { status, statusLabel, currentA, powerW }
+  var _lastChargerLimits = {};   // deviceId → { maxCurrent (ID47), dynamic_charger_current (ID48), circuit_current, mitigated, allValues }
   var _mitigatedDeviceIds = {};  // deviceId → true when Power Guard is controlling a device
   var _touchDragIdx   = null;
   var _touchTargetIdx = null;
@@ -674,6 +762,7 @@
       loadAppLog();
     } else {
       loadAll();
+      loadCorrections();
     }
   }
 
@@ -686,6 +775,15 @@
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('connect-card').style.display     = 'block';
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 2 — STATUS DASHBOARD                                 ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. updateStatusUI()  — renders live power / mitigation panel
+  //                         (wattage, device states, over-limit badge)
+  //
+  //  🔵 ACTIVE — updated every poll cycle
+  // ══════════════════════════════════════════════════════════════════
 
   // ── Status UI ──────────────────────────────────────────────────────────────
   var _lastPowerW = null;
@@ -881,13 +979,27 @@
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 3 — SETTINGS (Load / Save / Apply)                   ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. applySettings()       — push API data into form fields
+  //  b. setNum() / setRange() — form field helpers
+  //  c. updatePhaseConfigVisibility() — show/hide 3-phase options
+  //  d. loadAll()             — fetch all settings + charger status
+  //  e. collectSettings()     — read form → settings object
+  //  f. saveAll()             — persist settings + push circuit limits
+  //
+  //  ✅ STABLE
+  // ══════════════════════════════════════════════════════════════════
+
   // ── Apply settings to form ─────────────────────────────────────────────────
   function applySettings(s) {
     if (!s) return;
     document.getElementById('s-enabled').checked = s.enabled !== false;
     document.getElementById('s-enabled-toggle').checked = s.enabled !== false;
     document.getElementById('s-profile').value   = s.profile || 'normal';
-    document.getElementById('s-voltageSystem').value = s.voltageSystem || '230v-1phase';
+    document.getElementById('s-voltageSystem').value = s.voltageSystem || 'auto';
+    _updateVoltageDetectedBadge();
     setNum('s-powerLimitW',     s.powerLimitW,    10000);
     setNum('s-cooldownSeconds', s.cooldownSeconds, 30);
     setNum('s-phase1LimitA',    s.phase1LimitA,   0);
@@ -918,6 +1030,18 @@
     renderAllDevices();  // Refresh device list to update power calculations
     renderChargerDetails();  // Update charger power details based on voltage system
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 4 — HAN / POWER METER                                ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. loadMeterDevices()    — populate meter device dropdown
+  //  b. changeMeterDevice()   — switch active HAN meter
+  //  c. updateMeterStatus()   — live meter connection badge
+  //  d. loadHanDiagnostic()   — full HAN diagnostic JSON panel
+  //  e. copyHanDiagnostic()   — copy diagnostic to clipboard
+  //
+  //  ✅ STABLE — shown in System tab, HAN Meter Diagnostics card
+  // ══════════════════════════════════════════════════════════════════
 
   // ── Meter device selector ──────────────────────────────────────────────────
   function loadMeterDevices() {
@@ -1080,6 +1204,26 @@
       });
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 5 — EV CHARGERS                                      ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. renderChargerDetails()          — charger table in System tab
+  //                                       (Max Current, phases, power)
+  //  b. updateChargerCircuitFromSystem() — inline edit Max Current field
+  //  c. syncChargerLimitsFromDevices()  — read Ladergrense (ID47) from
+  //                                       live device / pre-mitigation
+  //                                       snapshot
+  //  d. updateChargerPhases()           — 1-phase / 3-phase selector
+  //  e. testChargerControl()            — send a test current command
+  //  f. showDiagnostics()               — full charger diagnostics panel
+  //  g. getVoltageConverter()           — A → W converter helper
+  //  h. getMaxAmpFromWatt()             — W → A helper
+  //
+  //  ⚡ ACTIVE — ID47 = permanent Ladergrense, ID48 = Midlertidig
+  //             PowerGuard throttles via ID48 (volatile) to avoid
+  //             wearing FLASH. ID47 is read-only for Max Current display.
+  // ══════════════════════════════════════════════════════════════════
+
   /**
    * Render charger-specific power details based on voltage system.
    */
@@ -1097,17 +1241,17 @@
       return;
     }
 
-    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    var voltageSystem = _resolveVoltageSystem();
     var mainCircuitA = parseInt(document.getElementById('s-mainCircuitA').value) || 25;
-    var voltageLabel = voltageSystem === '230v-1phase' ? '230V' : '400V';
-    var voltageMultiplier = voltageSystem === '230v-1phase' ? 230 : 692;
+    var voltageLabel = voltageSystem === '400v-3phase' ? '400V' : '230V';
+    var voltageMultiplier = voltageSystem === '400v-3phase' ? 692 : 230;
 
     var html = '<table style="width:100%; border-collapse:collapse;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
             '<th style="text-align:left; padding:8px 4px;">Charger</th>' +
             '<th style="text-align:center; padding:8px 4px;">Status</th>' +
             '<th style="text-align:center; padding:8px 4px;">Phases</th>' +
-            '<th style="text-align:center; padding:8px 4px;">Circuit Limit</th>' +
+            '<th style="text-align:center; padding:8px 4px;">Max Current</th>' +
             '<th style="text-align:center; padding:8px 4px;">Max Power</th>' +
             '</tr></thead><tbody>';
 
@@ -1176,8 +1320,8 @@
 
     html += '</tbody></table>';
     html += '<div style="font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;">' +
-            '💡 Max Power per charger is capped by the main circuit breaker (' + mainCircuitA + 'A). ' +
-            'Actual current will be reduced during overload mitigation.' +
+            '💡 <b>Max Current</b> = Easee Ladergrense (permanent charger limit). ' +
+            'Capped by circuit breaker (' + mainCircuitA + 'A). Actual current is reduced further during overload mitigation.' +
             '</div>';
 
     // Debug: show raw charger_status values from the Easee API
@@ -1185,12 +1329,17 @@
     html += '<div style="font-weight:600; margin-bottom:4px;">🔍 Raw charger status (debug)</div>';
     chargers.forEach(function(charger) {
       var live = _lastChargerStatus[charger.deviceId] || {};
+      var lim  = _lastChargerLimits[charger.deviceId];
       html += '<div>' + escHtml(charger.name) + ': ' +
               'charger_status=' + (live.chargerStatus !== undefined && live.chargerStatus !== null ? live.chargerStatus : 'N/A') +
               ' | status=' + (live.status || '?') +
               ' | label=' + (live.statusLabel || '?') +
               ' | power=' + (live.powerW || 0) + 'W' +
               ' | offered=' + (live.offeredCurrent != null ? live.offeredCurrent + 'A' : 'N/A') +
+              ' | <b>ID47 Ladergrense=' + (lim && lim.maxCurrent != null ? lim.maxCurrent + 'A' : 'N/A') + (lim && lim.mitigated ? ' ⚡snapshot' : '') + '</b>' +
+              (lim && lim.dynamic_charger_current != null ? ' | ID48 Midlertidig=' + lim.dynamic_charger_current + 'A' : '') +
+              (lim && lim.circuit_current         != null ? ' | circuit='          + lim.circuit_current         + 'A' : '') +
+              (lim && lim.allValues && Object.keys(lim.allValues).length ? ' | <i>caps: ' + Object.entries(lim.allValues).map(function(kv){return kv[0]+'='+kv[1];}).join(', ') + '</i>' : '') +
               ' | confirmed=' + (live.confirmed ? '\u2713' : '\u2717') +
               ' | reliability=' + (live.reliability != null ? live.reliability + '%' : '?') +
               ' | isCharging=' + (live.isCharging !== undefined ? live.isCharging : '?') +
@@ -1218,6 +1367,71 @@
         .then(function(data) { dbg('Circuit limits pushed: ' + JSON.stringify(data)); })
         .catch(function(err) { dbg('Circuit limit push error: ' + (err.message || err)); });
     }
+  }
+
+  /**
+   * Read live target_charger_current from each configured charger device and
+   * update the in-memory priorityList + re-render so the UI shows the real value.
+   * Called automatically on page load and by the "Read from charger" button.
+   */
+  function syncChargerLimitsFromDevices(silent) {
+    var msgEl = document.getElementById('charger-sync-msg');
+    if (!silent && msgEl) { msgEl.style.display = 'block'; msgEl.textContent = '⏳ Reading from charger…'; }
+    hApi('GET', '/get-charger-limits', null)
+      .then(function(limits) {
+        if (!limits) return;
+        var updated = [];
+        priorityList.forEach(function(entry) {
+          var live = limits[entry.deviceId];
+          if (!live) return;
+          // target_charger_current = ID47 (permanent Ladergrense). Server returns pre-mitigation value when throttled.
+          // target_charger_current (Homey) = ID47 maxChargerCurrent = permanent Ladergrense
+          // Server returns the pre-mitigation snapshot when the charger is actively throttled,
+          // so this value is always the user-configured permanent max (e.g. 14A), not the
+          // current throttled value (e.g. 7A).
+          var maxCurrent = (live.target_charger_current != null && live.target_charger_current > 0) ? Math.round(live.target_charger_current) : null;
+          var liveA = maxCurrent;  // Max Current = Ladergrense (ID47), derived from snapshot when throttled
+          // Store raw values for the debug display in renderChargerDetails
+          _lastChargerLimits[entry.deviceId] = {
+            maxCurrent:              maxCurrent,    // ID47  permanent Ladergrense (pre-mitigation snapshot when throttled)
+            mitigated:               !!live.mitigated,
+            dynamic_charger_current: live.dynamic_charger_current != null ? Math.round(live.dynamic_charger_current) : null,  // ID48 volatile
+            circuit_current:         (live.target_circuit_current != null && live.target_circuit_current > 0) ? Math.round(live.target_circuit_current) : null,
+            allValues:               live.allValues || {},
+          };
+          // Never overwrite circuitLimitA while Power Guard is actively throttling the charger
+          if (liveA != null && entry.circuitLimitA !== liveA && !live.mitigated) {
+            updated.push(entry.name + ': ' + (entry.circuitLimitA || 32) + 'A → ' + liveA + 'A');
+            entry.circuitLimitA = liveA;
+          } else if (!silent && liveA != null) {
+            dbg(entry.name + ': Max Current (ID47)=' + liveA + 'A' + (live.mitigated ? ' (pre-mitigation snapshot)' : ' (live)') + ' — already set');
+          }
+        });
+        if (updated.length) {
+          renderChargerDetails();
+          savePriorityList();  // Persist the updated circuitLimitA values
+          if (msgEl) { msgEl.style.display = 'block'; msgEl.textContent = '✅ Synced: ' + updated.join(', '); }
+          dbg('Charger limits synced from devices: ' + updated.join(', '));
+        } else {
+          renderChargerDetails();  // Still refresh to show ID47/ID48 values in debug row
+          if (!silent && msgEl) {
+            // Build a summary of what the charger actually reported
+            var summary = [];
+            priorityList.forEach(function(e) {
+              var lim = _lastChargerLimits[e.deviceId];
+              if (lim) summary.push(e.name + ': ID47=' + (lim.maxCurrent != null ? lim.maxCurrent + 'A' : 'N/A') +
+                (lim.mitigated ? ' (snapshot)' : ' (live)'));
+            });
+            msgEl.style.display = 'block';
+            msgEl.textContent = '✅ Already in sync. ' + summary.join(' | ');
+          }
+        }
+        if (msgEl) setTimeout(function() { msgEl.style.display = 'none'; }, 6000);
+      })
+      .catch(function(err) {
+        dbg('getChargerLimits error: ' + (err.message || err));
+        if (!silent && msgEl) { msgEl.style.display = 'block'; msgEl.textContent = '⚠ Could not read from charger: ' + (err.message || err); }
+      });
   }
 
   function updateChargerPhases(deviceId, val) {
@@ -1311,8 +1525,28 @@
       });
   }
 
+  // Returns the active voltageSystem string, resolving 'auto' via server detection
+  function _resolveVoltageSystem() {
+    var selected = document.getElementById('s-voltageSystem').value;
+    return (selected === 'auto') ? _detectedVoltageSystem : selected;
+  }
+
+  // Shows a badge describing what was detected (or nothing when manually overridden)
+  function _updateVoltageDetectedBadge() {
+    var badge = document.getElementById('voltage-detected-badge');
+    if (!badge) return;
+    var selected = document.getElementById('s-voltageSystem').value;
+    if (selected === 'auto') {
+      var label = _detectedVoltageSystem === '400v-3phase' ? '3-phase (400V)' : '1-phase (230V)';
+      badge.textContent = 'ℹ️ Auto-detected: ' + label;
+      badge.style.color = 'var(--color-success, #34c759)';
+    } else {
+      badge.textContent = '';
+    }
+  }
+
   function getVoltageConverter() {
-    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    var voltageSystem = _resolveVoltageSystem();
     // Returns a function that converts amperage to watts
     if (voltageSystem === '400v-3phase') {
       // 400V 3-phase: P = √3 × 400V × A = 692 × A (per phase)
@@ -1324,7 +1558,7 @@
   }
 
   function getMaxAmpFromWatt(wattW) {
-    var voltageSystem = document.getElementById('s-voltageSystem').value;
+    var voltageSystem = _resolveVoltageSystem();
     if (voltageSystem === '400v-3phase') {
       return Math.round(wattW / 692);
     } else {
@@ -1351,12 +1585,14 @@
           if (settings[k] == null) settings[k] = defs[k];
         });
         dbg('Settings loaded: ' + JSON.stringify(settings).substring(0, 200));
+        _detectedVoltageSystem = data.detectedVoltageSystem || '230v-1phase';
         applySettings(settings);
         updateStatusUI(status);
         availableDevices = Array.isArray(devices) ? devices : [];
         _savedMeterDeviceId = settings.selectedMeterDeviceId || 'auto';
         renderAllDevices();
         renderChargerDetails();  // Refresh charger details after loading
+        syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
         loadMeterDevices();  // Load meter device dropdown
         loadHanDiagnostic();  // Load HAN diagnostic info
         dbg('Load complete: ' + availableDevices.length + ' devices');
@@ -1403,13 +1639,24 @@
       spikeMultiplier: getFloatValue('s-spikeMultiplier', 2.0),
       hysteresisCount: getNumValue('s-hysteresisCount', 3),
       cooldownSeconds: getNumValue('s-cooldownSeconds', 30),
-      voltageSystem:   getStringValue('s-voltageSystem', '230v-1phase'),
+      voltageSystem:   getStringValue('s-voltageSystem', 'auto'),
       phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
       mainCircuitA:    getNumValue('s-mainCircuitA', 25),
       classFilters:    _classFilters,
       priorityList:    priorityList
     };
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 6 — POWER CONSUMPTION                                ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. renumberVisibleDevices() — re-index filtered device list
+  //  b. toggleClassFilter()      — device class filter chips (light,
+  //                                socket, etc.)
+  //  c. loadConsumption()        — fetch + render Power tab devices
+  //
+  //  🔵 ACTIVE — Power tab
+  // ══════════════════════════════════════════════════════════════════
 
   // ── Load Power Consumption ─────────────────────────────────────────────────
   var _consumptionRefresh = null;
@@ -1517,6 +1764,19 @@
       });
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 7 — HEATERS (Floor / Thermostat)                     ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. loadFloorHeaters()  — fetch + render Heaters tab
+  //  b. controlHeater()     — on / off / heat mode
+  //  c. stepTemp()          — +/- temperature buttons
+  //  d. setHeaterTemp()     — apply typed temperature value
+  //
+  //  🔵 ACTIVE — Heaters tab
+  //  ⚠  Adax: uses target_temperature + thermostat_mode  
+  //           (thermostat_mode must be set to 'heat' before setting temp)
+  // ══════════════════════════════════════════════════════════════════
+
   // ── Load Floor Heater Connections ─────────────────────────────────────────
   var _heaterRefreshTimer = null;
 
@@ -1539,21 +1799,40 @@
 
         list.innerHTML = heaters.map(function(h) {
           var isOn = !!h.isOn;
-          var drawing = h.currentPowerW != null && Number(h.currentPowerW) > 0;
+          // Show as "drawing" (orange highlight) if we have positive wattage,
+          // OR if the device is on but has no power sensor (fall back to onoff state).
+          var hasPowerData = h.currentPowerW != null;
+          var drawing = hasPowerData ? Number(h.currentPowerW) > 0 : isOn;
           var cur = h.currentMeasure != null ? Number(h.currentMeasure).toFixed(1) + '°' : '–';
           var id  = h.deviceId;
           var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
           var chk = isOn ? ' checked' : '';
           var isDirty = _heaterDirty.hasOwnProperty(id);
           var displayVal = isDirty ? Number(_heaterDirty[id]).toFixed(1) : tgtVal;
+          var modeLabel = '';
+          if (h.thermostatMode) {
+            var isHeat = h.thermostatMode === 'heat';
+            modeLabel = '<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:' + (isHeat ? 'rgba(249,115,22,.15)' : 'rgba(0,0,0,.06)') + ';color:' + (isHeat ? 'var(--orange)' : 'var(--text-muted)') + ';letter-spacing:.03em;white-space:nowrap;">' + escHtml(h.thermostatMode) + '</span>';
+          }
+          var activeLabel = '';
+          if (h.mitigated) {
+            var stepText = h.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
+            activeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
+          }
+          // Show wattage if available, otherwise show "● ON" when device is on but has no power sensor
+          var pwrLabel = (hasPowerData && Number(h.currentPowerW) > 5)
+            ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(h.currentPowerW) + 'W</span>'
+            : (!hasPowerData && isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
+          var arrow = h.hasTargetTemp ? ' → ' : '';
 
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
+            '<span class="h-dot"></span>' +
             '<div class="h-info">' +
-              '<div class="h-name">' + escHtml(h.name) + '</div>' +
-              '<div class="h-cur">Now <b>' + cur + '</b>' + (h.hasTargetTemp ? ' · Target ' + tgtVal + '°' : '') + '</div>' +
+              '<div class="h-name">' + escHtml(h.name) + modeLabel + activeLabel + '</div>' +
+              '<div class="h-cur">Now <b>' + cur + '</b>' + (h.hasTargetTemp ? arrow + tgtVal + '°' : '') + pwrLabel + '</div>' +
             '</div>' +
             '<div class="h-controls">' +
-              (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn' + (isDirty ? '' : ' is-hidden') + '" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')">Set</button>' : '') +
+              (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')" title="Apply temperature">Set</button>' : '') +
               (h.hasOnOff ? '<label class="h-toggle"><input type="checkbox"' + chk + ' onchange="controlHeater(\'' + id + '\', this.checked?\'on\':\'off\')" /><span class="h-track"></span><span class="h-thumb"></span></label>' : '') +
             '</div>' +
           '</div>';
@@ -1606,8 +1885,6 @@
     _heaterDirty[deviceId] = val;
     el.textContent = val.toFixed(1);
     el.classList.add('is-dirty');
-    var setBtn = document.getElementById('set-' + deviceId);
-    if (setBtn) setBtn.classList.remove('is-hidden');
   }
 
   function setHeaterTemp(deviceId) {
@@ -1668,6 +1945,24 @@
         showError('Save failed: ' + (err.message || err));
       });
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 8 — DEVICES TAB                                      ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. selOpt()                — <select> option helper
+  //  b. renderAllDevices()      — full managed + unmanaged device list
+  //  c. buildManagedRow()       — row for a managed priority-list device
+  //  d. buildUnmanagedRow()     — row for an available-but-not-added device
+  //  e. toggleDevice()          — add / remove from priority list
+  //  f. updateDeviceAction()    — change action dropdown (dim, target_temp…)
+  //  g. updateDeviceCircuitLimit() — inline circuit limit edit
+  //  h. reorderManaged()        — drag-and-drop reorder
+  //  i. updateEnabledSync() / syncEnabledCheckbox() — master enable toggle
+  //  j. pressButton() / moveDevice() — keyboard reorder
+  //  k. onTouchDragStart/Move/End — touch drag handlers
+  //
+  //  🔵 ACTIVE — Devices tab
+  // ══════════════════════════════════════════════════════════════════
 
   // ── Devices tab rendering ──────────────────────────────────────────────────
   function selOpt(cur, val) { return cur === val ? ' selected' : ''; }
@@ -1902,6 +2197,16 @@
     _touchDragIdx = null; _touchTargetIdx = null; _touchDragLi = null;
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 9 — CACHE & DEVICE DISCOVERY                         ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. showCacheStatus()       — display cache age and device count
+  //  b. refreshDeviceCache()    — force full re-scan of Homey devices
+  //  c. startCacheStatusPolling() — auto-refresh cache badge
+  //
+  //  ✅ STABLE
+  // ══════════════════════════════════════════════════════════════════
+
   // ── Cache Status & Refresh ─────────────────────────────────────────────────
   function showCacheStatus() {
     var loadingEl = document.getElementById('cache-loading');
@@ -1974,6 +2279,17 @@
     document.getElementById('v-hysteresisCount').textContent = this.value;
   });
 
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 10 — ENTRY POINT                                      ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. Range label updaters  — sync <input type=range> display values
+  //  b. onHomeyReady()        — Homey SDK calls this on page load;
+  //                             bootstraps auth, loads all data,
+  //                             starts polling
+  //
+  //  ✅ STABLE — only edit if Homey SDK init flow changes
+  // ══════════════════════════════════════════════════════════════════
+
   // ── Entry point ────────────────────────────────────────────────────────────
   function onHomeyReady(Homey) {
     _H = Homey;
@@ -1986,8 +2302,9 @@
     var voltageSelect = document.getElementById('s-voltageSystem');
     if (voltageSelect) {
       voltageSelect.addEventListener('change', function() {
+        _updateVoltageDetectedBadge();
         updatePhaseConfigVisibility();
-        savePriorityList();
+        saveAll();
       });
     }
 
@@ -1995,7 +2312,7 @@
     if (mainCircuitInput) {
       mainCircuitInput.addEventListener('change', function() {
         renderChargerDetails();
-        savePriorityList();
+        saveAll();
       });
     }
 
@@ -2016,11 +2333,14 @@
           if (settings[k] == null) settings[k] = defs[k];
         });
 
+        _detectedVoltageSystem = data.detectedVoltageSystem || '230v-1phase';
         applySettings(settings);
         updateStatusUI(data.status || {});
         availableDevices = Array.isArray(data.devices) ? data.devices : [];
         renderAllDevices();
         renderChargerDetails();  // Initial render of charger power details
+        syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
+        loadCorrections();  // Load power correction table
         dbg('Initial load: ' + availableDevices.length + ' devices');
 
         // Immediately update cache status bar since devices are loaded
@@ -2091,6 +2411,22 @@
     }, 15000);
   }
 
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION 11 — LOG TAB                                          ██
+  // ══════════════════════════════════════════════════════════════════
+  //  a. loadAppLog()          — fetch log entries from app
+  //  b. filterAppLog()        — filter by category (mitigation, charger…)
+  //  c. renderAppLogEntries() — HTML render of log list
+  //  d. renderHanSummary()    — HAN meter section of log
+  //  e. renderMitigationScan() — last mitigation scan results
+  //  f. renderSystemInfo()    — system / version section
+  //  g. copyAppLog()          — copy log to clipboard
+  //  h. fallbackCopy()        — clipboard fallback for older browsers
+  //  i. toggleLogAutoRefresh() — enable/disable auto-refresh
+  //
+  //  🔵 ACTIVE — Log tab
+  // ══════════════════════════════════════════════════════════════════
+
   // ─── Log Tab ──────────────────────────────────────────────────────────────
   var _appLogData = null;       // Full response from /app-log
   var _appLogFilter = 'all';    // Current filter: 'all' | 'han' | 'charger' | etc.
@@ -2104,6 +2440,84 @@
     cache: '#5ac8fa',
     system: '#8e8e93'
   };
+
+  function loadCorrections() {
+    hApi('GET', '/power-corrections', null)
+      .then(function(data) {
+        var tbody = document.getElementById('corrections-body');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        var entries = Object.entries(data || {});
+        if (entries.length === 0) entries = [['4512760', '0.1']];
+        entries.forEach(function(kv) { addCorrectionRow(kv[0], kv[1]); });
+      })
+      .catch(function(err) {
+        var el = document.getElementById('corrections-status');
+        if (el) el.innerHTML = '<span style="color:#ff3b30;">Load error: ' + escHtml(err.message) + '</span>';
+      });
+  }
+
+  function addCorrectionRow(productId, multiplier) {
+    var tbody = document.getElementById('corrections-body');
+    if (!tbody) return;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="padding:4px 8px;"><input type="text" placeholder="e.g. 4512760" value="' + escHtml(String(productId || '')) + '" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-surface);color:var(--text-primary);" class="corr-id"></td>' +
+      '<td style="padding:4px 8px;"><input type="number" placeholder="e.g. 0.1" value="' + escHtml(String(multiplier != null ? multiplier : '')) + '" step="any" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-surface);color:var(--text-primary);" class="corr-mult"></td>' +
+      '<td style="padding:4px;text-align:center;"><button onclick="this.closest(\'tr\').remove()" style="background:none;border:none;color:#ff3b30;font-size:16px;cursor:pointer;line-height:1;">×</button></td>';
+    tbody.appendChild(tr);
+  }
+
+  function saveCorrections() {
+    var rows = document.querySelectorAll('#corrections-body tr');
+    var corrections = {};
+    for (var i = 0; i < rows.length; i++) {
+      var id = (rows[i].querySelector('.corr-id').value || '').trim();
+      var mult = rows[i].querySelector('.corr-mult').value.trim();
+      if (!id || mult === '') continue;
+      var n = parseFloat(mult);
+      if (!isFinite(n)) { alert('Invalid multiplier on row ' + (i + 1)); return; }
+      corrections[id] = n;
+    }
+    var el = document.getElementById('corrections-status');
+    if (el) el.innerHTML = '<span style="color:var(--text-muted);">Saving…</span>';
+    hApi('POST', '/power-corrections', corrections)
+      .then(function() {
+        if (el) el.innerHTML = '<span style="color:#34c759;">\u2713 Saved</span>';
+        setTimeout(function() { if (el) el.innerHTML = ''; }, 3000);
+      })
+      .catch(function(err) {
+        if (el) el.innerHTML = '<span style="color:#ff3b30;">Error: ' + escHtml(err.message) + '</span>';
+      });
+  }
+
+  function loadFirmwareInfo() {
+    var search = (document.getElementById('firmware-search').value || '').trim();
+    var el = document.getElementById('firmware-results');
+    if (!search) { el.innerHTML = '<span style="color:#ff3b30;">Enter a search term first.</span>'; return; }
+    el.innerHTML = '<span style="color:var(--text-muted);">Loading…</span>';
+    hApi('GET', '/firmwareInfo?search=' + encodeURIComponent(search), null)
+      .then(function(data) {
+        if (!data || data.length === 0) {
+          el.innerHTML = '<span style="color:var(--text-muted);">No devices found matching "' + escHtml(search) + '".</span>';
+          return;
+        }
+        el.innerHTML = data.map(function(d) {
+          var settings = Object.entries(d.allSettings || {}).map(function(kv) {
+            return '<span style="color:var(--text-muted);">' + escHtml(kv[0]) + ':</span> ' + escHtml(String(kv[1]));
+          }).join('<br>');
+          return '<div style="padding:8px 0; border-bottom:1px solid var(--border-light);">' +
+            '<div style="font-weight:600; color:var(--text-primary);">' + escHtml(d.name) + '</div>' +
+            '<div style="color:var(--text-muted); font-size:11px; margin-top:2px;">Driver: ' + escHtml(d.driver) + ' &nbsp;|&nbsp; Class: ' + escHtml(d.class || '–') + '</div>' +
+            '<div style="margin-top:4px;"><b>Firmware:</b> ' + escHtml(String(d.firmware ?? '–')) + ' &nbsp; <b>HW:</b> ' + escHtml(String(d.hardwareVersion ?? '–')) + '</div>' +
+            (settings ? '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted);">All settings</summary><div style="font-size:11px;line-height:1.8;padding-top:4px;">' + settings + '</div></details>' : '') +
+            '</div>';
+        }).join('');
+      })
+      .catch(function(err) {
+        el.innerHTML = '<span style="color:#ff3b30;">Error: ' + escHtml(err.message) + '</span>';
+      });
+  }
 
   function loadAppLog() {
     hApi('GET', '/app-log', null)

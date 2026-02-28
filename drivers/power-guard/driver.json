@@ -1,0 +1,13 @@
+{
+  "id": "power-guard",
+  "name": {
+    "en": "Power Guard",
+    "no": "Power Guard"
+  },
+  "class": "other",
+  "capabilities": [
+    "onoff",
+    "measure_power"
+  ],
+  "icon": "assets/icon.svg"
+}

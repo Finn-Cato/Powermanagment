@@ -1,0 +1,14 @@
+{
+  "id": "ev-charger",
+  "name": {
+    "en": "EV Charger",
+    "no": "Elbillader"
+  },
+  "class": "other",
+  "capabilities": [
+    "onoff",
+    "measure_power",
+    "toggleChargingCapability"
+  ],
+  "icon": "assets/icon.svg"
+}
