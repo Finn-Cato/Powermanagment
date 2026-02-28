@@ -1110,7 +1110,7 @@ class PowerGuardApp extends Homey.App {
       }
 
       // First, try to mitigate by adjusting EV chargers (least disruptive)
-      await this._mitigateEaseeChargers().catch((err) => this.error('Easee mitigation error:', err));
+      await this._mitigateEVChargersUnified?.().catch((err) => this.error('EV charger mitigation error:', err));
 
       const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
       const mitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
@@ -2052,10 +2052,10 @@ class PowerGuardApp extends Homey.App {
   async _adjustEVChargersForPower(smoothedPower) {
     const now = Date.now();
 
-    const easeeEntries = (this._settings.priorityList || []).filter(e =>
+    const chargerEntries = (this._settings.priorityList || []).filter(e =>
       e.enabled !== false && e.action === 'dynamic_current'
     );
-    if (!easeeEntries.length) return;
+    if (!chargerEntries.length) return;
 
     const limit = this._getEffectiveLimit();
     const totalOverload = Math.max(0, smoothedPower - limit);
@@ -2066,7 +2066,19 @@ class PowerGuardApp extends Homey.App {
     // Global floor: don't even evaluate more often than every 2s (prevents API spam)
     if (now - (this._lastEVAdjustTime || 0) < 2000) return;
 
-    for (const entry of easeeEntries) {
+    for (const entry of chargerEntries) {
+      const brand = this._getChargerBrand?.(entry.deviceId);
+      if (!this._isCarConnected(entry.deviceId)) continue;
+      const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
+      if (brand === 'easee') {
+        await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32);
+      } else if (brand === 'enua') {
+        await this._setEnuaCurrent(entry.deviceId, targetCurrent);
+      } else if (brand === 'zaptec') {
+        await this._setZaptecCurrent(entry.deviceId, targetCurrent);
+      }
+      // Add more brands here as needed
+    }
       // Skip chargers with no car connected — no point adjusting them
       if (!this._isCarConnected(entry.deviceId)) {
         // Clean up any stale mitigation for this charger
