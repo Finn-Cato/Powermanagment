@@ -263,20 +263,26 @@ async function restoreDevice(device, action, previousState) {
       break;
 
     case ACTIONS.TARGET_TEMP: {
-      // If the thermostat was turned off as step 2, turn it back ON first
-      // before restoring the temperature — regardless of brand.
+      // Always turn on the device first if it supports onoff
       if (caps.includes('onoff')) {
-        const isCurrentlyOff = obj.onoff && obj.onoff.value === false;
+        let isCurrentlyOff = false;
+        try {
+          // Try to read live state from Homey API
+          if (typeof device.getCapabilityValue === 'function') {
+            isCurrentlyOff = (await device.getCapabilityValue('onoff')) === false;
+          } else if (device.capabilitiesObj && device.capabilitiesObj.onoff) {
+            isCurrentlyOff = device.capabilitiesObj.onoff.value === false;
+          }
+        } catch (_) {}
         if (isCurrentlyOff) {
           await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
-          // Small delay so the device is ready to accept a temperature command
           await new Promise(function(r) { setTimeout(r, 600); });
         }
       }
+      // Always restore temperature if it was lowered by PG
       if (caps.includes('target_temperature')) {
         const prevTemp = previousState && previousState.target_temperature !== undefined
           ? previousState.target_temperature : 21;
-        // Restore original thermostat mode (e.g. back to 'auto' for FutureHome)
         if (caps.includes('thermostat_mode') && previousState && previousState.thermostat_mode !== undefined) {
           await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: previousState.thermostat_mode });
         }
