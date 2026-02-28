@@ -1110,7 +1110,9 @@ class PowerGuardApp extends Homey.App {
       }
 
       // First, try to mitigate by adjusting EV chargers (least disruptive)
-      await this._mitigateEVChargersUnified?.().catch((err) => this.error('EV charger mitigation error:', err));
+      await this._mitigateEaseeChargers().catch((err) => this.error('Easee mitigation error:', err));
+      // If you have Enua or other charger mitigation functions, add them here:
+      // await this._mitigateEnuaChargers?.().catch((err) => this.error('Enua mitigation error:', err));
 
       const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
       const mitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
