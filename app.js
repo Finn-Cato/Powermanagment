@@ -2070,17 +2070,6 @@ class PowerGuardApp extends Homey.App {
 
     for (const entry of chargerEntries) {
       const brand = this._getChargerBrand?.(entry.deviceId);
-      if (!this._isCarConnected(entry.deviceId)) continue;
-      const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
-      if (brand === 'easee') {
-        await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32);
-      } else if (brand === 'enua') {
-        await this._setEnuaCurrent(entry.deviceId, targetCurrent);
-      } else if (brand === 'zaptec') {
-        await this._setZaptecCurrent(entry.deviceId, targetCurrent);
-      }
-      // Add more brands here as needed
-    }
       // Skip chargers with no car connected — no point adjusting them
       if (!this._isCarConnected(entry.deviceId)) {
         // Clean up any stale mitigation for this charger
@@ -2139,7 +2128,16 @@ class PowerGuardApp extends Homey.App {
         }
       }
 
-      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
+      let success = false;
+      if (brand === 'easee' || !brand) {
+        success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
+      } else if (brand === 'enua') {
+        await this._setEnuaCurrent(entry.deviceId, targetCurrent).catch(() => {});
+        success = true;
+      } else if (brand === 'zaptec') {
+        await this._setZaptecCurrent(entry.deviceId, targetCurrent).catch(() => {});
+        success = true;
+      }
       if (!success) continue;
 
       this._lastEVAdjustTime = now;
