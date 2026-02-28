@@ -10,9 +10,9 @@
     "measure_power"
   ],
   "images": {
-    "small": "assets/small.png",
-    "large": "assets/large.png",
-    "xlarge": "assets/xlarge.png"
+    "small": "./assets/small.png",
+    "large": "./assets/large.png",
+    "xlarge": "./assets/xlarge.png"
   },
   "icon": "assets/icon.svg"
 }
