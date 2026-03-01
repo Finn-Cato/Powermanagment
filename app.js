@@ -220,12 +220,6 @@ class PowerGuardApp extends Homey.App {
       this.error('EV charger connection error (non-fatal):', err);
     }
 
-    try {
-      if (this._api) await this.applyCircuitLimitsToChargers();
-    } catch (err) {
-      this.error('Circuit limit push error (non-fatal):', err);
-    }
-
     this._watchdogInterval  = setInterval(() => this._watchdog().catch(() => {}), 10000);
     this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(() => {}), 60000);
     this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(() => {}), 3000);
@@ -1412,6 +1406,18 @@ class PowerGuardApp extends Homey.App {
       const toRestore = this._mitigatedDevices[this._mitigatedDevices.length - 1];
       if (!toRestore) return;
 
+      // Skip dynamic_current entries already at full current — these are passive monitoring
+      // entries kept in _mitigatedDevices only so the Devices tab shows the charger as
+      // "controlled". The charger is already at its circuit limit, nothing to restore.
+      // Without this guard, _triggerRestore would call restoreDevice() every 10s (each
+      // HAN poll) → holds the mutex for up to 10s → settings API calls queue up → UI freeze.
+      if (toRestore.action === 'dynamic_current') {
+        const fullCurrent = (toRestore.previousState && toRestore.previousState.targetCurrent) || 32;
+        if ((toRestore.currentTargetA || 0) >= fullCurrent) {
+          return; // Passive monitoring entry — charger already at full current, nothing to do
+        }
+      }
+
       // Dynamic global guard: must wait N minutes after last device-off before restoring anything
       const dynamicWaitMs = this._getDynamicRestoreWaitMs();
       const timeSinceOff = Date.now() - this._lastDeviceOffTime;
@@ -1826,66 +1832,14 @@ class PowerGuardApp extends Homey.App {
   // ══════════════════════════════════════════════════════════════════
 
   /**
-   * Push the configured circuit limits from the priority list to each
-   * Easee charger's target_charger_current capability (Ladegrense).
-   * This sets the permanent max charging limit — NOT the dynamic/temporary limit.
-   * Called on init, when system settings are saved, and when a
-   * per-charger circuit limit is changed in the System tab.
+  /**
+   * No-op: charger limits are now managed entirely by the charger's own app.
+   * Power Guard only adjusts dynamic current (ID48) up/down and never touches
+   * the permanent Ladergrense (target_charger_current / ID47).
    */
   async applyCircuitLimitsToChargers() {
-    if (!this._api) return { ok: false, reason: 'No API' };
-
-    const entries = (this._settings.priorityList || []).filter(
-      e => (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false
-    );
-    if (!entries.length) return { ok: true, results: [] };
-
-    const results = [];
-    for (const entry of entries) {
-      const circuitA = entry.circuitLimitA || 32;
-      try {
-        const device = await this._api.devices.getDevice({ id: entry.deviceId });
-        if (!device) {
-          results.push({ name: entry.name, ok: false, detail: 'Device not found' });
-          continue;
-        }
-
-        const caps = device.capabilities || [];
-        const obj = device.capabilitiesObj || {};
-        const details = [];
-
-        // Push to target_charger_current only (Easee "Ladegrense" / permanent charging limit)
-        // Do NOT touch target_circuit_current (Sikringsgrense) — that's the fuse/circuit breaker setting
-        if (caps.includes('target_charger_current')) {
-          const currentVal = obj.target_charger_current?.value;
-          if (currentVal !== circuitA) {
-            await device.setCapabilityValue({ capabilityId: 'target_charger_current', value: circuitA });
-            this.log(`[CircuitLimit] ${entry.name}: Ladegrense ${currentVal}A → ${circuitA}A`);
-            details.push(`Ladegrense: ${circuitA}A`);
-          } else {
-            details.push(`Ladegrense: already ${circuitA}A`);
-          }
-        }
-
-        // Enua / Zaptec: no static circuit-limit capability — handled by dynamic current control.
-        // Count them as ok so they don't inflate the failure counter.
-        const entryBrand = this._getChargerBrand(entry.deviceId);
-        if (details.length > 0) {
-          results.push({ name: entry.name, ok: true, detail: details.join(', ') });
-        } else if (entryBrand === 'enua' || entryBrand === 'zaptec') {
-          results.push({ name: entry.name, ok: true, detail: 'handled by dynamic current control' });
-        } else {
-          results.push({ name: entry.name, ok: false, detail: 'No target_charger_current capability found' });
-        }
-      } catch (err) {
-        this.error(`[CircuitLimit] Failed for ${entry.name}:`, err);
-        results.push({ name: entry.name, ok: false, detail: err.message });
-      }
-    }
-
-    this._addLog(`Circuit limits applied: ${results.filter(r => r.ok).length}/${results.length} chargers`);
-    this._appLogEntry('charger', `Circuit limits applied: ${results.filter(r => r.ok).length}/${results.length} chargers`);
-    return { ok: true, results };
+    this.log('[CircuitLimit] Skipped — charger limits managed by charger\'s own app');
+    return { ok: true, results: [] };
   }
 
   /**
@@ -2331,7 +2285,7 @@ class PowerGuardApp extends Homey.App {
 
       let success = false;
       if (brand === 'easee' || !brand) {
-        success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
+        success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
       } else if (brand === 'enua') {
         await this._setEnuaCurrent(entry.deviceId, targetCurrent).catch(() => {});
         success = true;
@@ -2831,28 +2785,24 @@ class PowerGuardApp extends Homey.App {
 
   /**
    * Set Easee charger current using the HomeyAPI.
-   * Also controls target_circuit_current for better Easee integration.
-   * Records commands for confirmation tracking and reliability scoring.
-   * Routes to brand-specific handlers for Zaptec (Flow API) and Enua (Flow API).
+   * Only adjusts dynamic current (Midlertidig) — never touches Ladergrense or circuit/fuse settings.
+   * Routes to brand-specific handlers for Zaptec and Enua.
    * @param {string} deviceId - Device ID
-   * @param {number} currentA - Target current in amps (or null to pause)
-   * @param {number} circuitLimitA - Circuit breaker limit in amps (default 32)
+   * @param {number|null} currentA - Target current in amps (or null to pause)
    * @returns {Promise<boolean>} true if set successfully
    */
   // ══════════════════════════════════════════════════════════════════
   // █ SECTION 9 — EV CHARGER — EASEE                                            █
   // ══════════════════════════════════════════════════════════════════
   //  Homey app: no.easee
-  //  Pause:   dynamic_charger_current / dynamicChargerCurrent = 0
+  //  Pause:   onoff = false
   //  Current: setCapabilityValue on dynamic_charger_current or dynamicChargerCurrent
-  //           + target_circuit_current if available
-  //  Circuit limit: applyCircuitLimitsToChargers writes to target_charger_current (Ladegrense)
-  //                 — this is the permanent max, not the dynamic limit
+  //  Ladergrense (ID47) and Sikringsgrense are managed by the charger's own app.
   //
   //  ✅ WORKING — Reasonably stable, test before changing
   // ══════════════════════════════════════════════════════════════════
 
-  async _setEaseeChargerCurrent(deviceId, currentA, circuitLimitA = 32) {
+  async _setEaseeChargerCurrent(deviceId, currentA) {
     if (!this._api) return false;
 
     // Route to brand-specific handler for non-Easee chargers
@@ -2885,13 +2835,6 @@ class PowerGuardApp extends Homey.App {
         // If currentA is null, pause by turning off
         if (currentA === null) {
           if (device.capabilities.includes('onoff')) {
-            // Set circuit current to 0 when pausing (prevents any current flow)
-            if ((device.capabilities || []).includes('target_circuit_current')) {
-              await withTimeout(
-                device.setCapabilityValue({ capabilityId: 'target_circuit_current', value: 0 }),
-                10000, `setCircuitCurrentPause(${deviceId})`
-              ).catch(e => this.log(`[Easee] target_circuit_current pause failed: ${e.message}`));
-            }
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'onoff', value: false }),
               10000, `setOnOff(${deviceId})`
@@ -2925,13 +2868,6 @@ class PowerGuardApp extends Homey.App {
                 10000, `setStartCurrent(${deviceId})`
               );
             }
-            // Set circuit current to max to avoid it being a bottleneck
-            if ((device.capabilities || []).includes('target_circuit_current')) {
-              await withTimeout(
-                device.setCapabilityValue({ capabilityId: 'target_circuit_current', value: circuitLimitA }),
-                10000, `setCircuitCurrentResume(${deviceId})`
-              ).catch(e => this.log(`[Easee] target_circuit_current resume failed: ${e.message}`));
-            }
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'onoff', value: true }),
               10000, `resumeCharger(${deviceId})`
@@ -2955,13 +2891,6 @@ class PowerGuardApp extends Homey.App {
             device.setCapabilityValue({ capabilityId: dynCap, value: currentA }),
             10000, `setCurrent(${deviceId})`
           );
-          // Also set target_circuit_current to circuitLimitA so it doesn't bottleneck
-          if ((device.capabilities || []).includes('target_circuit_current')) {
-            await withTimeout(
-              device.setCapabilityValue({ capabilityId: 'target_circuit_current', value: circuitLimitA }),
-              10000, `setCircuitCurrent(${deviceId})`
-            ).catch(e => this.log(`[Easee] target_circuit_current failed: ${e.message}`));
-          }
           this._addLog(`Easee ${dynCap === 'target_charger_current' ? 'Ladegrense' : 'Midlertidig'}: ${device.name} → ${currentA}A`);
           this._appLogEntry('charger', `Easee current: ${device.name} → ${currentA}A (${dynCap})`);
           // Record command for confirmation tracking
