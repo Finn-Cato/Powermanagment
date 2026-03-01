@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -294,7 +294,7 @@
         <div class="row">
           <div class="label-group">
             <label>Protection mode</label>
-            <span class="hint"><b>Normal</b> — full limit. &nbsp;<b>Strict</b> — 90% of limit.</span>
+            <span class="hint"><b>Normal</b> — full limit. &nbsp;<b>Strict</b> — 95% of limit.</span>
           </div>
           <div class="control">
             <select id="s-profile">
@@ -364,6 +364,25 @@
               <span class="range-val" id="v-hysteresisCount">3</span>
             </div>
           </div>
+          <div class="row">
+            <div class="label-group"><label>Safety buffer</label><span class="hint">Reduce effective limit by this % (e.g. 5% on 10 kW acts at 9.5 kW). </span></div>
+            <div class="control">
+              <input type="range" id="s-errorMarginPercent" min="0" max="20" step="1" value="0"
+                oninput="document.getElementById('v-errorMarginPercent').textContent=this.value+'%'">
+              <span class="range-val" id="v-errorMarginPercent">0%</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Missing data timeout</label><span class="hint">Force mitigation if no power reading for this many seconds. 0 = disabled.</span></div>
+            <div class="control">
+              <input type="number" id="s-missingPowerTimeoutS" min="0" max="600" step="30" value="120">
+              <span style="font-size:12px;color:var(--text-muted)">s</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Dynamic restore guard</label><span class="hint">Wait 1–5 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.</span></div>
+            <div class="control"><input type="checkbox" id="s-dynamicRestoreGuard" checked></div>
+          </div>
         </div>
       </div>
 
@@ -372,23 +391,7 @@
         <button class="btn-primary"   onclick="saveAll()">Save settings</button>
       </div>
 
-      <div class="card" style="margin-top:16px;">
-        <h2>Power Correction Table</h2>
-        <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">Some Zigbee devices report power values 10× too high due to a firmware decimal error. Map a <b>Zigbee product ID</b> to a <b>multiplier</b> so PowerGuard corrects the reading before using it. Example: product ID <code>4512760</code> (Namron dimmer) with multiplier <code>0.1</code> divides by 10.</p>
-        <table id="corrections-table" style="width:100%;border-collapse:collapse;font-size:13px;">
-          <thead><tr>
-            <th style="text-align:left;padding:4px 8px;color:var(--text-muted);font-weight:500;">Zigbee Product ID</th>
-            <th style="text-align:left;padding:4px 8px;color:var(--text-muted);font-weight:500;">Multiplier</th>
-            <th style="width:32px;"></th>
-          </tr></thead>
-          <tbody id="corrections-body"></tbody>
-        </table>
-        <div style="margin-top:10px;display:flex;gap:8px;">
-          <button class="btn-secondary" onclick="addCorrectionRow()" style="font-size:12px;padding:5px 12px;">+ Add row</button>
-          <button class="btn-primary" onclick="saveCorrections()" style="font-size:12px;padding:5px 12px;">Save corrections</button>
-        </div>
-        <div id="corrections-status" style="margin-top:6px;font-size:12px;"></div>
-      </div>
+
 
     </div><!-- /#tab-settings -->
 
@@ -424,37 +427,10 @@
       </div>
 
       <div class="card">
-        <h2>Electrical System Configuration</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Main circuit voltage</label>
-            <span class="hint">Select your electrical system type. This affects power calculations for EV charger control.</span>
-          </div>
-          <div class="control">
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-              <select id="s-voltageSystem">
-                <option value="auto">✨ Auto-detect from HAN sensor</option>
-                <option value="230v-1phase">230V Single-phase</option>
-                <option value="400v-3phase">400V Three-phase</option>
-              </select>
-              <div id="voltage-detected-badge" style="font-size:11px; color:var(--text-muted);"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
         <h2>Managed Chargers</h2>
-        <div class="row" style="margin-bottom:12px;">
-          <div class="label-group">
-            <label>Circuit breaker (total)</label>
-            <span class="hint">Physical fuse for the whole EV circuit. The per-charger Max Current below cannot exceed this.</span>
-          </div>
-          <div class="control">
-            <input type="number" id="s-mainCircuitA" min="10" max="100" step="1" value="25">
-            <span style="font-size:12px;color:var(--text-muted)">A</span>
-          </div>
-        </div>
+        <!-- voltageSystem and mainCircuitA are now fully auto-detected from HAN and charger data -->
+        <input type="hidden" id="s-voltageSystem" value="auto">
+        <input type="hidden" id="s-mainCircuitA" value="25">
         <div id="charger-details-list" style="font-size:12px;">
           <span style="color:var(--text-muted)">⏳ Loading chargers...</span>
         </div>
@@ -762,7 +738,6 @@
       loadAppLog();
     } else {
       loadAll();
-      loadCorrections();
     }
   }
 
@@ -946,7 +921,7 @@
 
       // Current hour info
       html += '<div style="display:flex;gap:16px;margin-bottom:8px;padding:6px 0;border-top:1px solid var(--border-color);font-size:12px">';
-      html += '<div>Current hour: <b>' + effekt.currentHourKW.toFixed(2) + ' kW</b>' + peakWarning + '</div>';
+      html += '<div>This hour: <b>' + effekt.currentHourKWh.toFixed(2) + ' kWh</b> → projected <b>' + effekt.projectedKWh.toFixed(2) + ' kW</b>' + peakWarning + '</div>';
       html += '<div>Today peak: <b>' + effekt.todayPeakKW.toFixed(2) + ' kW</b></div>';
       html += '</div>';
 
@@ -1009,6 +984,10 @@
     setRange('s-smoothingWindow', 'v-smoothingWindow', s.smoothingWindow, 5,   '');
     setRange('s-spikeMultiplier', 'v-spikeMultiplier', s.spikeMultiplier, 2.0, '\u00d7');
     setRange('s-hysteresisCount', 'v-hysteresisCount', s.hysteresisCount, 3,   '');
+    setRange('s-errorMarginPercent', 'v-errorMarginPercent', s.errorMarginPercent, 0, '%');
+    setNum('s-missingPowerTimeoutS', s.missingPowerTimeoutS, 120);
+    var drgEl = document.getElementById('s-dynamicRestoreGuard');
+    if (drgEl) drgEl.checked = (s.dynamicRestoreGuard !== false);
     if (s.classFilters && typeof s.classFilters === 'object') {
       _classFilters = s.classFilters;
     }
@@ -1294,10 +1273,12 @@
               statusIcon + ' ' + escHtml(liveStatus.statusLabel) + '</span></td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<select onchange="updateChargerPhases(\'' + charger.deviceId + '\',this.value)" ' +
+              'title="Auto-detected from live data when charger is active. Set manually as fallback." ' +
               'style="font-size:12px; border:1px solid var(--border-color); border-radius:4px; padding:2px 4px;">' +
               '<option value="1"' + (chargerPhases === 1 ? ' selected' : '') + '>1-phase</option>' +
               '<option value="3"' + (chargerPhases === 3 ? ' selected' : '') + '>3-phase</option>' +
               '</select>' +
+              '<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">(auto-detected)</div>' +
               '</td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<input type="number" min="6" max="32" value="' + circuitA + '" ' +
@@ -1321,7 +1302,8 @@
     html += '</tbody></table>';
     html += '<div style="font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;">' +
             '💡 <b>Max Current</b> = Easee Ladergrense (permanent charger limit). ' +
-            'Capped by circuit breaker (' + mainCircuitA + 'A). Actual current is reduced further during overload mitigation.' +
+            'Current is reduced dynamically during overload mitigation. ' +
+            '<b>Phases</b> are auto-detected from live power/current ratio (set manually only as fallback).' +
             '</div>';
 
     // Debug: show raw charger_status values from the Easee API
@@ -1639,6 +1621,9 @@
       spikeMultiplier: getFloatValue('s-spikeMultiplier', 2.0),
       hysteresisCount: getNumValue('s-hysteresisCount', 3),
       cooldownSeconds: getNumValue('s-cooldownSeconds', 30),
+      errorMarginPercent: getNumValue('s-errorMarginPercent', 0),
+      missingPowerTimeoutS: getNumValue('s-missingPowerTimeoutS', 120),
+      dynamicRestoreGuard: (function(){ var e=document.getElementById('s-dynamicRestoreGuard'); return e ? e.checked : true; })(),
       voltageSystem:   getStringValue('s-voltageSystem', 'auto'),
       phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
       mainCircuitA:    getNumValue('s-mainCircuitA', 25),
@@ -2340,7 +2325,6 @@
         renderAllDevices();
         renderChargerDetails();  // Initial render of charger power details
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
-        loadCorrections();  // Load power correction table
         dbg('Initial load: ' + availableDevices.length + ' devices');
 
         // Immediately update cache status bar since devices are loaded
@@ -2440,56 +2424,6 @@
     cache: '#5ac8fa',
     system: '#8e8e93'
   };
-
-  function loadCorrections() {
-    hApi('GET', '/power-corrections', null)
-      .then(function(data) {
-        var tbody = document.getElementById('corrections-body');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        var entries = Object.entries(data || {});
-        if (entries.length === 0) entries = [['4512760', '0.1']];
-        entries.forEach(function(kv) { addCorrectionRow(kv[0], kv[1]); });
-      })
-      .catch(function(err) {
-        var el = document.getElementById('corrections-status');
-        if (el) el.innerHTML = '<span style="color:#ff3b30;">Load error: ' + escHtml(err.message) + '</span>';
-      });
-  }
-
-  function addCorrectionRow(productId, multiplier) {
-    var tbody = document.getElementById('corrections-body');
-    if (!tbody) return;
-    var tr = document.createElement('tr');
-    tr.innerHTML =
-      '<td style="padding:4px 8px;"><input type="text" placeholder="e.g. 4512760" value="' + escHtml(String(productId || '')) + '" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-surface);color:var(--text-primary);" class="corr-id"></td>' +
-      '<td style="padding:4px 8px;"><input type="number" placeholder="e.g. 0.1" value="' + escHtml(String(multiplier != null ? multiplier : '')) + '" step="any" style="width:100%;font-size:12px;padding:4px 6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-surface);color:var(--text-primary);" class="corr-mult"></td>' +
-      '<td style="padding:4px;text-align:center;"><button onclick="this.closest(\'tr\').remove()" style="background:none;border:none;color:#ff3b30;font-size:16px;cursor:pointer;line-height:1;">×</button></td>';
-    tbody.appendChild(tr);
-  }
-
-  function saveCorrections() {
-    var rows = document.querySelectorAll('#corrections-body tr');
-    var corrections = {};
-    for (var i = 0; i < rows.length; i++) {
-      var id = (rows[i].querySelector('.corr-id').value || '').trim();
-      var mult = rows[i].querySelector('.corr-mult').value.trim();
-      if (!id || mult === '') continue;
-      var n = parseFloat(mult);
-      if (!isFinite(n)) { alert('Invalid multiplier on row ' + (i + 1)); return; }
-      corrections[id] = n;
-    }
-    var el = document.getElementById('corrections-status');
-    if (el) el.innerHTML = '<span style="color:var(--text-muted);">Saving…</span>';
-    hApi('POST', '/power-corrections', corrections)
-      .then(function() {
-        if (el) el.innerHTML = '<span style="color:#34c759;">\u2713 Saved</span>';
-        setTimeout(function() { if (el) el.innerHTML = ''; }, 3000);
-      })
-      .catch(function(err) {
-        if (el) el.innerHTML = '<span style="color:#ff3b30;">Error: ' + escHtml(err.message) + '</span>';
-      });
-  }
 
   function loadFirmwareInfo() {
     var search = (document.getElementById('firmware-search').value || '').trim();

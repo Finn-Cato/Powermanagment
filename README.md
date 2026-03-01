@@ -30,7 +30,7 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - Priority list — drag-and-drop ordering of which devices to turn off first
 - Multiple actions — turn off, dim, lower temperature, pause charging, or dynamically adjust charger current
 - Automatic restore when power is safe again
-- Protection profiles: Normal and Strict (90% of limit)
+- Protection profiles: Normal and Strict (95% of limit)
 - Per-phase ampere limits (L1/L2/L3)
 - Spike filtering and configurable reaction speed
 - Flow cards for Homey automations
@@ -41,7 +41,6 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - **Proportional scaling** — uses the charger's actual offered current and power draw for smoother, more accurate adjustments
 - **Confirmation tracking** — verifies commands by reading the charger's `measure_current.offered` capability, with per-charger reliability scoring
 - **Smart throttle** — adjusts faster when the charger confirms commands (15s), waits longer when unconfirmed (45s), and responds immediately in emergencies (5s)
-- **Main fuse protection** — caps charger power allocation at the physical fuse limit to prevent tripping the main breaker
 - **Start threshold** — requires 11A of headroom before restarting a paused charger, preventing rapid on/off cycling
 - **Minimum current** — keeps chargers at 7A minimum instead of pausing, so the car stays charging
 - **Circuit current control** — manages both `target_charger_current` and `target_circuit_current` on Easee chargers for reliable control
@@ -85,15 +84,13 @@ Go to the **Devices** tab and toggle on the devices you want Power Guard to cont
 
 For EV chargers, set the action to **Dynamic Current** on the Devices tab. This enables smart current control and makes the charger visible on the System tab.
 
-Then go to the **System** tab to configure your chargers under **Managed Chargers**:
+Then go to the **System** tab to view your chargers under **Managed Chargers**:
 
-- **Main circuit breaker** — Set the max amperage for your charger circuit (e.g. 25 A or 32 A). This caps how much current each charger can draw.
-- **Per-charger phase configuration** — Each charger can be set independently to **1-phase** or **3-phase**. For example, if you have two chargers and one is wired for single-phase while the other uses three-phase, you can configure them individually.
+- **Phase configuration** — Shows detected phases (1-phase or 3-phase) per charger. The app auto-detects this from the charger's live power/current ratio. You can override manually as a fallback.
 - **Per-charger circuit limit** — Set the circuit breaker limit for each charger (6–32 A).
-- **Max power calculation** — The app automatically calculates the maximum power each charger can use based on its phase setting and circuit limit. A 3-phase charger at 32 A gives ~22.1 kW, while a 1-phase charger at 16 A gives ~3.7 kW.
 - **Total summary** — See the combined amperage and power capacity of all your chargers at a glance.
 
-This setup ensures Power Guard knows exactly how much power your chargers can use, so it can distribute available capacity correctly during dynamic current control.
+No manual electrical system configuration is needed — Power Guard auto-detects the installation phase count from your HAN sensor.
 
 ### 4. Activate the Guard
 
@@ -117,7 +114,7 @@ The app has six tabs in the settings page:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Guard active | On | Enable or disable power monitoring |
-| Profile | Normal | Normal or Strict (90% of limit) |
+| Profile | Normal | Normal or Strict (95% of limit) |
 | Maximum power (W) | 10 000 | Your grid connection limit in watts |
 | Seconds before acting | 30 | Cooldown between mitigation steps |
 | Readings before acting | 3 | Consecutive over-limit readings needed |
@@ -196,11 +193,19 @@ GPL-3.0
 
 ## Changelog
 
+### v0.5.0
+- **Auto-detect charger phases** — phases (1-phase / 3-phase) are now detected automatically from the live power/current ratio. No manual electrical system configuration needed.
+- **Simplified charger calc** — removed per-phase current path; available power is calculated purely from watt headroom (`limit − usage − 200W`), giving consistently correct results regardless of meter reporting.
+- **Settings migration** — on first start after update, `voltageSystem` is automatically reset to `auto` so HAN-based phase detection takes over.
+- **Strict profile** — tightened from 90% to 95% of your power limit (5% safety margin instead of 10%).
+- **Effekttariff display fix** — current-hour kWh and projected end-of-hour kWh now shown correctly; daily peak comparison uses projected value.
+- **EV charger robustness** — non-charger usage is now clamped to 0 to prevent negative values inflating available headroom.
+
 ### v0.3.23
 Fix: illegal continue crash in EV charger adjustment loop caused by a premature closing brace during Enua consolidation. Multi-brand dispatch (Easee / Enua / Zaptec) correctly restored inside the loop.
 
 ### v0.3.21
-Per-phase current control for EV chargers: reads live per-phase amps (A/B/C) from the HAN sensor and uses them directly to calculate available charger current. Falls back to wattage-based calculation when phase data is unavailable. Auto-detects electrical phase count from HAN sensor — no more manual voltageSystem setting required.
+Auto-detects electrical phase count from HAN sensor — no more manual voltageSystem setting required.
 
 ### v0.3.0 – v0.3.2
 UI redesign, heater tab improvements, stale mitigation fixes, store submission prep.
