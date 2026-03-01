@@ -154,6 +154,9 @@ class PowerGuardApp extends Homey.App {
     // (e.g. user changed action in the UI between sessions, or removed a device)
     this._cleanStaleMitigatedEntries();
 
+    // Migrate settings from older versions (runs once per schema version bump)
+    this._migrateSettings();
+
     // Restore cached devices from previous session
     try {
       const saved = this.homey.settings.get('_allDevicesCache');
@@ -423,6 +426,55 @@ class PowerGuardApp extends Homey.App {
    * entry's action in the UI, or removes a device from the priority list entirely.
    * Safe to call any time after _settings has been populated.
    */
+  /**
+   * One-time settings migrations keyed by schema version.
+   * Runs on every startup but each migration only applies once.
+   * Current migrations:
+   *   v2 — Remove manually-stored voltageSystem / mainCircuitA / chargerPhases
+   *         so the app auto-detects everything from the HAN sensor and charger.
+   */
+  _migrateSettings() {
+    const CURRENT_SCHEMA = 2;
+    let version = 0;
+    try { version = parseInt(this.homey.settings.get('_settingsSchemaVersion') || 0, 10) || 0; } catch (_) {}
+
+    if (version < 2) {
+      this.log('[Migration] Running schema v2: clearing manual electrical config → auto-detect');
+
+      // Clear top-level electrical system overrides
+      try { this.homey.settings.unset('voltageSystem'); } catch (_) {}
+      try { this.homey.settings.unset('mainCircuitA'); } catch (_) {}
+
+      // Clear chargerPhases from every EV charger entry in priorityList
+      const list = this.homey.settings.get('priorityList');
+      if (Array.isArray(list)) {
+        let changed = false;
+        const updated = list.map(entry => {
+          if (entry.type === 'ev-charger' && entry.chargerPhases != null) {
+            this.log(`[Migration] Clearing chargerPhases for charger: ${entry.name || entry.deviceId}`);
+            const { chargerPhases, ...rest } = entry;
+            changed = true;
+            return rest;
+          }
+          return entry;
+        });
+        if (changed) {
+          this.homey.settings.set('priorityList', updated);
+          this._settings.priorityList = updated;
+        }
+      }
+
+      // Also update in-memory settings
+      if (this._settings) {
+        this._settings.voltageSystem = DEFAULT_SETTINGS.voltageSystem;
+        this._settings.mainCircuitA  = DEFAULT_SETTINGS.mainCircuitA;
+      }
+
+      try { this.homey.settings.set('_settingsSchemaVersion', CURRENT_SCHEMA); } catch (_) {}
+      this.log('[Migration] Schema v2 complete');
+    }
+  }
+
   _cleanStaleMitigatedEntries() {
     const priorityList = this._settings.priorityList || [];
     const actionMap = new Map(priorityList.map(e => [e.deviceId, e.action]));
