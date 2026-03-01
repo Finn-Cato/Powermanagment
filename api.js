@@ -73,6 +73,7 @@ module.exports = {
       phaseDistribution: s.get('phaseDistribution') ?? 'balanced',
       mainCircuitA:      s.get('mainCircuitA')      ?? 25,
       classFilters:      s.get('classFilters')      ?? {},
+      powerExcluded:     s.get('powerExcluded')     ?? {},
       priorityList:      s.get('priorityList')      ?? [],
       selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
     };
@@ -104,6 +105,7 @@ module.exports = {
         phaseDistribution: s.get('phaseDistribution') ?? 'balanced',
         mainCircuitA:      s.get('mainCircuitA')      ?? 25,
         classFilters:      s.get('classFilters')      ?? {},
+        powerExcluded:     s.get('powerExcluded')     ?? {},
         priorityList:      s.get('priorityList')      ?? [],
         selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
       },
@@ -131,7 +133,7 @@ module.exports = {
       'enabled', 'profile', 'powerLimitW',
       'phase1LimitA', 'phase2LimitA', 'phase3LimitA',
       'smoothingWindow', 'spikeMultiplier', 'hysteresisCount', 'cooldownSeconds',
-      'voltageSystem', 'phaseDistribution', 'mainCircuitA', 'classFilters',
+      'voltageSystem', 'phaseDistribution', 'mainCircuitA', 'classFilters', 'powerExcluded',
     ];
     const changed = [];
     for (const key of allowed) {
