@@ -1285,14 +1285,25 @@ class PowerGuardApp extends Homey.App {
           if (existingMitigation && entry.action === 'target_temperature') {
             if (caps.includes('onoff')) {
               if (obj.onoff && obj.onoff.value === false) {
-                // Already off (step 2 already done) — nothing more we can do
+                // Currently off — nothing more we can do
                 this.log(`[Mitigation] SKIP ${entry.name}: thermostat already off (step 2 done)`);
                 scanResults.push({ name: entry.name, action: entry.action, result: 'already off (step 2)' });
                 continue;
               }
-              // Step 2: turn the thermostat off
+              // Turn the thermostat off
               await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
               existingMitigation.mitigatedAt = now;
+              if (existingMitigation.step2Applied) {
+                // Step 2 was already applied once — this is a hardware bounce-back (thermostat
+                // restarted itself). Turn it off again but DON'T consume the mitigatedThisCycle
+                // slot so other devices in the priority list can still be processed this cycle.
+                this.log(`[Mitigation] BOUNCE: ${entry.name} bounced back ON after step 2 — turned OFF again (not consuming cycle slot)`);
+                scanResults.push({ name: entry.name, action: entry.action, result: 'bounce suppressed (step 2 re-applied)' });
+                this._persistMitigatedDevices();
+                continue;
+              }
+              // First time step 2 is applied — mark it so bounce-backs don't block the list
+              existingMitigation.step2Applied = true;
               this.log(`[Mitigation] SUCCESS: ${entry.name} thermostat step 2 — turned OFF`);
             } else {
               // No onoff capability — cannot turn off, nothing more to do
