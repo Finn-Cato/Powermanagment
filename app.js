@@ -3475,8 +3475,7 @@ class PowerGuardApp extends Homey.App {
         if (Array.isArray(device.capabilities)) {
           caps = device.capabilities;
         }
-        const isHeaterClass = deviceClass === 'thermostat' || deviceClass === 'heater';
-        if (!caps.includes('measure_power') && !isHeaterClass) return;
+        if (!caps.includes('measure_power')) return;
         
         // Skip sockets that are lights (e.g., smart plugs with lights), but allow water heaters and other sockets
         if (deviceClass === 'socket' && (deviceName.includes('light') || deviceName.includes('lamp'))) {
@@ -3532,46 +3531,6 @@ class PowerGuardApp extends Homey.App {
           }
         }
         
-        // Determine isHeating for thermostat/heater class devices (used for Power tab badge)
-        let isHeating = false;
-        if (isHeaterClass) {
-          const obj = device.capabilitiesObj || {};
-          // tuya_thermostat_load_status = actual relay state (most accurate)
-          if (caps.includes('tuya_thermostat_load_status') && obj.tuya_thermostat_load_status) {
-            const v = obj.tuya_thermostat_load_status;
-            isHeating = !!(v.value !== undefined ? v.value : v);
-          }
-          // tuya_thermostat_mode = 'off' overrides
-          if (caps.includes('tuya_thermostat_mode') && obj.tuya_thermostat_mode) {
-            const m = obj.tuya_thermostat_mode;
-            if ((m.value !== undefined ? m.value : m) === 'off') isHeating = false;
-          }
-          // Futurehome ZG9030A
-          if (!isHeating && caps.includes('zg9030a_modes') && obj.zg9030a_modes) {
-            const v = obj.zg9030a_modes;
-            const mode = (v.value !== undefined ? v.value : v);
-            isHeating = !(mode === 'off' || mode === 0 || mode === '0');
-          }
-          // thermostat_mode = 'heat'
-          if (!isHeating && caps.includes('thermostat_mode') && obj.thermostat_mode) {
-            const v = obj.thermostat_mode;
-            isHeating = ((v.value !== undefined ? v.value : v) === 'heat');
-          }
-          // Fallback: onoff + temp comparison
-          if (!isHeating) {
-            const onoffVal = obj.onoff ? (obj.onoff.value !== undefined ? obj.onoff.value : obj.onoff) : null;
-            const measT = obj.measure_temperature ? obj.measure_temperature.value : null;
-            const targT = obj.target_temperature ? obj.target_temperature.value : null;
-            if (onoffVal === true) {
-              isHeating = (measT != null && targT != null) ? measT < targT : true;
-            }
-          }
-          // Device mitigated by Power Guard — not actively heating
-          if ((this._mitigatedDevices || []).some(m => m.deviceId === devId)) isHeating = false;
-          // Drawing real power → definitely heating
-          if (currentW > 50) isHeating = true;
-        }
-
         if (!this._powerConsumptionData[devId]) {
           this._powerConsumptionData[devId] = {
             deviceId: devId,
@@ -3581,14 +3540,12 @@ class PowerGuardApp extends Homey.App {
             current: currentW,
             avg: currentW,
             peak: currentW,
-            isHeating: isHeating,
           };
           this._writeDebugLog(`NEW DEVICE: "${device.name}" (${device.class}) power=${currentW}W`);
         }
         
         const data = this._powerConsumptionData[devId];
         data.current = currentW;
-        data.isHeating = isHeating;
         data.readings.push(currentW);
         if (data.readings.length > 60) data.readings.shift();
         
@@ -3642,7 +3599,6 @@ class PowerGuardApp extends Homey.App {
       avg: Math.round(d.avg),
       peak: Math.round(d.peak),
       percent: totalW > 0 ? Math.round((d.current / totalW) * 100) : 0,
-      isHeating: !!d.isHeating,
     }));
     
     return {
