@@ -989,6 +989,9 @@
     if (s.classFilters && typeof s.classFilters === 'object') {
       _classFilters = s.classFilters;
     }
+    if (s.powerExcluded && typeof s.powerExcluded === 'object') {
+      _powerExcluded = s.powerExcluded;
+    }
     priorityList = Array.isArray(s.priorityList) ? s.priorityList : [];
     updatePhaseConfigVisibility();
   }
@@ -1525,6 +1528,7 @@
       phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
       mainCircuitA:    getNumValue('s-mainCircuitA', 25),
       classFilters:    _classFilters,
+      powerExcluded:   _powerExcluded,
       priorityList:    priorityList
     };
   }
@@ -1543,24 +1547,24 @@
   // ── Load Power Consumption ─────────────────────────────────────────────────
   var _consumptionRefresh = null;
   var _classFilters = {}; // Track which device classes are visible
-  var _powerExcluded = (function() { try { return JSON.parse(localStorage.getItem('pg_powerExcluded') || '{}') || {}; } catch(e) { return {}; } })();
+  var _powerExcluded = {}; // Loaded from Homey settings in applySettings()
 
   function excludePowerDevice(deviceId) {
     _powerExcluded[deviceId] = true;
-    localStorage.setItem('pg_powerExcluded', JSON.stringify(_powerExcluded));
     var row = document.querySelector('.consumption-row[data-device-id="' + deviceId + '"]');
     if (row) row.style.display = 'none';
     renumberVisibleDevices();
+    saveAll();
   }
 
   function resetPowerExclusions() {
     _powerExcluded = {};
-    localStorage.removeItem('pg_powerExcluded');
     document.querySelectorAll('.consumption-row').forEach(function(row) {
       var cls = row.getAttribute('data-device-class');
       row.style.display = (_classFilters[cls] !== false) ? '' : 'none';
     });
     renumberVisibleDevices();
+    saveAll();
   }
   
   function renumberVisibleDevices() {
