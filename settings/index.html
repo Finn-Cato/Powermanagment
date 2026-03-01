@@ -1726,9 +1726,10 @@
           // OR if the device is on but has no power sensor (fall back to onoff state).
           var hasPowerData = h.currentPowerW != null;
           var powerW = hasPowerData ? Number(h.currentPowerW) : 0;
-          // Show orange when watts > 5 (element firing) OR when isOn=true (relay closed / mode=heat)
-          // tuya_thermostat_load_status and zg9030a_modes are already resolved into isOn by the backend
-          var drawing = powerW > 5 || isOn;
+          // If device has a power sensor, trust it — only show orange when actually drawing watts.
+          // If device has NO power sensor, fall back to isOn (relay state / mode=heat).
+          // This prevents thermostat-enabled-but-satisfied devices from showing ● ON falsely.
+          var drawing = hasPowerData ? powerW > 5 : isOn;
           var cur = h.currentMeasure != null ? Number(h.currentMeasure).toFixed(1) + '°' : '–';
           var id  = h.deviceId;
           var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
@@ -1745,11 +1746,11 @@
             var stepText = h.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
             activeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
           }
-          // If drawing real watts → show wattage (most accurate)
-          // If isOn but no/zero watts → show ● ON (relay closed or mode=heat, element about to fire / cycling)
+          // Power sensor present → show watts when > 5W, nothing otherwise (sensor is authoritative)
+          // No power sensor → show ● ON when isOn=true (relay closed / mode=heat)
           var pwrLabel = powerW > 5
             ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(powerW) + 'W</span>'
-            : (isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
+            : (!hasPowerData && isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
           var arrow = h.hasTargetTemp ? ' → ' : '';
 
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
