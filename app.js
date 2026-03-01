@@ -2335,8 +2335,7 @@ class PowerGuardApp extends Homey.App {
    */
   _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
-    const chargerPhases = chargerEntry.chargerPhases || 3;
-    const voltage = chargerPhases === 1 ? 230 : 692;
+    const chargerPhases = chargerEntry.chargerPhases || 1;
     const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 7A (some chargers unstable at 6A)
     const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA);
 
@@ -2347,67 +2346,18 @@ class PowerGuardApp extends Homey.App {
     const offeredCurrent = evData?.offeredCurrent;
     const mainFuseA = this._settings.mainCircuitA || 25;
 
-    // ── Per-phase current control (preferred) ────────────────────────────────
-    // When the HAN sensor provides per-phase amps, use them directly for fuse
-    // headroom calculation. This is more accurate than wattage-based math and
-    // works correctly regardless of the voltageSystem setting.
-    const phaseCurrents = this._getPhaseCurrents();
-    if (phaseCurrents) {
-      // Estimate charger's contribution per phase
-      // offeredCurrent is the most accurate source (it IS the per-phase amps)
-      let chargerCurrentPerPhase = 0;
-      if (offeredCurrent > 0 && chargerPowerW > 200) {
-        chargerCurrentPerPhase = offeredCurrent;
-      } else if (chargerPowerW > 200 && chargerPhases > 0) {
-        // Derive from measured power: assume symmetric load across phases
-        chargerCurrentPerPhase = chargerPowerW / (chargerPhases * 230);
-      }
+    // ── Wattage-based calculation ────────────────────────────────────────────
+    // Use offeredCurrent as a fallback to estimate charger power when measure_power
+    // is unavailable or has not yet updated (common on charger startup).
+    // This prevents the entire house consumption from being attributed to household
+    // load, which would incorrectly cap the charger at a very low current.
+    const chargerVoltage = chargerPhases * 230;  // 230W for 1-phase, 460 for 2-ph, 690 for 3-ph
+    const estimatedChargerPowerW = chargerPowerW > 200
+      ? chargerPowerW
+      : (offeredCurrent > 0 ? offeredCurrent * chargerVoltage : 0);
 
-      // Non-charger current on each phase (household-only amperage)
-      const nonA = Math.max(0, phaseCurrents.a - (chargerPhases >= 1 ? chargerCurrentPerPhase : 0));
-      const nonB = Math.max(0, phaseCurrents.b - (chargerPhases >= 2 ? chargerCurrentPerPhase : 0));
-      const nonC = Math.max(0, phaseCurrents.c - (chargerPhases >= 3 ? chargerCurrentPerPhase : 0));
-
-      // Emergency: if non-charger load alone maxes out any phase the charger uses
-      const safetyMarginA = 1.5;
-      const maxNonChargerPhaseA = chargerPhases >= 3
-        ? Math.max(nonA, nonB, nonC)
-        : chargerPhases >= 2 ? Math.max(nonA, nonB) : nonA;
-      if (maxNonChargerPhaseA >= mainFuseA - safetyMarginA) {
-        this.log(`EV calc (phase): household maxes fuse (${maxNonChargerPhaseA.toFixed(1)}A on a phase) → PAUSE`);
-        return null;
-      }
-
-      // Available headroom = most constrained phase the charger uses
-      let availableA = maxCurrent;
-      if (chargerPhases >= 1) availableA = Math.min(availableA, mainFuseA - nonA - safetyMarginA);
-      if (chargerPhases >= 2) availableA = Math.min(availableA, mainFuseA - nonB - safetyMarginA);
-      if (chargerPhases >= 3) availableA = Math.min(availableA, mainFuseA - nonC - safetyMarginA);
-
-      // Also respect the wattage limit (e.g. user set 15 000 W cap)
-      const nonChargerUsageForLimit = currentUsage - chargerPowerW;
-      const limitHeadroomW = limit - nonChargerUsageForLimit - 200;
-      const limitCurrentA = limitHeadroomW / (chargerPhases === 1 ? 230 : 692);
-      availableA = Math.min(availableA, limitCurrentA);
-
-      if (availableA < minCurrent) {
-        // If household alone exceeds the watt limit, pause the charger entirely (true emergency)
-        if (nonChargerUsageForLimit > (limit - 200)) {
-          this.log(`EV calc (phase): household alone=${Math.round(nonChargerUsageForLimit)}W > limit=${Math.round(limit)}W → PAUSE`);
-          return null;
-        }
-        this.log(`EV calc (phase): available ${availableA.toFixed(1)}A < min ${minCurrent}A → KEEP MIN`);
-        return minCurrent;
-      }
-
-      const targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, Math.floor(availableA)));
-      this.log(`EV calc (phase): A=${phaseCurrents.a.toFixed(1)} B=${phaseCurrents.b.toFixed(1)} C=${phaseCurrents.c.toFixed(1)}, nonCharger A=${nonA.toFixed(1)} B=${nonB.toFixed(1)} C=${nonC.toFixed(1)}, avail=${availableA.toFixed(1)}A → ${targetCurrent}A`);
-      return targetCurrent;
-    }
-
-    // ── Fallback: wattage-based calculation (no per-phase data) ─────────────
     // Calculate household usage without this charger
-    const nonChargerUsage = currentUsage - chargerPowerW;
+    const nonChargerUsage = currentUsage - estimatedChargerPowerW;
 
     // Cap available power at main fuse limit
     // This prevents allocating more power than the physical fuse can handle
@@ -2448,7 +2398,7 @@ class PowerGuardApp extends Homey.App {
       this.log(`EV calc (proportional): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W@${offeredCurrent}A, available=${Math.round(availablePowerW)}W → ${targetCurrent}A`);
     } else {
       // Additive fallback: when charger is not active or no offered current data
-      const availableCurrentA = Math.floor(availablePowerW / voltage);
+      const availableCurrentA = Math.floor(availablePowerW / chargerVoltage);
       targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
       this.log(`EV calc (additive): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W, fuse=${maxFuseDrainW}W → ${targetCurrent}A`);
     }
