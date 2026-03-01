@@ -1071,13 +1071,18 @@ class PowerGuardApp extends Homey.App {
       }
     }
 
-    // Current hour's running average kW (what it would be if the hour ended now)
-    const currentHourKW = this._hourlyEnergy.accumulatedWh > 0
-      ? Math.round(this._hourlyEnergy.accumulatedWh) / 1000
+    // Current hour: accumulated kWh so far, and projected end-of-hour kW
+    const currentHourKWh = Math.round(this._hourlyEnergy.accumulatedWh) / 1000;
+    const msIntoHour     = now.getTime() % 3600000;
+    const fractionOfHour = msIntoHour / 3600000;
+    // Projected = what the hourly kWh would be if the rest of the hour continues at the same avg rate
+    const projectedKWh   = fractionOfHour > 0.01
+      ? Math.round((currentHourKWh / fractionOfHour) * 1000) / 1000
       : 0;
     const todayStr = now.toISOString().slice(0, 10);
     const todayPeak = this._dailyPeaks[todayStr] || 0;
-    const wouldBeNewDailyPeak = currentHourKW > todayPeak;
+    // Warn when the projected end-of-hour value would beat today's best completed hour
+    const wouldBeNewDailyPeak = projectedKWh > todayPeak && fractionOfHour > 0.05;
 
     return {
       monthlyKW: Math.round(monthlyKW * 1000) / 1000,
@@ -1087,8 +1092,9 @@ class PowerGuardApp extends Homey.App {
       top3: top3.map(p => ({ date: p.date, kw: Math.round(p.kw * 1000) / 1000 })),
       dailyPeakCount: allPeaks.length,
       allPeaks: allPeaks.slice(0, 10),  // Top 10 for display
-      currentHourKW: Math.round(currentHourKW * 1000) / 1000,
-      todayPeakKW: Math.round(todayPeak * 1000) / 1000,
+      currentHourKWh: Math.round(currentHourKWh * 1000) / 1000,
+      projectedKWh:   Math.round(projectedKWh * 1000) / 1000,
+      todayPeakKW:    Math.round(todayPeak * 1000) / 1000,
       wouldBeNewDailyPeak,
     };
   }

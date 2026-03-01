@@ -948,7 +948,7 @@
 
       // Current hour info
       html += '<div style="display:flex;gap:16px;margin-bottom:8px;padding:6px 0;border-top:1px solid var(--border-color);font-size:12px">';
-      html += '<div>Current hour: <b>' + effekt.currentHourKW.toFixed(2) + ' kW</b>' + peakWarning + '</div>';
+      html += '<div>This hour: <b>' + effekt.currentHourKWh.toFixed(2) + ' kWh</b> → projected <b>' + effekt.projectedKWh.toFixed(2) + ' kW</b>' + peakWarning + '</div>';
       html += '<div>Today peak: <b>' + effekt.todayPeakKW.toFixed(2) + ' kW</b></div>';
       html += '</div>';
 
