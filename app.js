@@ -2247,13 +2247,19 @@ class PowerGuardApp extends Homey.App {
       const offered = evData?.offeredCurrent || 0;
       return sum + (pw > 200 ? pw : (offered > 0 ? offered * voltage : 0));
     }, 0);
-    const activeChargerCount = Math.max(1, connectedEntries.length);
+    // Only count chargers actually drawing power as active — a connected-but-idle
+    // charger (car plugged in but not charging) should not split the headroom budget.
+    const chargingCount = connectedEntries.filter(e => {
+      const evData = this._evPowerData[e.deviceId];
+      return (evData?.powerW || 0) > 200 || (evData?.offeredCurrent || 0) > 0;
+    }).length;
+    const activeChargerCount = Math.max(1, chargingCount);
     const sharedNonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
     const sharedAvailableW = limit - sharedNonChargerUsage - 200;
     const perChargerBudgetW = sharedAvailableW / activeChargerCount;
     const householdAloneExceedsLimit = sharedNonChargerUsage > (limit - 200);
     if (connectedEntries.length > 1) {
-      this.log(`[EV] Multi-charger: ${activeChargerCount} active, totalCharger=${Math.round(totalChargerPowerW)}W, household=${Math.round(sharedNonChargerUsage)}W, shared=${Math.round(sharedAvailableW)}W → ${Math.round(perChargerBudgetW)}W/charger`);
+      this.log(`[EV] Multi-charger: ${connectedEntries.length} connected, ${activeChargerCount} charging, totalCharger=${Math.round(totalChargerPowerW)}W, household=${Math.round(sharedNonChargerUsage)}W, shared=${Math.round(sharedAvailableW)}W → ${Math.round(perChargerBudgetW)}W/charger`);
     }
     // ────────────────────────────────────────────────────────────────────────
 
