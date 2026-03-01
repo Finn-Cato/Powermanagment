@@ -1726,11 +1726,9 @@
           // OR if the device is on but has no power sensor (fall back to onoff state).
           var hasPowerData = h.currentPowerW != null;
           var powerW = hasPowerData ? Number(h.currentPowerW) : 0;
-          // Priority 1: power sensor exists → trust it as ground truth
-          //   > 5W  = actively drawing → orange
-          //   ≤ 5W  = element idle     → no highlight (even if thermostat is "on")
-          // Priority 2: no power sensor → fall back to isOn state from Homey
-          var drawing = hasPowerData ? powerW > 5 : isOn;
+          // Show orange when watts > 5 (element firing) OR when isOn=true (relay closed / mode=heat)
+          // tuya_thermostat_load_status and zg9030a_modes are already resolved into isOn by the backend
+          var drawing = powerW > 5 || isOn;
           var cur = h.currentMeasure != null ? Number(h.currentMeasure).toFixed(1) + '°' : '–';
           var id  = h.deviceId;
           var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
@@ -1747,10 +1745,10 @@
             var stepText = h.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
             activeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
           }
-          // Priority 1: power sensor → show watts when drawing, nothing when idle
-          // Priority 2: no power sensor → show "● ON" based on isOn state
-          var pwrLabel = hasPowerData
-            ? (powerW > 5 ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(powerW) + 'W</span>' : '')
+          // If drawing real watts → show wattage (most accurate)
+          // If isOn but no/zero watts → show ● ON (relay closed or mode=heat, element about to fire / cycling)
+          var pwrLabel = powerW > 5
+            ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(powerW) + 'W</span>'
             : (isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
           var arrow = h.hasTargetTemp ? ' → ' : '';
 
