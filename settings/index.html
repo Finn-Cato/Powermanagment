@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -363,6 +363,25 @@
               <input type="range" id="s-hysteresisCount" min="1" max="10" step="1" value="3">
               <span class="range-val" id="v-hysteresisCount">3</span>
             </div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Safety buffer</label><span class="hint">Reduce effective limit by this % (e.g. 5% on 10 kW acts at 9.5 kW). </span></div>
+            <div class="control">
+              <input type="range" id="s-errorMarginPercent" min="0" max="20" step="1" value="0"
+                oninput="document.getElementById('v-errorMarginPercent').textContent=this.value+'%'">
+              <span class="range-val" id="v-errorMarginPercent">0%</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Missing data timeout</label><span class="hint">Force mitigation if no power reading for this many seconds. 0 = disabled.</span></div>
+            <div class="control">
+              <input type="number" id="s-missingPowerTimeoutS" min="0" max="600" step="30" value="120">
+              <span style="font-size:12px;color:var(--text-muted)">s</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label>Dynamic restore guard</label><span class="hint">Wait 1–5 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.</span></div>
+            <div class="control"><input type="checkbox" id="s-dynamicRestoreGuard" checked></div>
           </div>
         </div>
       </div>
@@ -992,6 +1011,10 @@
     setRange('s-smoothingWindow', 'v-smoothingWindow', s.smoothingWindow, 5,   '');
     setRange('s-spikeMultiplier', 'v-spikeMultiplier', s.spikeMultiplier, 2.0, '\u00d7');
     setRange('s-hysteresisCount', 'v-hysteresisCount', s.hysteresisCount, 3,   '');
+    setRange('s-errorMarginPercent', 'v-errorMarginPercent', s.errorMarginPercent, 0, '%');
+    setNum('s-missingPowerTimeoutS', s.missingPowerTimeoutS, 120);
+    var drgEl = document.getElementById('s-dynamicRestoreGuard');
+    if (drgEl) drgEl.checked = (s.dynamicRestoreGuard !== false);
     if (s.classFilters && typeof s.classFilters === 'object') {
       _classFilters = s.classFilters;
     }
@@ -1622,6 +1645,9 @@
       spikeMultiplier: getFloatValue('s-spikeMultiplier', 2.0),
       hysteresisCount: getNumValue('s-hysteresisCount', 3),
       cooldownSeconds: getNumValue('s-cooldownSeconds', 30),
+      errorMarginPercent: getNumValue('s-errorMarginPercent', 0),
+      missingPowerTimeoutS: getNumValue('s-missingPowerTimeoutS', 120),
+      dynamicRestoreGuard: (function(){ var e=document.getElementById('s-dynamicRestoreGuard'); return e ? e.checked : true; })(),
       voltageSystem:   getStringValue('s-voltageSystem', 'auto'),
       phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
       mainCircuitA:    getNumValue('s-mainCircuitA', 25),

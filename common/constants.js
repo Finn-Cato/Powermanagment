@@ -39,6 +39,9 @@ const DEFAULT_SETTINGS = {
   spikeMultiplier: 2.0,     // reading > avg * this is ignored
   hysteresisCount: 3,       // consecutive readings over limit before acting
   cooldownSeconds: 30,      // min seconds between mitigation steps
+  errorMarginPercent: 0,    // reduce effective limit by this % as safety buffer (0 = disabled)
+  missingPowerTimeoutS: 120, // seconds with no HAN reading before forcing mitigation (0 = disabled)
+  dynamicRestoreGuard: true, // scale restore cooldown with time left in the hour
   voltageSystem: 'auto',   // 'auto' | '230v-1phase' | '400v-3phase'
   phaseDistribution: 'balanced',  // charger phase distribution
   mainCircuitA: 25,               // main circuit breaker amperage
@@ -64,7 +67,7 @@ const HOIAX_POWER_STEPS = {
 
 const MITIGATION_LOG_MAX = 100;
 
-// EV charger control defaults (inspired by Sparegris Piggy Charger)
+// EV charger control defaults
 const CHARGER_DEFAULTS = {
   minCurrent: 7,               // Minimum charging current (some chargers unstable at 6A)
   startCurrent: 11,            // Current when resuming from pause (ensures reliable start)

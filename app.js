@@ -51,7 +51,10 @@ class PowerGuardApp extends Homey.App {
     this._overLimitCount = 0;
     this._mitigatedDevices = [];
     this._lastMitigationTime = 0;
+    this._lastDeviceOffTime = 0;   // timestamp of last successful device-off (for dynamic restore guard)
     this._mitigationLog = [];
+    this._deviceReliability = {};  // {deviceId: {comErrors: 0, reliability: 1.0}}
+    this._missingPowerActive = false; // true when we're in missing-power mitigation mode
 
     // Restore mitigated devices from persistent storage
     try {
@@ -173,7 +176,7 @@ class PowerGuardApp extends Homey.App {
         this._cleanStaleMitigatedEntries();
       }
       // When power limit or profile changes, immediately re-evaluate chargers
-      if (['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA'].includes(key)) {
+      if (['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA', 'errorMarginPercent'].includes(key)) {
         this.log(`[Settings] ${key} changed, forcing charger re-evaluation`);
         this._appLogEntry('system', `Settings changed: ${key}`);
         this._forceChargerRecheck().catch(err => this.error('Force re-check error:', err));
@@ -379,6 +382,9 @@ class PowerGuardApp extends Homey.App {
       spikeMultiplier:   s.get('spikeMultiplier')   ?? DEFAULT_SETTINGS.spikeMultiplier,
       hysteresisCount:   s.get('hysteresisCount')   ?? DEFAULT_SETTINGS.hysteresisCount,
       cooldownSeconds:   s.get('cooldownSeconds')   ?? DEFAULT_SETTINGS.cooldownSeconds,
+      errorMarginPercent: s.get('errorMarginPercent') ?? DEFAULT_SETTINGS.errorMarginPercent,
+      missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? DEFAULT_SETTINGS.missingPowerTimeoutS,
+      dynamicRestoreGuard: s.get('dynamicRestoreGuard') ?? DEFAULT_SETTINGS.dynamicRestoreGuard,
       voltageSystem:     s.get('voltageSystem')     ?? DEFAULT_SETTINGS.voltageSystem,
       phaseDistribution: s.get('phaseDistribution') ?? DEFAULT_SETTINGS.phaseDistribution,
       mainCircuitA:      s.get('mainCircuitA')      ?? DEFAULT_SETTINGS.mainCircuitA,
@@ -395,7 +401,8 @@ class PowerGuardApp extends Homey.App {
 
   _getEffectiveLimit() {
     const factor = PROFILE_LIMIT_FACTOR[this._settings.profile] || 1.0;
-    return this._settings.powerLimitW * factor;
+    const margin = 1 - ((this._settings.errorMarginPercent || 0) / 100);
+    return this._settings.powerLimitW * factor * margin;
   }
 
   /**
@@ -724,6 +731,30 @@ class PowerGuardApp extends Homey.App {
     } catch (err) {
       this.log('[HAN Poll] Error: ' + (err.message || err));
     }
+
+    // ── Missing power guard ──────────────────────────────────────────────────
+    // If no real reading has arrived for longer than missingPowerTimeoutS, and the
+    // feature is enabled, force a synthetic reading at the effective limit so that
+    // mitigation kicks in and we don't accidentally overshoot the capacity tariff.
+    const timeoutS = this._settings.missingPowerTimeoutS || 0;
+    if (timeoutS > 0 && this._settings.enabled) {
+      const ageSec = this._lastHanReading ? (Date.now() - this._lastHanReading) / 1000 : Infinity;
+      if (ageSec > timeoutS) {
+        if (!this._missingPowerActive) {
+          this._missingPowerActive = true;
+          this.log(`[HAN Poll] No reading for ${Math.round(ageSec)}s (timeout ${timeoutS}s) — forcing mitigation`);
+          this._appLogEntry('han', `Missing power guard triggered after ${Math.round(ageSec)}s of silence`);
+        }
+        // Synthesise a reading just above the effective limit so mitigation fires
+        const syntheticPower = this._getEffectiveLimit() + 100;
+        this._checkLimits(syntheticPower).catch(err => this.error('Missing power checkLimits error:', err));
+      } else if (this._missingPowerActive) {
+        // Readings have resumed — clear the flag
+        this._missingPowerActive = false;
+        this.log('[HAN Poll] Power readings resumed — clearing missing power guard');
+        this._appLogEntry('han', 'Missing power guard cleared — readings resumed');
+      }
+    }
   }
 
   _onPowerReading(rawValue) {
@@ -735,6 +766,13 @@ class PowerGuardApp extends Homey.App {
     if (rawValue < 0) rawValue = 0;
 
     this._lastHanReading = Date.now();
+
+    // Clear missing power guard if it was active
+    if (this._missingPowerActive) {
+      this._missingPowerActive = false;
+      this.log('[HAN] Real reading received — clearing missing power guard');
+      this._appLogEntry('han', 'Missing power guard cleared — real reading received');
+    }
 
     const avg = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     if (this._powerBuffer.length >= this._settings.smoothingWindow
@@ -1122,7 +1160,14 @@ class PowerGuardApp extends Homey.App {
       // If you have Enua or other charger mitigation functions, add them here:
       // await this._mitigateEnuaChargers?.().catch((err) => this.error('Enua mitigation error:', err));
 
-      const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
+      // Primary sort: user-defined priority. Secondary sort: push high-comError devices to end
+      // Unreliable devices are attempted last to avoid getting stuck.
+      const priorityList = [...(this._settings.priorityList || [])]
+        .sort((a, b) => {
+          const priDiff = a.priority - b.priority;
+          if (priDiff !== 0) return priDiff;
+          return this._getDeviceComErrors(a.deviceId) - this._getDeviceComErrors(b.deviceId);
+        });
       const mitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
 
       this.log(`[Mitigation] Starting cycle: power=${Math.round(currentPower)}W, limit=${Math.round(this._getEffectiveLimit())}W, `
@@ -1246,6 +1291,8 @@ class PowerGuardApp extends Homey.App {
             }
           }
           this._lastMitigationTime = now;
+          this._lastDeviceOffTime = now;   // track for dynamic restore guard
+          this._updateDeviceReliability(entry.deviceId, true);
           this._persistMitigatedDevices();
           this._fireTrigger('mitigation_applied', { device_name: device.name, action: entry.action });
           await this._updateVirtualDevice({ alarm: true });
@@ -1259,9 +1306,11 @@ class PowerGuardApp extends Homey.App {
           const errMsg = (err.message || '').toLowerCase();
           if (errMsg.includes('not_found') || errMsg.includes('device_not_found') || errMsg.includes('timed out')) {
             this.log(`[Mitigation] Device ${entry.deviceId} (${entry.name}) not found or unreachable, skipping`);
+            this._updateDeviceReliability(entry.deviceId, false);
             scanResults.push({ name: entry.name, action: entry.action, result: `error: ${errMsg.substring(0, 80)}` });
             continue;
           }
+          this._updateDeviceReliability(entry.deviceId, false);
           this.error(`Mitigation failed for ${entry.deviceId}:`, err);
           scanResults.push({ name: entry.name, action: entry.action, result: `error: ${(err.message || '').substring(0, 80)}` });
         }
@@ -1281,7 +1330,51 @@ class PowerGuardApp extends Homey.App {
     return true;
   }
 
+  /**
+   * Update per-device communication reliability.
+   * Exponential moving average: 99% old + 1% new.
+   * comErrors increments on failure, resets on success.
+   * Unreliable devices are sorted to the end of the priority list.
+   */
+  _updateDeviceReliability(deviceId, success) {
+    if (!this._deviceReliability[deviceId]) {
+      this._deviceReliability[deviceId] = { comErrors: 0, reliability: 1.0 };
+    }
+    const r = this._deviceReliability[deviceId];
+    r.reliability = 0.99 * r.reliability + 0.01 * (success ? 1 : 0);
+    if (success) {
+      r.comErrors = 0;
+    } else {
+      r.comErrors += 1;
+    }
+  }
+
+  /**
+   * Returns the comError count for a device (0 if unknown = treat as reliable).
+   */
+  _getDeviceComErrors(deviceId) {
+    return (this._deviceReliability[deviceId] || { comErrors: 0 }).comErrors;
+  }
+
   // ─── Restore ──────────────────────────────────────────────────────────────
+
+  /**
+   * Dynamic restore guard:
+   * After a device is turned OFF, wait longer if we have lots of time left in the current hour.
+   * This prevents rapid on/off cycling of high-power devices when there's budget pressure.
+   * Wait = 5 min if >30 min left in hour, 1 min if <5 min left, linear in between.
+   */
+  _getDynamicRestoreWaitMs() {
+    if (!this._settings.dynamicRestoreGuard) return 0;
+    const msToNextHour = 3600000 - (Date.now() % 3600000);
+    const MAX_WAIT = 5 * 60 * 1000;  // 5 min when >30 min left
+    const MIN_WAIT = 1 * 60 * 1000;  // 1 min when <5 min left
+    const T_MAX = 30 * 60 * 1000;
+    const T_MIN = 5 * 60 * 1000;
+    if (msToNextHour >= T_MAX) return MAX_WAIT;
+    if (msToNextHour <= T_MIN) return MIN_WAIT;
+    return MIN_WAIT + (MAX_WAIT - MIN_WAIT) * ((msToNextHour - T_MIN) / (T_MAX - T_MIN));
+  }
 
   async _triggerRestore() {
     if (!this._api) return;
@@ -1289,6 +1382,14 @@ class PowerGuardApp extends Homey.App {
     try {
       const toRestore = this._mitigatedDevices[this._mitigatedDevices.length - 1];
       if (!toRestore) return;
+
+      // Dynamic global guard: must wait N minutes after last device-off before restoring anything
+      const dynamicWaitMs = this._getDynamicRestoreWaitMs();
+      const timeSinceOff = Date.now() - this._lastDeviceOffTime;
+      if (dynamicWaitMs > 0 && timeSinceOff < dynamicWaitMs) {
+        this.log(`[Restore] Dynamic guard active: ${Math.round((dynamicWaitMs - timeSinceOff) / 1000)}s remaining (time left in hour ${Math.round((3600000 - Date.now() % 3600000) / 60000)}min)`);
+        return;
+      }
 
       const entry = (this._settings.priorityList || []).find(e => e.deviceId === toRestore.deviceId);
       const minOffTime = ((entry && entry.minOffTimeSeconds) || 0) * 1000;
@@ -1331,6 +1432,7 @@ class PowerGuardApp extends Homey.App {
           this._persistMitigatedDevices();
           return;
         }
+        this._updateDeviceReliability(toRestore.deviceId, false);
         this.error(`Restore failed for ${toRestore.deviceId}:`, err);
       }
     } finally {
@@ -2920,6 +3022,8 @@ class PowerGuardApp extends Homey.App {
             const tracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
             if (tracked) tracked.currentTargetA = targetCurrent;
           }
+          this._lastDeviceOffTime = Date.now();   // track for dynamic restore guard
+          this._updateDeviceReliability(entry.deviceId, true);
           this._persistMitigatedDevices();
           this._lastMitigationTime = Date.now();
         } else if (targetCurrent === null) {
@@ -2935,6 +3039,8 @@ class PowerGuardApp extends Homey.App {
             this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
             await this._updateVirtualDevice({ alarm: true }).catch(() => {});
           }
+          this._lastDeviceOffTime = Date.now();   // track for dynamic restore guard
+          this._updateDeviceReliability(entry.deviceId, true);
           this._persistMitigatedDevices();
           this._lastMitigationTime = Date.now();
         } else if (alreadyTracked) {
