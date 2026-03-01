@@ -9,11 +9,9 @@ class PowerGuardDriver extends Homey.Driver {
   }
 
   async onPairListDevices() {
-    // Only allow one virtual Power Guard device
-    const existing = this.getDevices();
-    if (existing.length > 0) {
-      throw new Error(this.homey.__('errors.deviceExists'));
-    }
+    // Always return the single virtual device entry.
+    // If it already exists, Homey will show it as already added
+    // rather than showing an empty list.
     return [
       {
         name: this.homey.__('device.name'),

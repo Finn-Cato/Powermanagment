@@ -65,7 +65,18 @@
         "small": "/drivers/ev-charger/assets/small.png",
         "large": "/drivers/ev-charger/assets/large.png",
         "xlarge": "/drivers/ev-charger/assets/xlarge.png"
-      }
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": { "next": "add_devices" }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
     },
     {
       "id": "power-guard",
@@ -82,7 +93,18 @@
         "small": "/drivers/power-guard/assets/small.png",
         "large": "/drivers/power-guard/assets/large.png",
         "xlarge": "/drivers/power-guard/assets/xlarge.png"
-      }
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": { "next": "add_devices" }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
     },
     {
       "id": "thermostat",
@@ -100,7 +122,18 @@
         "small": "/drivers/thermostat/assets/small.png",
         "large": "/drivers/thermostat/assets/large.png",
         "xlarge": "/drivers/thermostat/assets/xlarge.png"
-      }
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": { "next": "add_devices" }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
     }
   ],
   "api": {
@@ -196,5 +229,152 @@
       "method": "POST",
       "path": "/power-corrections"
     }
+  },
+  "flow": {
+    "triggers": [
+      {
+        "id": "power_limit_exceeded",
+        "title": {
+          "en": "Power limit exceeded",
+          "no": "Effektgrense overskredet"
+        },
+        "tokens": [
+          {
+            "name": "power",
+            "type": "number",
+            "title": { "en": "Power (W)", "no": "Effekt (W)" },
+            "example": 5200
+          }
+        ]
+      },
+      {
+        "id": "mitigation_applied",
+        "title": {
+          "en": "Mitigation applied to a device",
+          "no": "Tiltak iverksatt på en enhet"
+        },
+        "tokens": [
+          {
+            "name": "device_name",
+            "type": "string",
+            "title": { "en": "Device name", "no": "Enhetsnavn" },
+            "example": "Floor heater"
+          },
+          {
+            "name": "action",
+            "type": "string",
+            "title": { "en": "Action", "no": "Handling" },
+            "example": "onoff"
+          }
+        ]
+      },
+      {
+        "id": "mitigation_cleared",
+        "title": {
+          "en": "Mitigation cleared",
+          "no": "Tiltak opphevet"
+        },
+        "tokens": [
+          {
+            "name": "device_name",
+            "type": "string",
+            "title": { "en": "Device name", "no": "Enhetsnavn" },
+            "example": "Floor heater"
+          }
+        ]
+      },
+      {
+        "id": "profile_changed",
+        "title": {
+          "en": "Active profile changed",
+          "no": "Aktiv profil endret"
+        },
+        "tokens": [
+          {
+            "name": "profile",
+            "type": "string",
+            "title": { "en": "Profile", "no": "Profil" },
+            "example": "strict"
+          }
+        ]
+      }
+    ],
+    "conditions": [
+      {
+        "id": "guard_enabled",
+        "title": {
+          "en": "Power Guard is enabled",
+          "no": "Power Guard er aktivert"
+        }
+      },
+      {
+        "id": "is_over_limit",
+        "title": {
+          "en": "Power is over limit",
+          "no": "Effekten er over grensen"
+        }
+      },
+      {
+        "id": "profile_is",
+        "title": {
+          "en": "Active profile is",
+          "no": "Aktiv profil er"
+        },
+        "args": [
+          {
+            "name": "profile",
+            "type": "dropdown",
+            "title": { "en": "Profile", "no": "Profil" },
+            "values": [
+              { "id": "normal", "label": { "en": "Normal", "no": "Normal" } },
+              { "id": "strict", "label": { "en": "Strict (90% limit)", "no": "Streng (90% grense)" } },
+              { "id": "solar", "label": { "en": "Solar-friendly", "no": "Sol-vennlig" } }
+            ]
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "enable_guard",
+        "title": {
+          "en": "Enable Power Guard",
+          "no": "Aktiver Power Guard"
+        }
+      },
+      {
+        "id": "disable_guard",
+        "title": {
+          "en": "Disable Power Guard",
+          "no": "Deaktiver Power Guard"
+        }
+      },
+      {
+        "id": "set_profile",
+        "title": {
+          "en": "Set active profile",
+          "no": "Sett aktiv profil"
+        },
+        "args": [
+          {
+            "name": "profile",
+            "type": "dropdown",
+            "title": { "en": "Profile", "no": "Profil" },
+            "values": [
+              { "id": "normal", "label": { "en": "Normal", "no": "Normal" } },
+              { "id": "strict", "label": { "en": "Strict (90% limit)", "no": "Streng (90% grense)" } },
+              { "id": "solar", "label": { "en": "Solar-friendly", "no": "Sol-vennlig" } }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "reset_statistics",
+        "title": {
+          "en": "Reset statistics",
+          "no": "Tilbakestill statistikk"
+        }
+      }
+    ]
   }
 }

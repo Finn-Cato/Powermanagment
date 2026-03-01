@@ -34,5 +34,36 @@
     "dim": "Dim til minimum",
     "target_temperature": "Reduser varme",
     "charge_pause": "Pause lading"
+  },
+  "flow": {
+    "triggers": {
+      "power_limit_exceeded": {
+        "title": "Effektgrense overskredet",
+        "tokens": { "power": "Effekt (W)" }
+      },
+      "mitigation_applied": {
+        "title": "Tiltak iverksatt på en enhet",
+        "tokens": { "device_name": "Enhetsnavn", "action": "Handling" }
+      },
+      "mitigation_cleared": {
+        "title": "Tiltak opphevet",
+        "tokens": { "device_name": "Enhetsnavn" }
+      },
+      "profile_changed": {
+        "title": "Aktiv profil endret",
+        "tokens": { "profile": "Profil" }
+      }
+    },
+    "conditions": {
+      "guard_enabled": { "title": "Power Guard er aktivert" },
+      "is_over_limit": { "title": "Effekten er over grensen" },
+      "profile_is": { "title": "Aktiv profil er" }
+    },
+    "actions": {
+      "enable_guard": { "title": "Aktiver Power Guard" },
+      "disable_guard": { "title": "Deaktiver Power Guard" },
+      "set_profile": { "title": "Sett aktiv profil" },
+      "reset_statistics": { "title": "Tilbakestill statistikk" }
+    }
   }
 }
