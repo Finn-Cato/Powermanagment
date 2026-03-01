@@ -1725,7 +1725,9 @@
           // Show as "drawing" (orange highlight) if we have positive wattage,
           // OR if the device is on but has no power sensor (fall back to onoff state).
           var hasPowerData = h.currentPowerW != null;
-          var drawing = hasPowerData ? Number(h.currentPowerW) > 0 : isOn;
+          var powerW = hasPowerData ? Number(h.currentPowerW) : 0;
+          // Orange highlight if drawing real watts OR if thermostat is actively calling for heat
+          var drawing = powerW > 0 || isOn;
           var cur = h.currentMeasure != null ? Number(h.currentMeasure).toFixed(1) + '°' : '–';
           var id  = h.deviceId;
           var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
@@ -1742,10 +1744,11 @@
             var stepText = h.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
             activeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
           }
-          // Show wattage if available, otherwise show "● ON" when device is on but has no power sensor
-          var pwrLabel = (hasPowerData && Number(h.currentPowerW) > 5)
-            ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(h.currentPowerW) + 'W</span>'
-            : (!hasPowerData && isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
+          // Show wattage if drawing real watts;
+          // show "● ON" when thermostat is on regardless of whether it has a power sensor
+          var pwrLabel = powerW > 5
+            ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(powerW) + 'W</span>'
+            : (isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
           var arrow = h.hasTargetTemp ? ' → ' : '';
 
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
