@@ -436,16 +436,12 @@
         </div>
 
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
-          <button class="btn-primary" onclick="syncChargerLimitsFromDevices()" style="font-size:12px; padding:6px 14px;">
-            📥 Sync from charger
-          </button>
-          <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px; margin-left:6px;">
+          <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px;">
             🔌 Test charger control
           </button>
           <button class="btn-secondary" onclick="showDiagnostics()" style="font-size:12px; padding:6px 14px; margin-left:6px;">
             🔍 Diagnostics
           </button>
-          <div id="charger-sync-msg" style="margin-top:6px; font-size:11px; color:var(--text-muted); display:none;"></div>
           <div id="charger-test-result" style="margin-top:8px; font-size:12px; display:none;"></div>
         </div>
       </div>
@@ -1222,34 +1218,13 @@
       return;
     }
 
-    var voltageSystem = _resolveVoltageSystem();
-    var mainCircuitA = parseInt(document.getElementById('s-mainCircuitA').value) || 25;
-    var voltageLabel = voltageSystem === '400v-3phase' ? '400V' : '230V';
-    var voltageMultiplier = voltageSystem === '400v-3phase' ? 692 : 230;
-
     var html = '<table style="width:100%; border-collapse:collapse;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
             '<th style="text-align:left; padding:8px 4px;">Charger</th>' +
             '<th style="text-align:center; padding:8px 4px;">Status</th>' +
-            '<th style="text-align:center; padding:8px 4px;">Phases</th>' +
-            '<th style="text-align:center; padding:8px 4px;">Max Current</th>' +
-            '<th style="text-align:center; padding:8px 4px;">Max Power</th>' +
             '</tr></thead><tbody>';
 
-    var totalCircuitA = 0;
-    var totalPowerW = 0;
-
     chargers.forEach(function(charger, idx) {
-      var circuitA = charger.circuitLimitA || 32;
-      var chargerPhases = charger.chargerPhases || 3;
-      var effectiveA = Math.min(circuitA, mainCircuitA);
-      // Per-charger voltage: 1-phase = 230V, 3-phase = 692V (√3 × 400)
-      var perChargerVoltage = chargerPhases === 1 ? 230 : 692;
-      var maxPowerW = Math.round(perChargerVoltage * effectiveA);
-
-      totalCircuitA += circuitA;
-      totalPowerW += maxPowerW;
-
       // Get live status from last status update
       var liveStatus = _lastChargerStatus[charger.deviceId] || { status: 'idle', statusLabel: 'Idle' };
       var statusColor = liveStatus.status === 'paused' ? '#ff3b30' :
@@ -1273,39 +1248,18 @@
               '<td style="text-align:center; padding:8px 4px;">' +
               '<span id="charger-status-' + charger.deviceId + '" style="font-size:11px; font-weight:600; color:' + statusColor + '; white-space:nowrap;">' +
               statusIcon + ' ' + escHtml(liveStatus.statusLabel) + '</span></td>' +
-              '<td style="text-align:center; padding:8px 4px;">' +
-              '<select onchange="updateChargerPhases(\'' + charger.deviceId + '\',this.value)" ' +
-              'title="Auto-detected from live data when charger is active. Set manually as fallback." ' +
-              'style="font-size:12px; border:1px solid var(--border-color); border-radius:4px; padding:2px 4px;">' +
-              '<option value="1"' + (chargerPhases === 1 ? ' selected' : '') + '>1-phase</option>' +
-              '<option value="3"' + (chargerPhases === 3 ? ' selected' : '') + '>3-phase</option>' +
-              '</select>' +
-              '<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">(auto-detected)</div>' +
-              '</td>' +
-              '<td style="text-align:center; padding:8px 4px;">' +
-              '<input type="number" min="6" max="32" value="' + circuitA + '" ' +
-              'onchange="updateChargerCircuitFromSystem(\'' + charger.deviceId + '\',this.value)" ' +
-              'style="width:50px; font-size:12px; text-align:center; border:1px solid var(--border-color); border-radius:4px; padding:2px 4px;">' +
-              '<span style="font-size:11px; color:var(--text-muted);"> A</span>' +
-              '</td>' +
-              '<td style="text-align:center; padding:8px 4px;">' + (maxPowerW / 1000).toFixed(1) + ' kW</td>' +
               '</tr>';
     });
 
     // Total summary row
     html += '<tr style="border-top:2px solid var(--border-color); font-weight:bold;">' +
-            '<td style="padding:8px 4px;">Total (' + chargers.length + ' charger' + (chargers.length > 1 ? 's' : '') + ')</td>' +
-            '<td></td>' +
-            '<td></td>' +
-            '<td style="text-align:center; padding:8px 4px;">' + totalCircuitA + ' A</td>' +
-            '<td style="text-align:center; padding:8px 4px;">' + (totalPowerW / 1000).toFixed(1) + ' kW</td>' +
+            '<td colspan="2" style="padding:8px 4px;">Total (' + chargers.length + ' charger' + (chargers.length > 1 ? 's' : '') + ')</td>' +
             '</tr>';
 
     html += '</tbody></table>';
     html += '<div style="font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;">' +
-            '💡 <b>Max Current</b> = Easee Ladergrense (permanent charger limit). ' +
-            'Current is reduced dynamically during overload mitigation. ' +
-            '<b>Phases</b> are auto-detected from live power/current ratio (set manually only as fallback).' +
+            '💡 Power Guard adjusts charger current up/down automatically based on available headroom. ' +
+            'Phases and max current are auto-detected from live data — configure limits in your charger\'s own app.' +
             '</div>';
 
     // Debug: show raw charger_status values from the Easee API
@@ -1334,101 +1288,42 @@
     container.innerHTML = html;
   }
 
-  /**
-   * Update a charger's circuit limit from the System tab, then refresh both views.
-   */
-  function updateChargerCircuitFromSystem(deviceId, val) {
-    var ampVal = parseInt(val) || 32;
-    if (ampVal < 6) ampVal = 6;
-    if (ampVal > 32) ampVal = 32;
-    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
-    if (entry) {
-      entry.circuitLimitA = ampVal;
-      savePriorityList();
-      renderChargerDetails();
-      renderAllDevices();
-      hApi('POST', '/apply-circuit-limits', {})
-        .then(function(data) { dbg('Circuit limits pushed: ' + JSON.stringify(data)); })
-        .catch(function(err) { dbg('Circuit limit push error: ' + (err.message || err)); });
-    }
-  }
+  // updateChargerCircuitFromSystem removed — circuit limits are handled by the charger's own app
 
   /**
    * Read live target_charger_current from each configured charger device and
    * update the in-memory priorityList + re-render so the UI shows the real value.
    * Called automatically on page load and by the "Read from charger" button.
    */
+  // syncChargerLimitsFromDevices: only used for the debug section raw values (ID47/ID48).
+  // circuitLimitA is no longer managed here — configure limits in the charger's own app.
   function syncChargerLimitsFromDevices(silent) {
-    var msgEl = document.getElementById('charger-sync-msg');
-    if (!silent && msgEl) { msgEl.style.display = 'block'; msgEl.textContent = '⏳ Reading from charger…'; }
     hApi('GET', '/get-charger-limits', null)
       .then(function(limits) {
         if (!limits) return;
-        var updated = [];
         priorityList.forEach(function(entry) {
           var live = limits[entry.deviceId];
           if (!live) return;
-          // target_charger_current = ID47 (permanent Ladergrense). Server returns pre-mitigation value when throttled.
-          // target_charger_current (Homey) = ID47 maxChargerCurrent = permanent Ladergrense
-          // Server returns the pre-mitigation snapshot when the charger is actively throttled,
-          // so this value is always the user-configured permanent max (e.g. 14A), not the
-          // current throttled value (e.g. 7A).
           var maxCurrent = (live.target_charger_current != null && live.target_charger_current > 0) ? Math.round(live.target_charger_current) : null;
-          var liveA = maxCurrent;  // Max Current = Ladergrense (ID47), derived from snapshot when throttled
-          // Store raw values for the debug display in renderChargerDetails
           _lastChargerLimits[entry.deviceId] = {
-            maxCurrent:              maxCurrent,    // ID47  permanent Ladergrense (pre-mitigation snapshot when throttled)
+            maxCurrent:              maxCurrent,
             mitigated:               !!live.mitigated,
-            dynamic_charger_current: live.dynamic_charger_current != null ? Math.round(live.dynamic_charger_current) : null,  // ID48 volatile
+            dynamic_charger_current: live.dynamic_charger_current != null ? Math.round(live.dynamic_charger_current) : null,
             circuit_current:         (live.target_circuit_current != null && live.target_circuit_current > 0) ? Math.round(live.target_circuit_current) : null,
             allValues:               live.allValues || {},
           };
-          // Never overwrite circuitLimitA while Power Guard is actively throttling the charger
-          if (liveA != null && entry.circuitLimitA !== liveA && !live.mitigated) {
-            updated.push(entry.name + ': ' + (entry.circuitLimitA || 32) + 'A → ' + liveA + 'A');
-            entry.circuitLimitA = liveA;
-          } else if (!silent && liveA != null) {
-            dbg(entry.name + ': Max Current (ID47)=' + liveA + 'A' + (live.mitigated ? ' (pre-mitigation snapshot)' : ' (live)') + ' — already set');
+          if (!silent && maxCurrent != null) {
+            dbg(entry.name + ': ID47 Ladergrense=' + maxCurrent + 'A' + (live.mitigated ? ' (pre-mitigation snapshot)' : ' (live)'));
           }
         });
-        if (updated.length) {
-          renderChargerDetails();
-          savePriorityList();  // Persist the updated circuitLimitA values
-          if (msgEl) { msgEl.style.display = 'block'; msgEl.textContent = '✅ Synced: ' + updated.join(', '); }
-          dbg('Charger limits synced from devices: ' + updated.join(', '));
-        } else {
-          renderChargerDetails();  // Still refresh to show ID47/ID48 values in debug row
-          if (!silent && msgEl) {
-            // Build a summary of what the charger actually reported
-            var summary = [];
-            priorityList.forEach(function(e) {
-              var lim = _lastChargerLimits[e.deviceId];
-              if (lim) summary.push(e.name + ': ID47=' + (lim.maxCurrent != null ? lim.maxCurrent + 'A' : 'N/A') +
-                (lim.mitigated ? ' (snapshot)' : ' (live)'));
-            });
-            msgEl.style.display = 'block';
-            msgEl.textContent = '✅ Already in sync. ' + summary.join(' | ');
-          }
-        }
-        if (msgEl) setTimeout(function() { msgEl.style.display = 'none'; }, 6000);
+        renderChargerDetails();
       })
       .catch(function(err) {
         dbg('getChargerLimits error: ' + (err.message || err));
-        if (!silent && msgEl) { msgEl.style.display = 'block'; msgEl.textContent = '⚠ Could not read from charger: ' + (err.message || err); }
       });
   }
 
-  function updateChargerPhases(deviceId, val) {
-    var phases = parseInt(val) || 3;
-    if (phases !== 1) phases = 3;
-    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
-    if (entry) {
-      entry.chargerPhases = phases;
-      savePriorityList();
-      renderChargerDetails();
-      renderAllDevices();
-    }
-  }
+  // updateChargerPhases removed — phases are auto-detected from live power/current ratio
 
   function testChargerControl() {
     var resultDiv = document.getElementById('charger-test-result');
