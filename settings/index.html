@@ -1667,7 +1667,7 @@
           var display = (!isClassVisible || isExcluded) ? 'display:none;' : '';
           return '<tr style="border-bottom:1px solid var(--border-light);' + display + '" class="consumption-row" data-device-class="' + cls + '" data-device-id="' + d.deviceId + '">' +
             '<td style="padding:10px 0;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + deviceName + '">' + (idx + 1) + '. ' + deviceName + '</td>' +
-            '<td style="text-align:right;padding:10px 6px;color:var(--text-primary);font-weight:500;white-space:nowrap;">' + d.current + ' W</td>' +
+            '<td style="text-align:right;padding:10px 6px;color:var(--text-primary);font-weight:500;white-space:nowrap;">' + (d.isHeating && d.current === 0 ? '<span style="color:var(--orange);font-weight:600;font-size:11px;">● heating</span>' : d.current + ' W') + '</td>' +
             '<td style="text-align:right;padding:10px 6px;color:var(--text-muted);white-space:nowrap;">' + d.avg + ' W</td>' +
             '<td style="text-align:right;padding:10px 6px;color:var(--text-muted);white-space:nowrap;">' + d.peak + ' W</td>' +
             '<td style="text-align:right;padding:10px 6px;color:#ff6b35;font-weight:500;white-space:nowrap;">' + d.percent + '%</td>' +
