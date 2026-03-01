@@ -3263,6 +3263,18 @@ class PowerGuardApp extends Homey.App {
               isOn = true; // manual, schedule, holiday etc. = thermostat is active
             }
           }
+          // onoff=false is always the hard override — device is physically disabled.
+          // Must run AFTER mode-specific checks (e.g. zg9030a_modes) because those can
+          // overwrite isOn=false (set from onoff) with isOn=true (set from mode='heat')
+          // even though the device was turned off by mitigation. onoff wins last.
+          if (hasOnOff && source.capabilitiesObj.onoff) {
+            const v = source.capabilitiesObj.onoff;
+            const onoffVal = v.value !== undefined ? v.value : v;
+            if (onoffVal === false) {
+              this.log(`[FloorHeater]   isOn hard override → false (onoff=false takes precedence over mode)`);
+              isOn = false;
+            }
+          }
           // Power-based fallback: if device is drawing significant power it IS on
           if (!isOn && currentPowerW != null && currentPowerW > 50) {
             this.log(`[FloorHeater]   isOn override → true (power=${currentPowerW}W)`);
