@@ -2288,7 +2288,7 @@ class PowerGuardApp extends Homey.App {
         : CHARGER_DEFAULTS.toggleUnconfirmedMs;
       if (now - (cState.lastAdjustTime || 0) < perChargerThrottle) continue;
 
-      const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
+      const targetCurrent = this._calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, entry);
       const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
       // Skip if target hasn't changed meaningfully
