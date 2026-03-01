@@ -34,5 +34,36 @@
     "dim": "Dim to minimum",
     "target_temperature": "Reduce heating",
     "charge_pause": "Pause charging"
+  },
+  "flow": {
+    "triggers": {
+      "power_limit_exceeded": {
+        "title": "Power limit exceeded",
+        "tokens": { "power": "Power (W)" }
+      },
+      "mitigation_applied": {
+        "title": "Mitigation applied to a device",
+        "tokens": { "device_name": "Device name", "action": "Action" }
+      },
+      "mitigation_cleared": {
+        "title": "Mitigation cleared",
+        "tokens": { "device_name": "Device name" }
+      },
+      "profile_changed": {
+        "title": "Active profile changed",
+        "tokens": { "profile": "Profile" }
+      }
+    },
+    "conditions": {
+      "guard_enabled": { "title": "Power Guard is enabled" },
+      "is_over_limit": { "title": "Power is over limit" },
+      "profile_is": { "title": "Active profile is" }
+    },
+    "actions": {
+      "enable_guard": { "title": "Enable Power Guard" },
+      "disable_guard": { "title": "Disable Power Guard" },
+      "set_profile": { "title": "Set active profile" },
+      "reset_statistics": { "title": "Reset statistics" }
+    }
   }
 }
