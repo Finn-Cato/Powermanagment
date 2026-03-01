@@ -24,7 +24,7 @@ const PROFILES = {
 // How much of the limit to use per profile (multiplier)
 const PROFILE_LIMIT_FACTOR = {
   [PROFILES.NORMAL]: 1.0,
-  [PROFILES.STRICT]: 0.9,
+  [PROFILES.STRICT]: 0.95,
   [PROFILES.SOLAR]: 1.05,
 };
 
