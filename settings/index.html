@@ -1648,7 +1648,7 @@
   // ── Load Power Consumption ─────────────────────────────────────────────────
   var _consumptionRefresh = null;
   var _classFilters = {}; // Track which device classes are visible
-  var _powerExcluded = JSON.parse(localStorage.getItem('pg_powerExcluded') || '{}');
+  var _powerExcluded = (function() { try { return JSON.parse(localStorage.getItem('pg_powerExcluded') || '{}') || {}; } catch(e) { return {}; } })();
 
   function excludePowerDevice(deviceId) {
     _powerExcluded[deviceId] = true;
@@ -1672,7 +1672,7 @@
     var visibleCount = 0;
     var hiddenCount = 0;
     document.querySelectorAll('.consumption-row').forEach(function(row) {
-      var isExcluded = !!_powerExcluded[row.getAttribute('data-device-id')];
+      var isExcluded = !!(_powerExcluded || {})[row.getAttribute('data-device-id')];
       var cls = row.getAttribute('data-device-class');
       var isClassHidden = _classFilters[cls] === false;
       if (isExcluded || isClassHidden) {
@@ -1708,7 +1708,7 @@
     var rows = document.querySelectorAll('.consumption-row');
     rows.forEach(function(row) {
       var rowClass = row.getAttribute('data-device-class');
-      var isExcluded = !!_powerExcluded[row.getAttribute('data-device-id')];
+      var isExcluded = !!(_powerExcluded || {})[row.getAttribute('data-device-id')];
       var isVisible = _classFilters[rowClass] !== false && !isExcluded;
       row.style.display = isVisible ? '' : 'none';
     });
@@ -1759,7 +1759,7 @@
           var deviceName = (d.name || 'Unknown') + (d.class ? ' (' + d.class + ')' : '');
           var cls = d.class || 'unknown';
           var isClassVisible = _classFilters[cls] !== false;
-          var isExcluded = !!_powerExcluded[d.deviceId];
+          var isExcluded = !!(_powerExcluded || {})[d.deviceId];
           var display = (!isClassVisible || isExcluded) ? 'display:none;' : '';
           return '<tr style="border-bottom:1px solid var(--border-light);' + display + '" class="consumption-row" data-device-class="' + cls + '" data-device-id="' + d.deviceId + '">' +
             '<td style="padding:10px 0;color:var(--text-primary);">' + (idx + 1) + '. ' + deviceName + '</td>' +
