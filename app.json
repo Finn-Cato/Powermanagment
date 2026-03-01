@@ -65,7 +65,18 @@
         "small": "/drivers/ev-charger/assets/small.png",
         "large": "/drivers/ev-charger/assets/large.png",
         "xlarge": "/drivers/ev-charger/assets/xlarge.png"
-      }
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": { "next": "add_devices" }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
     },
     {
       "id": "power-guard",
@@ -82,7 +93,18 @@
         "small": "/drivers/power-guard/assets/small.png",
         "large": "/drivers/power-guard/assets/large.png",
         "xlarge": "/drivers/power-guard/assets/xlarge.png"
-      }
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": { "next": "add_devices" }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
     },
     {
       "id": "thermostat",
@@ -100,7 +122,18 @@
         "small": "/drivers/thermostat/assets/small.png",
         "large": "/drivers/thermostat/assets/large.png",
         "xlarge": "/drivers/thermostat/assets/xlarge.png"
-      }
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": { "next": "add_devices" }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
     }
   ],
   "api": {
