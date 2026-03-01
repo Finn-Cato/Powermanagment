@@ -68,6 +68,7 @@
     "en": "flow card"
   },
   "0.6.0": {
-    "en": "Multi-charger headroom split evenly across active chargers"
+    "en": "Multi-charger support: available headroom is now pooled and split evenly across all actively charging cars — a second connected-but-idle car no longer steals half the budget. EV charger phase count (1-phase / 3-phase) is now auto-detected from the live power/current ratio; no manual electrical config needed. Strict profile raised to 95% safety margin. Settings migration resets voltageSystem to auto on first start after update. Devices tab now always shows the EV charger as controlled by Power Guard while a car is connected and charging. Fixed a calculation bug that could cause charger current adjustments to be silently skipped.",
+    "no": "Støtte for flere ladere: tilgjengelig effekt samles og fordeles likt mellom alle biler som faktisk lader — en tilkoblet-men-hvilende bil stjeler ikke lenger halve budsjettet. Fase-antall for EV-lader (enfase / trefase) detekteres nå automatisk fra live effekt/strøm-forholdet; ingen manuell konfigurasjon trengs. Streng profil hevet til 95% sikkerhetsmargin. Innstillingsmigrering nullstiller spenningssystem til auto ved første oppstart etter oppdatering. Enheter-fanen viser nå alltid EV-laderen som styrt av Power Guard mens en bil er tilkoblet og lader. Rettet en beregningsfeil som kunne føre til at strømjusteringer ble stille hoppet over."
   }
 }
