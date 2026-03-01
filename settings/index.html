@@ -462,8 +462,11 @@
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:500">
           Filter by device type
         </div>
-        <div id="device-type-filters" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;">
-          <!-- Filters will be populated here -->
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:14px;">
+          <div id="device-type-filters" style="display:contents;">
+            <!-- Filters will be populated here -->
+          </div>
+          <div id="power-hidden-info"></div>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead style="border-bottom:2px solid var(--border-color);">
@@ -471,8 +474,7 @@
               <th style="text-align:left;padding:8px 0;color:var(--text-muted);font-weight:500;">Device</th>
               <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Current</th>
               <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Avg</th>
-              <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Peak</th>
-              <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Share</th>
+              <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Peak / Share</th>
               <th style="width:28px;"></th>
             </tr>
           </thead>
@@ -485,7 +487,6 @@
         <div style="font-size:11px;color:var(--text-tertiary);margin-top:12px;text-align:right;">
           Last updated: <span id="consumption-time">–</span>
         </div>
-        <div id="power-hidden-info" style="font-size:11px;color:var(--text-tertiary);margin-top:6px;text-align:right;"></div>
       </div>
 
     </div><!-- /#tab-consumption -->
@@ -1592,9 +1593,11 @@
     });
     var info = document.getElementById('power-hidden-info');
     if (info) {
-      info.innerHTML = hiddenCount > 0
-        ? hiddenCount + ' device(s) hidden. <a href="#" onclick="resetPowerExclusions();return false;" style="color:var(--brand);">Show all</a>'
-        : '';
+      if (hiddenCount > 0) {
+        info.innerHTML = '<button onclick="resetPowerExclusions()" style="background:none;border:1px solid var(--brand);color:var(--brand);border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;white-space:nowrap;">' + hiddenCount + ' hidden — Show all</button>';
+      } else {
+        info.innerHTML = '';
+      }
     }
   }
   
@@ -1667,8 +1670,10 @@
             '<td style="padding:10px 0;color:var(--text-primary);">' + (idx + 1) + '. ' + deviceName + '</td>' +
             '<td style="text-align:right;padding:10px 0;color:var(--text-primary);font-weight:500;">' + d.current + ' W</td>' +
             '<td style="text-align:right;padding:10px 0;color:var(--text-muted);">' + d.avg + ' W</td>' +
-            '<td style="text-align:right;padding:10px 0;color:var(--text-muted);">' + d.peak + ' W</td>' +
-            '<td style="text-align:right;padding:10px 0;color:#ff6b35;font-weight:500;">' + d.percent + '%</td>' +
+            '<td style="text-align:right;padding:10px 0;">' +
+              '<span style="color:var(--text-muted);">' + d.peak + ' W</span> ' +
+              '<span style="color:#ff6b35;font-weight:500;">' + d.percent + '%</span>' +
+            '</td>' +
             '<td style="text-align:right;padding:10px 0;"><button onclick="excludePowerDevice(\'' + d.deviceId + '\')" title="Hide this device" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;">×</button></td>' +
             '</tr>';
         }).join('');
