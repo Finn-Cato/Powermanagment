@@ -41,15 +41,18 @@ Works with multiple EV chargers from different brands. Supported chargers:
 
 #### Zaptec (Flow API + Capability Control)
 - Dynamic current adjustment via Homey Flow API (`runFlowCardAction`)
-  - Uses `installation_current_control` action from `com.zaptec` app (0–40A per phase)
-  - Sets all 3 phases equally
+  - Auto-discovers the correct flow action ID from the `com.zaptec` app at runtime
+  - Known action: `installation_current_control` (0–40A per phase), sets all 3 phases equally
+  - Falls back to fuzzy matching if action ID differs across Zaptec app versions
 - Pause/resume via `charging_button` capability
 - Car connected detection via `alarm_generic.car_connected`
 - Available installation current monitoring
 
 #### Enua Charge E (Flow API + Capability Control)
 - Dynamic current adjustment via Homey Flow API (`runFlowCardAction`)
-  - Uses `changeCurrentLimitAction` action from `no.enua` app (6–32A)
+  - Auto-discovers the correct flow action ID from the `no.enua` app at runtime
+  - Known action: `changeCurrentLimitAction` (6–32A)
+  - Falls back to fuzzy matching if action ID differs across Enua app versions
 - Pause/resume via `toggleChargingCapability` (custom capability)
 - Charger status monitoring via `chargerStatusCapability`
 - Cable lock status via `toggleCableLockCapability`
@@ -147,6 +150,22 @@ await this._api.flow.runFlowCardAction({
 ```
 
 This requires the `homey:manager:api` permission (already included).
+
+### Dynamic Flow Action Discovery
+`_discoverFlowAction(brand)` automatically finds the correct flow action at runtime:
+1. Queries all available flow actions via `this._api.flow.getFlowCardActions()`
+2. Filters by app URI (`homey:app:com.zaptec` or `homey:app:no.enua`)
+3. Tries exact match on known action IDs first
+4. Falls back to fuzzy match on keywords: `current`, `ampere`, `limit`, `strøm`
+5. Caches the result in `this._flowActionCache` to avoid repeated lookups
+
+This ensures compatibility across different versions of third-party charger apps.
+
+### Test Charger Diagnostics
+The test charger control now provides detailed Flow API diagnostics:
+- Lists all available flow actions from the charger app
+- Reports exact action IDs and titles found
+- If no current control action is found, lists all available actions for debugging
 
 ### Brand Detection
 `_getChargerBrand(deviceId)` identifies chargers from cached capabilities:
