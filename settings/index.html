@@ -725,6 +725,9 @@
           if (settings.classFilters && typeof settings.classFilters === 'object') {
             _classFilters = settings.classFilters;
           }
+          if (settings.powerExcluded && typeof settings.powerExcluded === 'object') {
+            _powerExcluded = settings.powerExcluded;
+          }
           loadConsumption();
         })
         .catch(function(err) {
