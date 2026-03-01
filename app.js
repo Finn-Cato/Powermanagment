@@ -430,8 +430,7 @@ class PowerGuardApp extends Homey.App {
    * One-time settings migrations keyed by schema version.
    * Runs on every startup but each migration only applies once.
    * Current migrations:
-   *   v2 — Remove manually-stored voltageSystem / mainCircuitA / chargerPhases
-   *         so the app auto-detects everything from the HAN sensor and charger.
+   *   v2 — Reset voltageSystem to 'auto' so the app detects phases from the HAN sensor.
    */
   _migrateSettings() {
     const CURRENT_SCHEMA = 2;
@@ -439,35 +438,12 @@ class PowerGuardApp extends Homey.App {
     try { version = parseInt(this.homey.settings.get('_settingsSchemaVersion') || 0, 10) || 0; } catch (_) {}
 
     if (version < 2) {
-      this.log('[Migration] Running schema v2: clearing manual electrical config → auto-detect');
+      this.log('[Migration] Running schema v2: resetting voltageSystem → auto-detect from HAN');
 
-      // Clear top-level electrical system overrides
+      // Clear any manually-set voltageSystem so auto-detection takes over
       try { this.homey.settings.unset('voltageSystem'); } catch (_) {}
-      try { this.homey.settings.unset('mainCircuitA'); } catch (_) {}
-
-      // Clear chargerPhases from every EV charger entry in priorityList
-      const list = this.homey.settings.get('priorityList');
-      if (Array.isArray(list)) {
-        let changed = false;
-        const updated = list.map(entry => {
-          if (entry.type === 'ev-charger' && entry.chargerPhases != null) {
-            this.log(`[Migration] Clearing chargerPhases for charger: ${entry.name || entry.deviceId}`);
-            const { chargerPhases, ...rest } = entry;
-            changed = true;
-            return rest;
-          }
-          return entry;
-        });
-        if (changed) {
-          this.homey.settings.set('priorityList', updated);
-          this._settings.priorityList = updated;
-        }
-      }
-
-      // Also update in-memory settings
       if (this._settings) {
         this._settings.voltageSystem = DEFAULT_SETTINGS.voltageSystem;
-        this._settings.mainCircuitA  = DEFAULT_SETTINGS.mainCircuitA;
       }
 
       try { this.homey.settings.set('_settingsSchemaVersion', CURRENT_SCHEMA); } catch (_) {}
