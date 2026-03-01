@@ -229,14 +229,6 @@
     "getFirmwareInfo": {
       "method": "GET",
       "path": "/firmwareInfo"
-    },
-    "getPowerCorrections": {
-      "method": "GET",
-      "path": "/power-corrections"
-    },
-    "setPowerCorrections": {
-      "method": "POST",
-      "path": "/power-corrections"
     }
   },
   "flow": {

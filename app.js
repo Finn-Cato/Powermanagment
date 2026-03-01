@@ -314,10 +314,21 @@ class PowerGuardApp extends Homey.App {
 
   // ─── Settings Persistence via File ────────────────────────────────────────
   _getSettingsFilePath() {
-    return this.homey.app.dir + '/settings.json';
+    // Use /userdata if available (production Homey), else skip
+    const fs = require('fs');
+    const candidates = ['/userdata', __dirname];
+    for (const dir of candidates) {
+      try {
+        fs.accessSync(dir, fs.constants.W_OK);
+        return require('path').join(dir, 'powerguard-settings.json');
+      } catch (_) { /* not writable */ }
+    }
+    return null;
   }
 
   async _saveSettingsToFile() {
+    const filePath = this._getSettingsFilePath();
+    if (!filePath) return; // no writable path available — Homey settings API is the primary store
     const fs = require('fs').promises;
     try {
       const settingsData = {
@@ -333,7 +344,6 @@ class PowerGuardApp extends Homey.App {
         cooldownSeconds: this.homey.settings.get('cooldownSeconds'),
         priorityList: this.homey.settings.get('priorityList'),
       };
-      const filePath = this._getSettingsFilePath();
       await fs.writeFile(filePath, JSON.stringify(settingsData, null, 2));
       this.log('Settings persisted to file');
     } catch (err) {
@@ -345,6 +355,7 @@ class PowerGuardApp extends Homey.App {
     const fs = require('fs').promises;
     try {
       const filePath = this._getSettingsFilePath();
+      if (!filePath) return null;
       const data = await fs.readFile(filePath, 'utf8');
       const settingsData = JSON.parse(data);
       this.log('Settings loaded from file');
@@ -372,9 +383,6 @@ class PowerGuardApp extends Homey.App {
       phaseDistribution: s.get('phaseDistribution') ?? DEFAULT_SETTINGS.phaseDistribution,
       mainCircuitA:      s.get('mainCircuitA')      ?? DEFAULT_SETTINGS.mainCircuitA,
       priorityList:      s.get('priorityList')      ?? DEFAULT_SETTINGS.priorityList,
-      // Map of zb_product_id (string) → scale factor for correcting buggy power readings.
-      // Default: Namron 4512760 reports 10× too high → multiply by 0.1.
-      powerCorrections: s.get('powerCorrections') ?? { '4512760': 0.1 },
     };
   }
 
@@ -1728,8 +1736,13 @@ class PowerGuardApp extends Homey.App {
           }
         }
 
+        // Enua / Zaptec: no static circuit-limit capability — handled by dynamic current control.
+        // Count them as ok so they don't inflate the failure counter.
+        const entryBrand = this._getChargerBrand(entry.deviceId);
         if (details.length > 0) {
           results.push({ name: entry.name, ok: true, detail: details.join(', ') });
+        } else if (entryBrand === 'enua' || entryBrand === 'zaptec') {
+          results.push({ name: entry.name, ok: true, detail: 'handled by dynamic current control' });
         } else {
           results.push({ name: entry.name, ok: false, detail: 'No target_charger_current capability found' });
         }
@@ -2015,9 +2028,20 @@ class PowerGuardApp extends Homey.App {
         if (obj.measure_power && obj.measure_power.value != null) {
           data.powerW = typeof obj.measure_power.value === 'number' ? obj.measure_power.value : 0;
         }
-        // Update charger_status
+        // Update charger_status (Easee)
         if (obj.charger_status && obj.charger_status.value != null) {
           data.chargerStatus = obj.charger_status.value;
+          data.isConnected = this._isCarConnected(entry.deviceId);
+        }
+        // Update chargerStatusCapability (Enua)
+        if (obj.chargerStatusCapability && obj.chargerStatusCapability.value != null) {
+          data.chargerStatus = obj.chargerStatusCapability.value;
+          data.isConnected = this._isCarConnected(entry.deviceId);
+          data.isCharging = /^charging$/i.test(obj.chargerStatusCapability.value);
+        }
+        // Update toggleChargingCapability (Enua)
+        if (obj.toggleChargingCapability && obj.toggleChargingCapability.value != null) {
+          data.isCharging = obj.toggleChargingCapability.value !== false;
           data.isConnected = this._isCarConnected(entry.deviceId);
         }
         // Update onoff
@@ -2137,6 +2161,8 @@ class PowerGuardApp extends Homey.App {
       } else if (brand === 'zaptec') {
         await this._setZaptecCurrent(entry.deviceId, targetCurrent).catch(() => {});
         success = true;
+      } else {
+        this.log(`[EV] Unknown brand for "${entry.name}" (${entry.deviceId}) — cannot adjust current. Re-run device cache refresh.`);
       }
       if (!success) continue;
 
@@ -2344,11 +2370,16 @@ class PowerGuardApp extends Homey.App {
     const cached = cache.find(d => d.id === deviceId);
     if (!cached) return 'unknown';
     const caps = cached.capabilities || [];
+    // Capability-based detection (most reliable)
     if (caps.includes('toggleChargingCapability')) return 'enua';
     if (caps.includes('charging_button')) return 'zaptec';
-    // Easee exposes dynamic current as settable capabilities
     if (caps.some(c => ['dynamic_charger_current', 'dynamicChargerCurrent',
       'dynamicCircuitCurrentP1', 'target_charger_current'].includes(c))) return 'easee';
+    // Fallback: use pre-computed brand flags stored in device cache.
+    // Covers Enua v2.0+ which may rename capabilities but always has a stable owner_uri.
+    if (cached.isEnua)   return 'enua';
+    if (cached.isZaptec) return 'zaptec';
+    if (cached.isEasee)  return 'easee';
     return 'unknown';
   }
 
@@ -2397,11 +2428,14 @@ class PowerGuardApp extends Homey.App {
           action = broader.find(a => /current|ampere|limit|strøm/i.test(a.id));
         }
         if (action) {
-          const result = { uri: action.uri, actionId: action.id, argsStyle: 'enuaSingle' };
+          // Find the argument name used for current/ampere so we call the flow correctly
+          const argsArr = Array.isArray(action.args) ? action.args : [];
+          const currentArg = argsArr.find(a => /current|ampere|str.m|limit|max/i.test(a.name || a.id || ''));
+          const currentArgName = (currentArg && (currentArg.name || currentArg.id)) || 'current';
+          const result = { uri: action.uri, actionId: action.id, argsStyle: 'enuaSingle', currentArgName };
           this._flowActionCache[brand] = result;
-          // Log full action descriptor so we can verify the expected arg names (e.g. 'current', 'CurrentLimit', etc.)
-          const argNames = Array.isArray(action.args) ? action.args.map(a => a.name || a.id || JSON.stringify(a)).join(', ') : 'n/a';
-          this.log(`[Enua] Discovered flow action: ${action.uri}/${action.id} | args: [${argNames}]`);
+          const argNames = argsArr.map(a => a.name || a.id || JSON.stringify(a)).join(', ') || 'n/a';
+          this.log(`[Enua] Discovered flow action: ${action.uri}/${action.id} | args: [${argNames}] | using currentArgName: "${currentArgName}"`);
           this.log(`[Enua] Full action descriptor: ${JSON.stringify(action)}`);
           return result;
         }
@@ -2609,11 +2643,13 @@ class PowerGuardApp extends Homey.App {
             this.log(`[Enua] No flow action discovered, skipping current control`);
             return;
           }
+          // Use the dynamically discovered arg name (e.g. 'current', 'ampere', 'maxCurrent')
+          const argName = flowAction.currentArgName || 'current';
           await withTimeout(
             this._api.flow.runFlowCardAction({
               uri: flowAction.uri,
               id: flowAction.actionId,
-              args: { device: { id: deviceId, name: device.name }, current: amps }
+              args: { device: { id: deviceId, name: device.name }, [argName]: amps }
             }),
             10000, `enuaFlow(${deviceId}, ${amps}A)`
           );
@@ -3083,9 +3119,12 @@ class PowerGuardApp extends Homey.App {
       const hasOnOff = caps.includes('onoff');
       const hasPower = caps.includes('measure_power');
       const hasThermostatMode = caps.includes('thermostat_mode');
+      const hasTuyaLoadStatus = caps.includes('tuya_thermostat_load_status');
+      const hasTuyaMode = caps.includes('tuya_thermostat_mode');
+      const hasZg9030aModes = caps.includes('zg9030a_modes'); // Futurehome ZG9030A thermostat
       const canControl = targetTempCap !== null || hasOnOff;
       
-      this.log(`[FloorHeater]   targetTempCap: ${targetTempCap || 'NONE'} | measureTempCap: ${measureTempCap || 'NONE'} | onoff: ${hasOnOff}`);
+      this.log(`[FloorHeater]   targetTempCap: ${targetTempCap || 'NONE'} | measureTempCap: ${measureTempCap || 'NONE'} | onoff: ${hasOnOff} | tuyaLoad: ${hasTuyaLoadStatus} | zg9030a: ${hasZg9030aModes}`);
       
       // Read current values from LIVE device (preferred) or cache
       // The liveDevice from HomeyAPI getDevice() has fresh capabilitiesObj values
@@ -3113,6 +3152,36 @@ class PowerGuardApp extends Homey.App {
           if (hasOnOff && source.capabilitiesObj.onoff) {
             const v = source.capabilitiesObj.onoff;
             isOn = v.value !== undefined ? v.value : v;
+          }
+          // tuya_thermostat_load_status = actual relay/element state (true = actively heating)
+          // This is more accurate than onoff (which just means thermostat is enabled/not standby)
+          if (hasTuyaLoadStatus && source.capabilitiesObj.tuya_thermostat_load_status) {
+            const v = source.capabilitiesObj.tuya_thermostat_load_status;
+            isOn = v.value !== undefined ? v.value : v;
+          }
+          // tuya_thermostat_mode 'off' means thermostat is fully disabled
+          if (hasTuyaMode && source.capabilitiesObj.tuya_thermostat_mode) {
+            const v = source.capabilitiesObj.tuya_thermostat_mode;
+            const mode = v.value !== undefined ? v.value : v;
+            if (mode === 'off' || mode === '0') isOn = false;
+          }
+          // Futurehome ZG9030A: zg9030a_modes drives actual heating state
+          // mode 'off' (or 0) = thermostat disabled; anything else = active
+          if (hasZg9030aModes && source.capabilitiesObj.zg9030a_modes) {
+            const v = source.capabilitiesObj.zg9030a_modes;
+            const mode = v.value !== undefined ? v.value : v;
+            const onoffRaw = source.capabilitiesObj.onoff ? (source.capabilitiesObj.onoff.value !== undefined ? source.capabilitiesObj.onoff.value : source.capabilitiesObj.onoff) : 'N/A';
+            this.log(`[FloorHeater]   [Futurehome] onoff=${onoffRaw} zg9030a_modes=${JSON.stringify(mode)} power=${currentPowerW}`);
+            if (mode === 'off' || mode === 0 || mode === '0') {
+              isOn = false;
+            } else if (mode != null) {
+              isOn = true; // manual, schedule, holiday etc. = thermostat is active
+            }
+          }
+          // Power-based fallback: if device is drawing significant power it IS on
+          if (!isOn && currentPowerW != null && currentPowerW > 50) {
+            this.log(`[FloorHeater]   isOn override → true (power=${currentPowerW}W)`);
+            isOn = true;
           }
           if (hasThermostatMode && source.capabilitiesObj.thermostat_mode) {
             const v = source.capabilitiesObj.thermostat_mode;
@@ -3350,16 +3419,6 @@ class PowerGuardApp extends Homey.App {
           try {
             currentW = device.getCapabilityValue('measure_power') || 0;
           } catch (_) {}
-        }
-
-        // Apply per-device power correction if configured (e.g. Zigbee decimal error)
-        if (currentW && device.settings) {
-          const zbPid = device.settings.zb_product_id ? String(device.settings.zb_product_id) : null;
-          if (zbPid) {
-            const corrections = (this._settings && this._settings.powerCorrections) || {};
-            const factor = corrections[zbPid];
-            if (factor != null && isFinite(factor)) currentW = currentW * factor;
-          }
         }
 
         // ── Heater power estimation workaround ──
