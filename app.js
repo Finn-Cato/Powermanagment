@@ -2301,8 +2301,16 @@ class PowerGuardApp extends Homey.App {
           Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) <= 1) {
         continue;
       }
-      // Skip if already at full and target is full
+      // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
       if (!alreadyTracked && targetCurrent !== null && targetCurrent >= (entry.circuitLimitA || 32)) {
+        this._mitigatedDevices.push({
+          deviceId: entry.deviceId,
+          action: 'dynamic_current',
+          previousState: { targetCurrent: entry.circuitLimitA || 32 },
+          mitigatedAt: now,
+          currentTargetA: targetCurrent
+        });
+        this._persistMitigatedDevices();
         continue;
       }
 
@@ -2373,13 +2381,23 @@ class PowerGuardApp extends Homey.App {
         }
         this._persistMitigatedDevices();
       } else if (alreadyTracked && targetCurrent >= (entry.circuitLimitA || 32)) {
-        // Charger restored to full
-        this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== entry.deviceId);
-        this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
+        // Charger restored to full — keep in _mitigatedDevices so devices tab still shows "controlled"
+        const wasLimited = alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null ||
+                           alreadyTracked.currentTargetA < (entry.circuitLimitA || 32);
+        alreadyTracked.currentTargetA = targetCurrent;
         this._persistMitigatedDevices();
-        this._fireTrigger('mitigation_cleared', { device_name: entry.name });
-        if (this._mitigatedDevices.length === 0) {
-          await this._updateVirtualDevice({ alarm: false }).catch(() => {});
+        if (wasLimited) {
+          this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
+          this._fireTrigger('mitigation_cleared', { device_name: entry.name });
+          // Clear alarm only if no charger is still paused or limited below its circuit limit
+          const anyStillLimited = this._mitigatedDevices.some(m => {
+            if (m.currentTargetA === 0 || m.currentTargetA === null) return true;
+            const pEntry = chargerEntries.find(c => c.deviceId === m.deviceId);
+            return pEntry && m.currentTargetA < (pEntry.circuitLimitA || 32);
+          });
+          if (!anyStillLimited) {
+            await this._updateVirtualDevice({ alarm: false }).catch(() => {});
+          }
         }
       }
     }
@@ -3675,6 +3693,10 @@ class PowerGuardApp extends Homey.App {
             status = 'paused';
             statusLabel = 'Paused by Power Guard';
             currentA = 0;
+          } else if (mitigated.currentTargetA >= (entry.circuitLimitA || 32)) {
+            status = 'charging';
+            statusLabel = 'Charging (' + mitigated.currentTargetA + 'A)';
+            currentA = mitigated.currentTargetA;
           } else {
             status = 'dynamic';
             statusLabel = 'Dynamic (' + mitigated.currentTargetA + 'A)';
