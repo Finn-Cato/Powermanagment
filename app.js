@@ -1159,7 +1159,7 @@ class PowerGuardApp extends Homey.App {
     if (this._overLimitCount >= this._settings.hysteresisCount) {
       await this._triggerMitigation(smoothedPower);
     } else if (!overLimit && this._mitigatedDevices.length > 0) {
-      await this._triggerRestore();
+      await this._triggerRestore(smoothedPower);
     }
   }
 
@@ -1399,7 +1399,7 @@ class PowerGuardApp extends Homey.App {
     return MIN_WAIT + (MAX_WAIT - MIN_WAIT) * ((msToNextHour - T_MIN) / (T_MAX - T_MIN));
   }
 
-  async _triggerRestore() {
+  async _triggerRestore(smoothedPower) {
     if (!this._api) return;
     const release = await this._mutex.acquire();
     try {
@@ -1415,6 +1415,21 @@ class PowerGuardApp extends Homey.App {
         const fullCurrent = (toRestore.previousState && toRestore.previousState.targetCurrent) || 32;
         if ((toRestore.currentTargetA || 0) >= fullCurrent) {
           return; // Passive monitoring entry — charger already at full current, nothing to do
+        }
+      }
+
+      // Headroom guard: refuse to restore if projected power (current + device's stored draw)
+      // would push us over the limit. This prevents the charger+water-heater oscillation where
+      // the heater turns off → charger ramps up → heater turns back on → over limit → repeat.
+      if (smoothedPower != null && toRestore.action !== 'dynamic_current') {
+        const devicePowerW = toRestore.previousState && toRestore.previousState.measurePower;
+        if (devicePowerW && devicePowerW > 50) {
+          const limit = this._getEffectiveLimit();
+          const projected = smoothedPower + devicePowerW;
+          if (projected > limit * 0.95) {
+            this.log(`[Restore] Headroom guard: projected ${Math.round(projected)}W (current ${Math.round(smoothedPower)}W + device ${Math.round(devicePowerW)}W) vs limit ${Math.round(limit)}W — skipping restore`);
+            return;
+          }
         }
       }
 
@@ -1625,6 +1640,7 @@ class PowerGuardApp extends Homey.App {
       toggleChargingCapability: obj.toggleChargingCapability ? obj.toggleChargingCapability.value : undefined,
       max_power_3000:     obj.max_power_3000     ? obj.max_power_3000.value     : undefined,
       max_power:          obj.max_power          ? obj.max_power.value          : undefined,
+      measurePower:       obj.measure_power      ? obj.measure_power.value      : undefined,
     };
   }
 
