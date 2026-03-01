@@ -10,6 +10,10 @@ const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
 const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS } = require('./common/constants');
 
+// Minimum time to wait after any mitigation before restoring any device.
+// Acts as a safety net for cases where the headroom snapshot is unreliable (e.g. 0W at snapshot time).
+const RESTORE_COOLDOWN_MS = 240 * 1000; // 240 seconds
+
 /**
  * Promise wrapper with timeout — prevents hung API calls from blocking the mitigation cycle.
  * @param {Promise} promise - The promise to wrap
@@ -1159,7 +1163,7 @@ class PowerGuardApp extends Homey.App {
     if (this._overLimitCount >= this._settings.hysteresisCount) {
       await this._triggerMitigation(smoothedPower);
     } else if (!overLimit && this._mitigatedDevices.length > 0) {
-      await this._triggerRestore();
+      await this._triggerRestore(smoothedPower);
     }
   }
 
@@ -1281,14 +1285,25 @@ class PowerGuardApp extends Homey.App {
           if (existingMitigation && entry.action === 'target_temperature') {
             if (caps.includes('onoff')) {
               if (obj.onoff && obj.onoff.value === false) {
-                // Already off (step 2 already done) — nothing more we can do
+                // Currently off — nothing more we can do
                 this.log(`[Mitigation] SKIP ${entry.name}: thermostat already off (step 2 done)`);
                 scanResults.push({ name: entry.name, action: entry.action, result: 'already off (step 2)' });
                 continue;
               }
-              // Step 2: turn the thermostat off
+              // Turn the thermostat off
               await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
               existingMitigation.mitigatedAt = now;
+              if (existingMitigation.step2Applied) {
+                // Step 2 was already applied once — this is a hardware bounce-back (thermostat
+                // restarted itself). Turn it off again but DON'T consume the mitigatedThisCycle
+                // slot so other devices in the priority list can still be processed this cycle.
+                this.log(`[Mitigation] BOUNCE: ${entry.name} bounced back ON after step 2 — turned OFF again (not consuming cycle slot)`);
+                scanResults.push({ name: entry.name, action: entry.action, result: 'bounce suppressed (step 2 re-applied)' });
+                this._persistMitigatedDevices();
+                continue;
+              }
+              // First time step 2 is applied — mark it so bounce-backs don't block the list
+              existingMitigation.step2Applied = true;
               this.log(`[Mitigation] SUCCESS: ${entry.name} thermostat step 2 — turned OFF`);
             } else {
               // No onoff capability — cannot turn off, nothing more to do
@@ -1399,7 +1414,7 @@ class PowerGuardApp extends Homey.App {
     return MIN_WAIT + (MAX_WAIT - MIN_WAIT) * ((msToNextHour - T_MIN) / (T_MAX - T_MIN));
   }
 
-  async _triggerRestore() {
+  async _triggerRestore(smoothedPower) {
     if (!this._api) return;
     const release = await this._mutex.acquire();
     try {
@@ -1415,6 +1430,32 @@ class PowerGuardApp extends Homey.App {
         const fullCurrent = (toRestore.previousState && toRestore.previousState.targetCurrent) || 32;
         if ((toRestore.currentTargetA || 0) >= fullCurrent) {
           return; // Passive monitoring entry — charger already at full current, nothing to do
+        }
+      }
+
+      // Post-mitigation cooldown: block ALL restores for 240 s after the last mitigation event.
+      // This is a safety net for cases where the headroom guard can't fire because the device
+      // had 0W / unknown power at snapshot time (e.g. water heater in passive cycle).
+      if (this._lastMitigationTime > 0) {
+        const cooldownRemaining = RESTORE_COOLDOWN_MS - (Date.now() - this._lastMitigationTime);
+        if (cooldownRemaining > 0) {
+          this.log(`[Restore] Post-mitigation cooldown: ${Math.round(cooldownRemaining / 1000)}s remaining — skipping restore`);
+          return;
+        }
+      }
+
+      // Headroom guard: refuse to restore if projected power (current + device's stored draw)
+      // would push us over the limit. This prevents the charger+water-heater oscillation where
+      // the heater turns off → charger ramps up → heater turns back on → over limit → repeat.
+      if (smoothedPower != null && toRestore.action !== 'dynamic_current') {
+        const devicePowerW = toRestore.previousState && toRestore.previousState.measurePower;
+        if (devicePowerW && devicePowerW > 50) {
+          const limit = this._getEffectiveLimit();
+          const projected = smoothedPower + devicePowerW;
+          if (projected > limit * 0.95) {
+            this.log(`[Restore] Headroom guard: projected ${Math.round(projected)}W (current ${Math.round(smoothedPower)}W + device ${Math.round(devicePowerW)}W) vs limit ${Math.round(limit)}W — skipping restore`);
+            return;
+          }
         }
       }
 
@@ -1625,6 +1666,7 @@ class PowerGuardApp extends Homey.App {
       toggleChargingCapability: obj.toggleChargingCapability ? obj.toggleChargingCapability.value : undefined,
       max_power_3000:     obj.max_power_3000     ? obj.max_power_3000.value     : undefined,
       max_power:          obj.max_power          ? obj.max_power.value          : undefined,
+      measurePower:       obj.measure_power      ? obj.measure_power.value      : undefined,
     };
   }
 
@@ -3219,6 +3261,18 @@ class PowerGuardApp extends Homey.App {
               isOn = false;
             } else if (mode != null) {
               isOn = true; // manual, schedule, holiday etc. = thermostat is active
+            }
+          }
+          // onoff=false is always the hard override — device is physically disabled.
+          // Must run AFTER mode-specific checks (e.g. zg9030a_modes) because those can
+          // overwrite isOn=false (set from onoff) with isOn=true (set from mode='heat')
+          // even though the device was turned off by mitigation. onoff wins last.
+          if (hasOnOff && source.capabilitiesObj.onoff) {
+            const v = source.capabilitiesObj.onoff;
+            const onoffVal = v.value !== undefined ? v.value : v;
+            if (onoffVal === false) {
+              this.log(`[FloorHeater]   isOn hard override → false (onoff=false takes precedence over mode)`);
+              isOn = false;
             }
           }
           // Power-based fallback: if device is drawing significant power it IS on
