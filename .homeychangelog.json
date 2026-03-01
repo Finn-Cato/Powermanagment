@@ -66,5 +66,8 @@
   },
   "0.4.1": {
     "en": "flow card"
+  },
+  "0.6.0": {
+    "en": "Multi-charger headroom split evenly across active chargers"
   }
 }
