@@ -25,7 +25,7 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 ## Features
 
 - Real-time power data from any HAN electricity meter
-- Auto-detects meter brand
+- Auto-detects meter brand and installation phase count (1-phase / 3-phase) from HAN sensor
 - Live power dashboard per device
 - Priority list — drag-and-drop ordering of which devices to turn off first
 - Multiple actions — turn off, dim, lower temperature, pause charging, or dynamically adjust charger current
@@ -38,7 +38,7 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 ### EV Charger Control
 
 - **Dynamic current adjustment** — continuously adjusts charger current based on available power headroom
-- **Proportional scaling** — uses the charger's actual offered current and power draw for smoother, more accurate adjustments
+- **Auto phase detection** — detects 1-phase vs 3-phase from the charger's live power/current ratio; no manual config needed
 - **Confirmation tracking** — verifies commands by reading the charger's `measure_current.offered` capability, with per-charger reliability scoring
 - **Smart throttle** — adjusts faster when the charger confirms commands (15s), waits longer when unconfirmed (45s), and responds immediately in emergencies (5s)
 - **Start threshold** — requires 11A of headroom before restarting a paused charger, preventing rapid on/off cycling
@@ -64,9 +64,8 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - Records the highest hourly average (kW) per day — the daily peak
 - Calculates the monthly capacity metric: average of the 3 highest daily peaks (TOP3 average)
 - Maps to Norwegian grid tariff tiers: 0–2, 2–5, 5–10, 10–15, 15–20, 20–25, ≥25 kW
-- Displays current hour running average, today's peak, top 3 peaks with medals, and current tier
+- Displays current hour running average, projected end-of-hour kWh, today's peak, top 3 peaks with medals, and current tier
 - Data persists across restarts and auto-cleans at month boundaries
-- Currently display-only (test mode) — does not affect limits or mitigation
 
 ## Getting Started
 
@@ -102,9 +101,9 @@ The app has six tabs in the settings page:
 
 | Tab | What it does |
 |-----|-------------|
-| **⚙️ Settings** | Live status, power limit, protection mode, EV charger status, effekttariff tracking, activity log, mitigation scan |
+| **⚙️ Settings** | Live status, power limit, protection mode, effekttariff tracking, activity log, mitigation scan |
 | **📱 Devices** | Enable/disable devices, set priority order and actions |
-| **📊 System** | Electrical system config, charger details, test buttons |
+| **📊 System** | Power meter selection, HAN diagnostics, managed charger details and test buttons |
 | **⚡ Power** | Real-time power consumption per device |
 | **🌡️ Heaters** | Thermostat control — temperature, on/off, live readings |
 | **📋 Log** | Diagnostic log for remote debugging — filterable by category, copy-to-clipboard, auto-refresh |
@@ -116,11 +115,19 @@ The app has six tabs in the settings page:
 | Guard active | On | Enable or disable power monitoring |
 | Profile | Normal | Normal or Strict (95% of limit) |
 | Maximum power (W) | 10 000 | Your grid connection limit in watts |
-| Seconds before acting | 30 | Cooldown between mitigation steps |
-| Readings before acting | 3 | Consecutive over-limit readings needed |
-| Smoothing window | 5 | Moving-average window size |
-| Spike threshold | 2× | Ignore readings above this multiple of average |
-| Phase limits (A) | 0 (off) | Per-phase ampere limits (0 = disabled) |
+| Time before acting (s) | 30 | Cooldown between mitigation steps |
+| Phase limits (A) | 0 (off) | Per-phase ampere limits, L1/L2/L3 (0 = disabled) |
+
+**Advanced settings** (collapsed by default):
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Reaction speed | 5 | Moving-average window — lower = faster response |
+| Spike ignore threshold | 2× | Ignore readings above this multiple of the average |
+| Confirm before acting | 3 | Consecutive over-limit readings before acting |
+| Safety buffer | 0% | Reduce effective limit by this % as extra headroom |
+| Missing data timeout | 120 s | Force mitigation if no HAN reading for this long (0 = off) |
+| Dynamic restore guard | On | Wait 1–5 min before restoring — longer when more of the hour remains |
 
 ### Priority List (Devices Tab)
 
@@ -134,6 +141,12 @@ Drag and drop devices to set priority order. Devices at the **bottom** are turne
 | Charge Pause | Pauses EV charging (Zaptec/Enua) |
 | Dynamic Current | Adjusts charger current limit (Easee/Zaptec/Enua, 7–32A) |
 | Stepped Power (Hoiax) | Reduces water heater power one level per cycle (3000W → 1750W → 1250W → off) |
+
+### System Tab
+
+- **Power Meter Selection** — Choose which device to use for live power monitoring, or leave on Auto-detect.
+- **HAN Meter Diagnostics** — Live connection status, reading source, raw reading log. Copy diagnostic JSON for support.
+- **Managed Chargers** — Per-charger status, phase (auto-detected), circuit limit, max power. Buttons: Sync from charger, Test charger control, Diagnostics.
 
 ### Power Tab
 
@@ -170,6 +183,7 @@ Consolidated diagnostic log for remote debugging:
 - **Easee Equalizer** — used as a whole-house power meter via `measure_power`, with per-phase current and voltage monitoring (`measure_current.L1–L3`, `measure_voltage.L1–L3`)
 - Active polling fallback (10s) for meters that don't fire frequent events
 - Any device with `measure_power` and a meter-like name/class is automatically picked up
+
 ## Drivers
 
 | Driver | Purpose |
@@ -195,47 +209,26 @@ GPL-3.0
 
 ### v0.5.0
 - **Auto-detect charger phases** — phases (1-phase / 3-phase) are now detected automatically from the live power/current ratio. No manual electrical system configuration needed.
-- **Simplified charger calc** — removed per-phase current path; available power is calculated purely from watt headroom (`limit − usage − 200W`), giving consistently correct results regardless of meter reporting.
+- **Simplified charger calc** — available power calculated purely from watt headroom (`limit − usage − 200W`), giving consistently correct results regardless of meter reporting.
 - **Settings migration** — on first start after update, `voltageSystem` is automatically reset to `auto` so HAN-based phase detection takes over.
-- **Strict profile** — tightened from 90% to 95% of your power limit (5% safety margin instead of 10%).
+- **Strict profile** — 5% safety margin (95% of your configured power limit).
 - **Effekttariff display fix** — current-hour kWh and projected end-of-hour kWh now shown correctly; daily peak comparison uses projected value.
-- **EV charger robustness** — non-charger usage is now clamped to 0 to prevent negative values inflating available headroom.
+- **EV charger robustness** — non-charger usage clamped to 0 to prevent negative values inflating available headroom.
 
-### v0.3.23
-Fix: illegal continue crash in EV charger adjustment loop caused by a premature closing brace during Enua consolidation. Multi-brand dispatch (Easee / Enua / Zaptec) correctly restored inside the loop.
+### v0.3.0 – v0.3.23
+UI redesign, heater tab improvements, stale mitigation fixes, auto phase detection from HAN sensor, EV loop crash fix.
 
-### v0.3.21
-Auto-detects electrical phase count from HAN sensor — no more manual voltageSystem setting required.
-
-### v0.3.0 – v0.3.2
-UI redesign, heater tab improvements, stale mitigation fixes, store submission prep.
-
-### v0.2.23
-Enua improvements, Zaptec meter device fix, spike filter lockout fix.
-
-### v0.2.22
-New diagnostic **Log** tab for remote debugging: consolidated app log with category filters (HAN, Charger, Mitigation, Energy, Cache, System), color-coded badges, copy-to-clipboard, auto-refresh, HAN meter summary, mitigation scan results, and system info.
+### v0.2.22 – v0.2.23
+New diagnostic **Log** tab. Enua improvements, Zaptec meter device fix, spike filter lockout fix.
 
 ### v0.2.21
-Høiax Connected 300/200 stepped power control: new action reduces water heater power one level per mitigation cycle (3000W → 1750W → 1250W → off). Driver icons updated. Thermostat mitigation now lowers by 3°C per cycle instead of stepping down to 5°C.
+Høiax Connected 300/200 stepped power control. Thermostat mitigation lowers by 3°C per cycle.
 
-### v0.2.2
-Adax heater power estimation: detects when Adax reports constant rated wattage and estimates actual power from temperature state. Thermostat mitigation changed from setting to 5°C to lowering by 3°C from current target.
+### v0.2.0 – v0.2.2
+Dynamic flow action discovery for Zaptec/Enua. Adax heater power estimation. Fallback to hardcoded flow action IDs.
 
-### v0.2.1
-Fixed Zaptec and Enua dynamic current control on Homey setups where `getFlowCardActions()` does not enumerate app flow cards. Falls back to hardcoded known action IDs (`installation_current_control` / `changeCurrentLimitAction`).
-
-### v0.2.0
-Dynamic flow action discovery: automatically finds the correct Flow action ID for Zaptec and Enua chargers at runtime. Improved test charger diagnostics with detailed Flow API reporting.
-
-### v0.1.9
-Added dynamic current control for Zaptec and Enua chargers via Homey Flow API. Auto-detects charger brand and routes to correct handler. Full Enua Charge E support with pause/resume and status monitoring.
-
-### v0.1.8
-Fixed charger test diagnostic for Zaptec Go: now correctly detects `charging_button` capability.
-
-### v0.1.7
-Fixed Easee Equalizer showing 0W: reads initial power value immediately on connect, faster first poll (2s), robust number handling for cloud-based meters.
+### v0.1.4 – v0.1.9
+Initial release through Zaptec/Enua/Equalizer support. Dynamic current control, per-phase monitoring, HAN auto-detect, priority-based mitigation, Norwegian capacity tariff tracking.
 
 ### v0.1.6
 Added manual power meter selection on the System tab. Fixed auto-detect falsely matching devices like "Hanna Thermostat". Improved Futurehome HAN and Easee Equalizer support.
