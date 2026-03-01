@@ -477,6 +477,7 @@
               <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Avg</th>
               <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Peak</th>
               <th style="text-align:right;padding:8px 0;color:var(--text-muted);font-weight:500;">Share</th>
+              <th style="width:28px;"></th>
             </tr>
           </thead>
           <tbody id="consumption-table">
@@ -488,6 +489,7 @@
         <div style="font-size:11px;color:var(--text-tertiary);margin-top:12px;text-align:right;">
           Last updated: <span id="consumption-time">–</span>
         </div>
+        <div id="power-hidden-info" style="font-size:11px;color:var(--text-tertiary);margin-top:6px;text-align:right;"></div>
       </div>
 
     </div><!-- /#tab-consumption -->
@@ -1646,23 +1648,52 @@
   // ── Load Power Consumption ─────────────────────────────────────────────────
   var _consumptionRefresh = null;
   var _classFilters = {}; // Track which device classes are visible
+  var _powerExcluded = JSON.parse(localStorage.getItem('pg_powerExcluded') || '{}');
+
+  function excludePowerDevice(deviceId) {
+    _powerExcluded[deviceId] = true;
+    localStorage.setItem('pg_powerExcluded', JSON.stringify(_powerExcluded));
+    var row = document.querySelector('.consumption-row[data-device-id="' + deviceId + '"]');
+    if (row) row.style.display = 'none';
+    renumberVisibleDevices();
+  }
+
+  function resetPowerExclusions() {
+    _powerExcluded = {};
+    localStorage.removeItem('pg_powerExcluded');
+    document.querySelectorAll('.consumption-row').forEach(function(row) {
+      var cls = row.getAttribute('data-device-class');
+      row.style.display = (_classFilters[cls] !== false) ? '' : 'none';
+    });
+    renumberVisibleDevices();
+  }
   
   function renumberVisibleDevices() {
-    // Renumber visible rows only
-    var rows = document.querySelectorAll('.consumption-row:not([style*="display: none"])');
     var visibleCount = 0;
+    var hiddenCount = 0;
     document.querySelectorAll('.consumption-row').forEach(function(row) {
-      if (row.style.display !== 'none') {
+      var isExcluded = !!_powerExcluded[row.getAttribute('data-device-id')];
+      var cls = row.getAttribute('data-device-class');
+      var isClassHidden = _classFilters[cls] === false;
+      if (isExcluded || isClassHidden) {
+        row.style.display = 'none';
+        if (isExcluded) hiddenCount++;
+      } else {
         visibleCount++;
         var firstCell = row.querySelector('td');
         if (firstCell) {
-          // Extract device name (everything after ". " in the current text)
           var currentText = firstCell.textContent;
           var deviceName = currentText.substring(currentText.indexOf('. ') + 2);
           firstCell.textContent = visibleCount + '. ' + deviceName;
         }
       }
     });
+    var info = document.getElementById('power-hidden-info');
+    if (info) {
+      info.innerHTML = hiddenCount > 0
+        ? hiddenCount + ' device(s) hidden. <a href="#" onclick="resetPowerExclusions();return false;" style="color:var(--brand);">Show all</a>'
+        : '';
+    }
   }
   
   function toggleClassFilter(className) {
@@ -1677,13 +1708,14 @@
     var rows = document.querySelectorAll('.consumption-row');
     rows.forEach(function(row) {
       var rowClass = row.getAttribute('data-device-class');
-      var isVisible = _classFilters[rowClass] !== false;
+      var isExcluded = !!_powerExcluded[row.getAttribute('data-device-id')];
+      var isVisible = _classFilters[rowClass] !== false && !isExcluded;
       row.style.display = isVisible ? '' : 'none';
     });
-    
+
     // Renumber visible devices
     renumberVisibleDevices();
-    
+
     // Save immediately
     saveAll();
   }
@@ -1726,14 +1758,16 @@
         var rows = devices.map(function(d, idx) {
           var deviceName = (d.name || 'Unknown') + (d.class ? ' (' + d.class + ')' : '');
           var cls = d.class || 'unknown';
-          var isVisible = _classFilters[cls] !== false;
-          var display = isVisible ? '' : 'display:none;';
-          return '<tr style="border-bottom:1px solid var(--border-light);' + display + '" class="consumption-row" data-device-class="' + cls + '">' +
+          var isClassVisible = _classFilters[cls] !== false;
+          var isExcluded = !!_powerExcluded[d.deviceId];
+          var display = (!isClassVisible || isExcluded) ? 'display:none;' : '';
+          return '<tr style="border-bottom:1px solid var(--border-light);' + display + '" class="consumption-row" data-device-class="' + cls + '" data-device-id="' + d.deviceId + '">' +
             '<td style="padding:10px 0;color:var(--text-primary);">' + (idx + 1) + '. ' + deviceName + '</td>' +
             '<td style="text-align:right;padding:10px 0;color:var(--text-primary);font-weight:500;">' + d.current + ' W</td>' +
             '<td style="text-align:right;padding:10px 0;color:var(--text-muted);">' + d.avg + ' W</td>' +
             '<td style="text-align:right;padding:10px 0;color:var(--text-muted);">' + d.peak + ' W</td>' +
             '<td style="text-align:right;padding:10px 0;color:#ff6b35;font-weight:500;">' + d.percent + '%</td>' +
+            '<td style="text-align:right;padding:10px 0;"><button onclick="excludePowerDevice(\'' + d.deviceId + '\')" title="Hide this device" style="background:none;border:none;color:var(--text-tertiary);cursor:pointer;font-size:14px;padding:0 2px;line-height:1;">×</button></td>' +
             '</tr>';
         }).join('');
         tbody.innerHTML = rows;
