@@ -427,37 +427,10 @@
       </div>
 
       <div class="card">
-        <h2>Electrical System Configuration</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Main circuit voltage</label>
-            <span class="hint">Select your electrical system type. This affects power calculations for EV charger control.</span>
-          </div>
-          <div class="control">
-            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-              <select id="s-voltageSystem">
-                <option value="auto">✨ Auto-detect from HAN sensor</option>
-                <option value="230v-1phase">230V Single-phase</option>
-                <option value="400v-3phase">400V Three-phase</option>
-              </select>
-              <div id="voltage-detected-badge" style="font-size:11px; color:var(--text-muted);"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
         <h2>Managed Chargers</h2>
-        <div class="row" style="margin-bottom:12px;">
-          <div class="label-group">
-            <label>Circuit breaker (total)</label>
-            <span class="hint">Physical fuse for the whole EV circuit. The per-charger Max Current below cannot exceed this.</span>
-          </div>
-          <div class="control">
-            <input type="number" id="s-mainCircuitA" min="10" max="100" step="1" value="25">
-            <span style="font-size:12px;color:var(--text-muted)">A</span>
-          </div>
-        </div>
+        <!-- voltageSystem and mainCircuitA are now fully auto-detected from HAN and charger data -->
+        <input type="hidden" id="s-voltageSystem" value="auto">
+        <input type="hidden" id="s-mainCircuitA" value="25">
         <div id="charger-details-list" style="font-size:12px;">
           <span style="color:var(--text-muted)">⏳ Loading chargers...</span>
         </div>
@@ -1300,10 +1273,12 @@
               statusIcon + ' ' + escHtml(liveStatus.statusLabel) + '</span></td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<select onchange="updateChargerPhases(\'' + charger.deviceId + '\',this.value)" ' +
+              'title="Auto-detected from live data when charger is active. Set manually as fallback." ' +
               'style="font-size:12px; border:1px solid var(--border-color); border-radius:4px; padding:2px 4px;">' +
               '<option value="1"' + (chargerPhases === 1 ? ' selected' : '') + '>1-phase</option>' +
               '<option value="3"' + (chargerPhases === 3 ? ' selected' : '') + '>3-phase</option>' +
               '</select>' +
+              '<div style="font-size:10px; color:var(--text-muted); margin-top:2px;">(auto-detected)</div>' +
               '</td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<input type="number" min="6" max="32" value="' + circuitA + '" ' +
@@ -1327,7 +1302,8 @@
     html += '</tbody></table>';
     html += '<div style="font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;">' +
             '💡 <b>Max Current</b> = Easee Ladergrense (permanent charger limit). ' +
-            'Capped by circuit breaker (' + mainCircuitA + 'A). Actual current is reduced further during overload mitigation.' +
+            'Current is reduced dynamically during overload mitigation. ' +
+            '<b>Phases</b> are auto-detected from live power/current ratio (set manually only as fallback).' +
             '</div>';
 
     // Debug: show raw charger_status values from the Easee API

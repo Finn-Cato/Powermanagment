@@ -786,7 +786,7 @@ class PowerGuardApp extends Homey.App {
       for (const entry of evEntries) {
         const evData = this._evPowerData[entry.deviceId];
         if (evData && evData.isConnected !== false) {
-          const phases = entry.chargerPhases || 3;
+          const phases = evData?.detectedPhases || entry.chargerPhases || 3;
           const voltage = phases === 1 ? 230 : 692;
           const circuitA = entry.circuitLimitA || 32;
           maxChargerW += voltage * circuitA;
@@ -917,12 +917,7 @@ class PowerGuardApp extends Homey.App {
       );
       if (has3PhaseCap) return 3;
     }
-    // 3. Manual override: respect the explicit user setting
-    const vs = this._settings && this._settings.voltageSystem;
-    if (vs && vs !== 'auto') {
-      return vs.includes('3phase') ? 3 : 1;
-    }
-    // 4. Safe default
+    // 3. Safe default
     return 1;
   }
 
@@ -2161,6 +2156,17 @@ class PowerGuardApp extends Homey.App {
           data.offeredCurrent = typeof obj['measure_current.offered'].value === 'number' ? obj['measure_current.offered'].value : null;
         }
 
+        // Auto-detect charger phases from power/current ratio when actively charging:
+        // 1-phase: ~230 W/A, 3-phase: ~690 W/A. Midpoint threshold at 460.
+        if (data.powerW > 200 && data.offeredCurrent > 0) {
+          const ratio = data.powerW / data.offeredCurrent;
+          const detected = ratio < 460 ? 1 : 3;
+          if (data.detectedPhases !== detected) {
+            this.log(`[EV] ${entry.name} auto-detected phases: ${detected} (${ratio.toFixed(0)} W/A)`);
+            data.detectedPhases = detected;
+          }
+        }
+
         // Check for command confirmation
         this._checkChargerConfirmation(entry.deviceId);
       } catch (err) {
@@ -2248,7 +2254,8 @@ class PowerGuardApp extends Homey.App {
       const isCurrentlyPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
       if (isCurrentlyPaused && targetCurrent !== null && targetCurrent < CHARGER_DEFAULTS.startCurrent) {
         // Don't restart below startCurrent — wait until we have headroom for at least 11A
-        const chargerPhases = entry.chargerPhases || 3;
+        const cEvData = this._evPowerData[entry.deviceId];
+        const chargerPhases = cEvData?.detectedPhases || entry.chargerPhases || 3;
         const voltage = chargerPhases === 1 ? 230 : 692;
         const startThresholdW = CHARGER_DEFAULTS.startCurrent * voltage;  // ~2530W for 1-phase, ~7612W for 3-phase
         const chargerPowerW = this._evPowerData[entry.deviceId]?.powerW || 0;
@@ -2335,7 +2342,6 @@ class PowerGuardApp extends Homey.App {
    */
   _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
-    const chargerPhases = chargerEntry.chargerPhases || 3;
     const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 7A (some chargers unstable at 6A)
     const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA);
 
@@ -2344,32 +2350,22 @@ class PowerGuardApp extends Homey.App {
     const evData = this._evPowerData[chargerEntry.deviceId];
     const chargerPowerW = evData?.powerW || 0;
     const offeredCurrent = evData?.offeredCurrent;
-    const mainFuseA = this._settings.mainCircuitA || 25;
 
-    // ── Wattage-based calculation ────────────────────────────────────────────
+    // Use auto-detected phases (derived from live power/current ratio) when available.
+    // Falls back to the per-charger setting stored in the priority list.
+    const chargerPhases = evData?.detectedPhases || chargerEntry.chargerPhases || 3;
+    const chargerVoltage = chargerPhases * 230;  // 230W for 1-phase, 460 for 2-ph, 690 for 3-ph
+
     // Use offeredCurrent as a fallback to estimate charger power when measure_power
     // is unavailable or has not yet updated (common on charger startup).
-    // This prevents the entire house consumption from being attributed to household
-    // load, which would incorrectly cap the charger at a very low current.
-    const chargerVoltage = chargerPhases * 230;  // 230W for 1-phase, 460 for 2-ph, 690 for 3-ph
     const estimatedChargerPowerW = chargerPowerW > 200
       ? chargerPowerW
       : (offeredCurrent > 0 ? offeredCurrent * chargerVoltage : 0);
 
-    // Calculate household usage without this charger (clamp to 0 — estimation can overshoot)
+    // Calculate household usage without this charger (clamp to 0 — estimation can overshoot).
+    // Power limit is the only binding constraint — no separate fuse check needed.
     const nonChargerUsage = Math.max(0, currentUsage - estimatedChargerPowerW);
-
-    // Cap available power at main fuse limit
-    // This prevents allocating more power than the physical fuse can handle
-    const systemPhases = this._detectSystemPhases();
-    const systemVoltage = 230;
-    const maxFuseDrainW = Math.round((systemPhases === 3 ? 1.732 : 1) * systemVoltage * mainFuseA);
-
-    // Available power for charger = minimum of (limit headroom) and (fuse headroom)
-    // Safety margin of 200W below the limit to avoid oscillating at the boundary
-    const limitHeadroomW = limit - nonChargerUsage - 200;
-    const fuseHeadroomW = maxFuseDrainW - nonChargerUsage - 200;
-    const availablePowerW = Math.min(limitHeadroomW, fuseHeadroomW);
+    const availablePowerW = limit - nonChargerUsage - 200;
 
     // Check if household alone (without charger) exceeds the limit
     // Only then is it a true emergency → pause the charger
@@ -2400,7 +2396,7 @@ class PowerGuardApp extends Homey.App {
       // Additive fallback: when charger is not active or no offered current data
       const availableCurrentA = Math.floor(availablePowerW / chargerVoltage);
       targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
-      this.log(`EV calc (additive): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, available=${Math.round(availablePowerW)}W, fuse=${maxFuseDrainW}W → ${targetCurrent}A`);
+      this.log(`EV calc (additive): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, phases=${chargerPhases}, available=${Math.round(availablePowerW)}W → ${targetCurrent}A`);
     }
     return targetCurrent;
   }
