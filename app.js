@@ -2335,7 +2335,7 @@ class PowerGuardApp extends Homey.App {
    */
   _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
-    const chargerPhases = chargerEntry.chargerPhases || 1;
+    const chargerPhases = chargerEntry.chargerPhases || 3;
     const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 7A (some chargers unstable at 6A)
     const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA);
 
