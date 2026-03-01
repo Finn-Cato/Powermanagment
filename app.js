@@ -2356,8 +2356,8 @@ class PowerGuardApp extends Homey.App {
       ? chargerPowerW
       : (offeredCurrent > 0 ? offeredCurrent * chargerVoltage : 0);
 
-    // Calculate household usage without this charger
-    const nonChargerUsage = currentUsage - estimatedChargerPowerW;
+    // Calculate household usage without this charger (clamp to 0 — estimation can overshoot)
+    const nonChargerUsage = Math.max(0, currentUsage - estimatedChargerPowerW);
 
     // Cap available power at main fuse limit
     // This prevents allocating more power than the physical fuse can handle
