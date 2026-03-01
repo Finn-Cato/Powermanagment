@@ -10,6 +10,10 @@ const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
 const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS } = require('./common/constants');
 
+// Minimum time to wait after any mitigation before restoring any device.
+// Acts as a safety net for cases where the headroom snapshot is unreliable (e.g. 0W at snapshot time).
+const RESTORE_COOLDOWN_MS = 240 * 1000; // 240 seconds
+
 /**
  * Promise wrapper with timeout — prevents hung API calls from blocking the mitigation cycle.
  * @param {Promise} promise - The promise to wrap
@@ -1415,6 +1419,17 @@ class PowerGuardApp extends Homey.App {
         const fullCurrent = (toRestore.previousState && toRestore.previousState.targetCurrent) || 32;
         if ((toRestore.currentTargetA || 0) >= fullCurrent) {
           return; // Passive monitoring entry — charger already at full current, nothing to do
+        }
+      }
+
+      // Post-mitigation cooldown: block ALL restores for 240 s after the last mitigation event.
+      // This is a safety net for cases where the headroom guard can't fire because the device
+      // had 0W / unknown power at snapshot time (e.g. water heater in passive cycle).
+      if (this._lastMitigationTime > 0) {
+        const cooldownRemaining = RESTORE_COOLDOWN_MS - (Date.now() - this._lastMitigationTime);
+        if (cooldownRemaining > 0) {
+          this.log(`[Restore] Post-mitigation cooldown: ${Math.round(cooldownRemaining / 1000)}s remaining — skipping restore`);
+          return;
         }
       }
 
