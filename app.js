@@ -2213,9 +2213,9 @@ class PowerGuardApp extends Homey.App {
    *  - Keeps charger at minimum 7A instead of pausing (keeps car charging)
    *  - Only pauses charger in true emergency (household alone exceeds limit)
    *  - Start threshold prevents restarting paused charger until enough headroom (11A startCurrent)
-   *  - Main fuse protection caps power allocation at the physical fuse limit
    *  - Confirmation tracking: reads measure_current.offered to verify commands took effect
    *  - Proportional current scaling when charger is active (smoother adjustments)
+   *  - Multi-charger: available headroom is pooled and split evenly across all active chargers
    */
   async _adjustEVChargersForPower(smoothedPower) {
     const now = Date.now();
@@ -2233,6 +2233,35 @@ class PowerGuardApp extends Homey.App {
 
     // Global floor: don't even evaluate more often than every 2s (prevents API spam)
     if (now - (this._lastEVAdjustTime || 0) < 2000) return;
+
+    // ── Multi-charger shared budget ─────────────────────────────────────────
+    // Sum all connected chargers' power as a group, subtract once from household,
+    // then divide available headroom equally. This prevents each charger
+    // independently claiming all available headroom when multiple are active.
+    const connectedEntries = chargerEntries.filter(e => this._isCarConnected(e.deviceId));
+    const totalChargerPowerW = connectedEntries.reduce((sum, e) => {
+      const evData = this._evPowerData[e.deviceId];
+      const phases = evData?.detectedPhases || e.chargerPhases || 3;
+      const voltage = phases * 230;
+      const pw = evData?.powerW || 0;
+      const offered = evData?.offeredCurrent || 0;
+      return sum + (pw > 200 ? pw : (offered > 0 ? offered * voltage : 0));
+    }, 0);
+    // Only count chargers actually drawing power as active — a connected-but-idle
+    // charger (car plugged in but not charging) should not split the headroom budget.
+    const chargingCount = connectedEntries.filter(e => {
+      const evData = this._evPowerData[e.deviceId];
+      return (evData?.powerW || 0) > 200 || (evData?.offeredCurrent || 0) > 0;
+    }).length;
+    const activeChargerCount = Math.max(1, chargingCount);
+    const sharedNonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
+    const sharedAvailableW = limit - sharedNonChargerUsage - 200;
+    const perChargerBudgetW = sharedAvailableW / activeChargerCount;
+    const householdAloneExceedsLimit = sharedNonChargerUsage > (limit - 200);
+    if (connectedEntries.length > 1) {
+      this.log(`[EV] Multi-charger: ${connectedEntries.length} connected, ${activeChargerCount} charging, totalCharger=${Math.round(totalChargerPowerW)}W, household=${Math.round(sharedNonChargerUsage)}W, shared=${Math.round(sharedAvailableW)}W → ${Math.round(perChargerBudgetW)}W/charger`);
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     for (const entry of chargerEntries) {
       const brand = this._getChargerBrand?.(entry.deviceId);
@@ -2259,7 +2288,7 @@ class PowerGuardApp extends Homey.App {
         : CHARGER_DEFAULTS.toggleUnconfirmedMs;
       if (now - (cState.lastAdjustTime || 0) < perChargerThrottle) continue;
 
-      const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
+      const targetCurrent = this._calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, entry);
       const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
       // Skip if target hasn't changed meaningfully
@@ -2272,8 +2301,16 @@ class PowerGuardApp extends Homey.App {
           Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) <= 1) {
         continue;
       }
-      // Skip if already at full and target is full
+      // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
       if (!alreadyTracked && targetCurrent !== null && targetCurrent >= (entry.circuitLimitA || 32)) {
+        this._mitigatedDevices.push({
+          deviceId: entry.deviceId,
+          action: 'dynamic_current',
+          previousState: { targetCurrent: entry.circuitLimitA || 32 },
+          mitigatedAt: now,
+          currentTargetA: targetCurrent
+        });
+        this._persistMitigatedDevices();
         continue;
       }
 
@@ -2286,11 +2323,8 @@ class PowerGuardApp extends Homey.App {
         const chargerPhases = cEvData?.detectedPhases || entry.chargerPhases || 3;
         const voltage = chargerPhases === 1 ? 230 : 692;
         const startThresholdW = CHARGER_DEFAULTS.startCurrent * voltage;  // ~2530W for 1-phase, ~7612W for 3-phase
-        const chargerPowerW = this._evPowerData[entry.deviceId]?.powerW || 0;
-        const nonChargerUsage = smoothedPower - chargerPowerW;
-        const availableForStart = limit - nonChargerUsage - 200;
-        if (availableForStart < startThresholdW) {
-          this.log(`EV throttle: not restarting ${entry.name}, need ${Math.round(startThresholdW)}W (${CHARGER_DEFAULTS.startCurrent}A) but only ${Math.round(availableForStart)}W available`);
+        if (perChargerBudgetW < startThresholdW) {
+          this.log(`EV throttle: not restarting ${entry.name}, need ${Math.round(startThresholdW)}W (${CHARGER_DEFAULTS.startCurrent}A) but only ${Math.round(perChargerBudgetW)}W available`);
           continue;
         }
       }
@@ -2347,13 +2381,23 @@ class PowerGuardApp extends Homey.App {
         }
         this._persistMitigatedDevices();
       } else if (alreadyTracked && targetCurrent >= (entry.circuitLimitA || 32)) {
-        // Charger restored to full
-        this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== entry.deviceId);
-        this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
+        // Charger restored to full — keep in _mitigatedDevices so devices tab still shows "controlled"
+        const wasLimited = alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null ||
+                           alreadyTracked.currentTargetA < (entry.circuitLimitA || 32);
+        alreadyTracked.currentTargetA = targetCurrent;
         this._persistMitigatedDevices();
-        this._fireTrigger('mitigation_cleared', { device_name: entry.name });
-        if (this._mitigatedDevices.length === 0) {
-          await this._updateVirtualDevice({ alarm: false }).catch(() => {});
+        if (wasLimited) {
+          this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
+          this._fireTrigger('mitigation_cleared', { device_name: entry.name });
+          // Clear alarm only if no charger is still paused or limited below its circuit limit
+          const anyStillLimited = this._mitigatedDevices.some(m => {
+            if (m.currentTargetA === 0 || m.currentTargetA === null) return true;
+            const pEntry = chargerEntries.find(c => c.deviceId === m.deviceId);
+            return pEntry && m.currentTargetA < (pEntry.circuitLimitA || 32);
+          });
+          if (!anyStillLimited) {
+            await this._updateVirtualDevice({ alarm: false }).catch(() => {});
+          }
         }
       }
     }
@@ -2362,19 +2406,18 @@ class PowerGuardApp extends Homey.App {
   // ─── Dynamic EV Charger Control ────────────────────────────────────────────
 
   /**
-   * Calculate optimal current for an EV charger given the current overload.
-   * Respects per-charger circuit limits.
-   * @param {number} totalOverloadW - Total power overage in watts
+   * Calculate optimal current for an EV charger given its pre-calculated power budget.
+   * The budget is already split evenly across all active chargers by the caller.
+   * @param {number} perChargerBudgetW - Watts this charger is allowed to use
+   * @param {boolean} householdAloneExceedsLimit - True if non-charger usage alone exceeds limit
    * @param {Object} chargerEntry - Entry from priorityList (may have circuitLimitA)
    * @returns {number} Target current in amps (7-32), or null to pause
    */
-  _calculateOptimalChargerCurrent(totalOverloadW, chargerEntry) {
+  _calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
     const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 7A (some chargers unstable at 6A)
     const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA);
 
-    const limit = this._getEffectiveLimit();
-    const currentUsage = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     const evData = this._evPowerData[chargerEntry.deviceId];
     const chargerPowerW = evData?.powerW || 0;
     const offeredCurrent = evData?.offeredCurrent;
@@ -2384,30 +2427,15 @@ class PowerGuardApp extends Homey.App {
     const chargerPhases = evData?.detectedPhases || chargerEntry.chargerPhases || 3;
     const chargerVoltage = chargerPhases * 230;  // 230W for 1-phase, 460 for 2-ph, 690 for 3-ph
 
-    // Use offeredCurrent as a fallback to estimate charger power when measure_power
-    // is unavailable or has not yet updated (common on charger startup).
-    const estimatedChargerPowerW = chargerPowerW > 200
-      ? chargerPowerW
-      : (offeredCurrent > 0 ? offeredCurrent * chargerVoltage : 0);
-
-    // Calculate household usage without this charger (clamp to 0 — estimation can overshoot).
-    // Power limit is the only binding constraint — no separate fuse check needed.
-    const nonChargerUsage = Math.max(0, currentUsage - estimatedChargerPowerW);
-    const availablePowerW = limit - nonChargerUsage - 200;
-
-    // Check if household alone (without charger) exceeds the limit
-    // Only then is it a true emergency → pause the charger
-    const householdAloneExceedsLimit = nonChargerUsage > (limit - 200);
-
     if (householdAloneExceedsLimit) {
       // TRUE emergency: household alone exceeds limit, must pause charger entirely
-      this.log(`EV calc: household=${Math.round(nonChargerUsage)}W > limit=${Math.round(limit)}W → PAUSE (emergency)`);
+      this.log(`EV calc: household exceeds limit → PAUSE (emergency)`);
       return null;
     }
 
-    if (availablePowerW <= 0) {
+    if (perChargerBudgetW <= 0) {
       // No headroom but household isn't over limit → keep at minimum current
-      this.log(`EV calc: usage=${Math.round(currentUsage)}W, available=${Math.round(availablePowerW)}W → KEEP MIN ${minCurrent}A`);
+      this.log(`EV calc: budget=${Math.round(perChargerBudgetW)}W → KEEP MIN ${minCurrent}A`);
       return minCurrent;
     }
 
@@ -2417,14 +2445,14 @@ class PowerGuardApp extends Homey.App {
     let targetCurrent;
     if (offeredCurrent > 0 && chargerPowerW > 500) {
       // Proportional: offeredCurrent × (desiredPower / actualPower)
-      const proportionalA = Math.round(offeredCurrent * (availablePowerW / chargerPowerW));
+      const proportionalA = Math.round(offeredCurrent * (perChargerBudgetW / chargerPowerW));
       targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, proportionalA));
-      this.log(`EV calc (proportional): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W@${offeredCurrent}A, available=${Math.round(availablePowerW)}W → ${targetCurrent}A`);
+      this.log(`EV calc (proportional): charger=${Math.round(chargerPowerW)}W@${offeredCurrent}A, budget=${Math.round(perChargerBudgetW)}W → ${targetCurrent}A`);
     } else {
       // Additive fallback: when charger is not active or no offered current data
-      const availableCurrentA = Math.floor(availablePowerW / chargerVoltage);
+      const availableCurrentA = Math.floor(perChargerBudgetW / chargerVoltage);
       targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
-      this.log(`EV calc (additive): usage=${Math.round(currentUsage)}W, charger=${Math.round(chargerPowerW)}W, phases=${chargerPhases}, available=${Math.round(availablePowerW)}W → ${targetCurrent}A`);
+      this.log(`EV calc (additive): phases=${chargerPhases}, budget=${Math.round(perChargerBudgetW)}W → ${targetCurrent}A`);
     }
     return targetCurrent;
   }
@@ -3665,6 +3693,10 @@ class PowerGuardApp extends Homey.App {
             status = 'paused';
             statusLabel = 'Paused by Power Guard';
             currentA = 0;
+          } else if (mitigated.currentTargetA >= (entry.circuitLimitA || 32)) {
+            status = 'charging';
+            statusLabel = 'Charging (' + mitigated.currentTargetA + 'A)';
+            currentA = mitigated.currentTargetA;
           } else {
             status = 'dynamic';
             statusLabel = 'Dynamic (' + mitigated.currentTargetA + 'A)';
