@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -70,7 +70,9 @@
         {
           "id": "list_devices",
           "template": "list_devices",
-          "navigation": { "next": "add_devices" }
+          "navigation": {
+            "next": "add_devices"
+          }
         },
         {
           "id": "add_devices",
@@ -98,7 +100,9 @@
         {
           "id": "list_devices",
           "template": "list_devices",
-          "navigation": { "next": "add_devices" }
+          "navigation": {
+            "next": "add_devices"
+          }
         },
         {
           "id": "add_devices",
@@ -127,7 +131,9 @@
         {
           "id": "list_devices",
           "template": "list_devices",
-          "navigation": { "next": "add_devices" }
+          "navigation": {
+            "next": "add_devices"
+          }
         },
         {
           "id": "add_devices",
@@ -242,7 +248,10 @@
           {
             "name": "power",
             "type": "number",
-            "title": { "en": "Power (W)", "no": "Effekt (W)" },
+            "title": {
+              "en": "Power (W)",
+              "no": "Effekt (W)"
+            },
             "example": 5200
           }
         ]
@@ -257,13 +266,19 @@
           {
             "name": "device_name",
             "type": "string",
-            "title": { "en": "Device name", "no": "Enhetsnavn" },
+            "title": {
+              "en": "Device name",
+              "no": "Enhetsnavn"
+            },
             "example": "Floor heater"
           },
           {
             "name": "action",
             "type": "string",
-            "title": { "en": "Action", "no": "Handling" },
+            "title": {
+              "en": "Action",
+              "no": "Handling"
+            },
             "example": "onoff"
           }
         ]
@@ -278,7 +293,10 @@
           {
             "name": "device_name",
             "type": "string",
-            "title": { "en": "Device name", "no": "Enhetsnavn" },
+            "title": {
+              "en": "Device name",
+              "no": "Enhetsnavn"
+            },
             "example": "Floor heater"
           }
         ]
@@ -293,7 +311,10 @@
           {
             "name": "profile",
             "type": "string",
-            "title": { "en": "Profile", "no": "Profil" },
+            "title": {
+              "en": "Profile",
+              "no": "Profil"
+            },
             "example": "strict"
           }
         ]
@@ -324,11 +345,32 @@
           {
             "name": "profile",
             "type": "dropdown",
-            "title": { "en": "Profile", "no": "Profil" },
+            "title": {
+              "en": "Profile",
+              "no": "Profil"
+            },
             "values": [
-              { "id": "normal", "label": { "en": "Normal", "no": "Normal" } },
-              { "id": "strict", "label": { "en": "Strict (90% limit)", "no": "Streng (90% grense)" } },
-              { "id": "solar", "label": { "en": "Solar-friendly", "no": "Sol-vennlig" } }
+              {
+                "id": "normal",
+                "label": {
+                  "en": "Normal",
+                  "no": "Normal"
+                }
+              },
+              {
+                "id": "strict",
+                "label": {
+                  "en": "Strict (90% limit)",
+                  "no": "Streng (90% grense)"
+                }
+              },
+              {
+                "id": "solar",
+                "label": {
+                  "en": "Solar-friendly",
+                  "no": "Sol-vennlig"
+                }
+              }
             ]
           }
         ]
@@ -359,11 +401,32 @@
           {
             "name": "profile",
             "type": "dropdown",
-            "title": { "en": "Profile", "no": "Profil" },
+            "title": {
+              "en": "Profile",
+              "no": "Profil"
+            },
             "values": [
-              { "id": "normal", "label": { "en": "Normal", "no": "Normal" } },
-              { "id": "strict", "label": { "en": "Strict (90% limit)", "no": "Streng (90% grense)" } },
-              { "id": "solar", "label": { "en": "Solar-friendly", "no": "Sol-vennlig" } }
+              {
+                "id": "normal",
+                "label": {
+                  "en": "Normal",
+                  "no": "Normal"
+                }
+              },
+              {
+                "id": "strict",
+                "label": {
+                  "en": "Strict (90% limit)",
+                  "no": "Streng (90% grense)"
+                }
+              },
+              {
+                "id": "solar",
+                "label": {
+                  "en": "Solar-friendly",
+                  "no": "Sol-vennlig"
+                }
+              }
             ]
           }
         ]
