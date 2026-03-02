@@ -3234,54 +3234,34 @@ class PowerGuardApp extends Homey.App {
             const v = source.capabilitiesObj.measure_power;
             currentPowerW = v.value !== undefined ? v.value : v;
           }
+          // ── isOn: reflects whether the thermostat is ENABLED (toggle button) ──
+          // Rule: if device has onoff, isOn = onoff. Period. Nothing else touches it.
+          //       The toggle shows "is this thermostat turned on", not "is it heating now".
+          //       Heating state (orange row/badge) is handled separately via power/load_status.
+          // Fallback for devices with no onoff: use mode signals instead.
           if (hasOnOff && source.capabilitiesObj.onoff) {
             const v = source.capabilitiesObj.onoff;
             isOn = v.value !== undefined ? v.value : v;
-          }
-          // tuya_thermostat_load_status = actual relay/element state (true = actively heating).
-          // Only use as proxy for isOn when device has NO onoff capability.
-          // When onoff exists, isOn must reflect onoff (the user-controlled switch state),
-          // not the element state — otherwise the toggle shows OFF even when the thermostat
-          // is enabled but the room is already at setpoint (element idle, load_status=false).
-          if (hasTuyaLoadStatus && !hasOnOff && source.capabilitiesObj.tuya_thermostat_load_status) {
+          } else if (hasTuyaLoadStatus && source.capabilitiesObj.tuya_thermostat_load_status) {
+            // No onoff cap — use element state as best proxy
             const v = source.capabilitiesObj.tuya_thermostat_load_status;
             isOn = v.value !== undefined ? v.value : v;
-          }
-          // tuya_thermostat_mode 'off' means thermostat is fully disabled
-          if (hasTuyaMode && source.capabilitiesObj.tuya_thermostat_mode) {
+          } else if (hasTuyaMode && source.capabilitiesObj.tuya_thermostat_mode) {
+            // No onoff/load cap — 'off' means disabled, anything else means enabled
             const v = source.capabilitiesObj.tuya_thermostat_mode;
             const mode = v.value !== undefined ? v.value : v;
-            if (mode === 'off' || mode === '0') isOn = false;
+            isOn = !(mode === 'off' || mode === '0' || mode === 0);
+          } else if (hasZg9030aModes && source.capabilitiesObj.zg9030a_modes) {
+            // Futurehome ZG9030A with no onoff cap
+            const v = source.capabilitiesObj.zg9030a_modes;
+            const mode = v.value !== undefined ? v.value : v;
+            isOn = !(mode === 'off' || mode === 0 || mode === '0');
           }
-          // Futurehome ZG9030A: zg9030a_modes drives actual heating state
-          // mode 'off' (or 0) = thermostat disabled; anything else = active
+          // Log Futurehome mode for diagnostics
           if (hasZg9030aModes && source.capabilitiesObj.zg9030a_modes) {
             const v = source.capabilitiesObj.zg9030a_modes;
             const mode = v.value !== undefined ? v.value : v;
-            const onoffRaw = source.capabilitiesObj.onoff ? (source.capabilitiesObj.onoff.value !== undefined ? source.capabilitiesObj.onoff.value : source.capabilitiesObj.onoff) : 'N/A';
-            this.log(`[FloorHeater]   [Futurehome] onoff=${onoffRaw} zg9030a_modes=${JSON.stringify(mode)} power=${currentPowerW}`);
-            if (mode === 'off' || mode === 0 || mode === '0') {
-              isOn = false;
-            } else if (mode != null) {
-              isOn = true; // manual, schedule, holiday etc. = thermostat is active
-            }
-          }
-          // onoff=false is always the hard override — device is physically disabled.
-          // Must run AFTER mode-specific checks (e.g. zg9030a_modes) because those can
-          // overwrite isOn=false (set from onoff) with isOn=true (set from mode='heat')
-          // even though the device was turned off by mitigation. onoff wins last.
-          if (hasOnOff && source.capabilitiesObj.onoff) {
-            const v = source.capabilitiesObj.onoff;
-            const onoffVal = v.value !== undefined ? v.value : v;
-            if (onoffVal === false) {
-              this.log(`[FloorHeater]   isOn hard override → false (onoff=false takes precedence over mode)`);
-              isOn = false;
-            }
-          }
-          // Power-based fallback: if device is drawing significant power it IS on
-          if (!isOn && currentPowerW != null && currentPowerW > 50) {
-            this.log(`[FloorHeater]   isOn override → true (power=${currentPowerW}W)`);
-            isOn = true;
+            this.log(`[FloorHeater]   [Futurehome] zg9030a_modes=${JSON.stringify(mode)} isOn=${isOn}`);
           }
           if (hasThermostatMode && source.capabilitiesObj.thermostat_mode) {
             const v = source.capabilitiesObj.thermostat_mode;
