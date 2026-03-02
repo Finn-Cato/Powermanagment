@@ -3396,6 +3396,14 @@ class PowerGuardApp extends Homey.App {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
         await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+        // User manually turned device ON — clear any mitigation so the bounce guard
+        // doesn't immediately fight back and turn it off again.
+        const prevLen = this._mitigatedDevices.length;
+        this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== deviceId);
+        if (this._mitigatedDevices.length !== prevLen) {
+          this._persistMitigatedDevices();
+          this.log(`[FloorHeater] ${device.name} cleared from mitigation list (manual ON override)`);
+        }
         this.log(`[FloorHeater] ${device.name} turned ON`);
         return { ok: true, message: `${device.name} turned on` };
         
@@ -3518,16 +3526,16 @@ class PowerGuardApp extends Homey.App {
           } catch (_) {}
         }
 
-        // ── Heater power estimation workaround ──
-        // Smart heaters (e.g. Adax) are always onoff=true in Homey but their
-        // heating element cycles at hardware level. We estimate actual draw
-        // based on how close the room is to setpoint:
+        // ── Adax heater power estimation workaround ──
+        // Adax heaters are always onoff=true in Homey but their heating element
+        // cycles at hardware level. We estimate actual draw based on how close
+        // the room is to setpoint:
         //   ≥ target+0.0: element off/idle        → 0W
         //   target-0.5 to target: near setpoint, light cycling  → 20% rated
         //   target-2.0 to target-0.5: moderate cycling           → 50% rated
         //   < target-2.0: actively heating                       → 100% rated
-        const devCls = (device.class || '').toLowerCase();
-        if ((devCls === 'thermostat' || devCls === 'heater') && currentW > 0) {
+        const isAdaxDevice = (device.driverUri || '').includes('no.adax');
+        if (isAdaxDevice && currentW > 0) {
           // If this device has already been mitigated, show 0W immediately
           // (command was sent; heater will respond within ~20 min for cloud devices)
           const isMitigated = (this._mitigatedDevices || []).some(m => m.deviceId === devId);
