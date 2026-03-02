@@ -87,5 +87,8 @@
   },
   "0.6.6": {
     "en": "$changelog = \"Fixed thermostat bounce blocking priority list. Fixed Panelovn ON badge when mitigated. Heaters tab uses power sensor as authoritative source.\"; echo $changelog | homey app publish"
+  },
+  "0.7.0": {
+    "en": "Adax fix and bugfix heaters"
   }
 }
