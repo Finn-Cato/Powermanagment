@@ -197,6 +197,18 @@
     "getFirmwareInfo": {
       "method": "GET",
       "path": "/firmwareInfo"
+    },
+    "debugHeaters": {
+      "method": "GET",
+      "path": "/debug-heaters"
+    },
+    "easeeLogin": {
+      "method": "POST",
+      "path": "/easee-login"
+    },
+    "getEaseeStatus": {
+      "method": "GET",
+      "path": "/easee-status"
     }
   },
   "flow": {
