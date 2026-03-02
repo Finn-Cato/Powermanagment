@@ -1485,7 +1485,7 @@ class PowerGuardApp extends Homey.App {
           this._appLogEntry('mitigation', `Restored: ${device.name}`);
           this._persistMitigatedDevices();
           if (this._mitigatedDevices.length === 0) {
-            this._fireTrigger('mitigation_cleared', {});
+            this._fireTrigger('mitigation_cleared', { device_name: device.name });
             await this._updateVirtualDevice({ alarm: false });
           }
         } else {
@@ -1495,7 +1495,7 @@ class PowerGuardApp extends Homey.App {
           this._mitigatedDevices.pop();
           this._persistMitigatedDevices();
           if (this._mitigatedDevices.length === 0) {
-            this._fireTrigger('mitigation_cleared', {});
+            this._fireTrigger('mitigation_cleared', { device_name: device.name });
             await this._updateVirtualDevice({ alarm: false });
           }
         }
@@ -1583,7 +1583,11 @@ class PowerGuardApp extends Homey.App {
       profile_changed:      this._triggerProfileChanged,
     };
     const card = map[id];
-    if (card) card.trigger(tokens || {}).catch((err) => this.error('Trigger error:', err));
+    if (!card) return;
+    // Ensure device_name is always a string — Homey rejects undefined token values
+    const safeTokens = Object.assign({}, tokens);
+    if ('device_name' in safeTokens) safeTokens.device_name = String(safeTokens.device_name || 'Unknown');
+    card.trigger(safeTokens).catch((err) => this.error('Trigger error:', err));
   }
 
   // ─── Profile ──────────────────────────────────────────────────────────────
