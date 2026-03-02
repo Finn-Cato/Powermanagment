@@ -3238,9 +3238,12 @@ class PowerGuardApp extends Homey.App {
             const v = source.capabilitiesObj.onoff;
             isOn = v.value !== undefined ? v.value : v;
           }
-          // tuya_thermostat_load_status = actual relay/element state (true = actively heating)
-          // This is more accurate than onoff (which just means thermostat is enabled/not standby)
-          if (hasTuyaLoadStatus && source.capabilitiesObj.tuya_thermostat_load_status) {
+          // tuya_thermostat_load_status = actual relay/element state (true = actively heating).
+          // Only use as proxy for isOn when device has NO onoff capability.
+          // When onoff exists, isOn must reflect onoff (the user-controlled switch state),
+          // not the element state — otherwise the toggle shows OFF even when the thermostat
+          // is enabled but the room is already at setpoint (element idle, load_status=false).
+          if (hasTuyaLoadStatus && !hasOnOff && source.capabilitiesObj.tuya_thermostat_load_status) {
             const v = source.capabilitiesObj.tuya_thermostat_load_status;
             isOn = v.value !== undefined ? v.value : v;
           }
