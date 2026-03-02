@@ -3234,51 +3234,34 @@ class PowerGuardApp extends Homey.App {
             const v = source.capabilitiesObj.measure_power;
             currentPowerW = v.value !== undefined ? v.value : v;
           }
+          // ── isOn: reflects whether the thermostat is ENABLED (toggle button) ──
+          // Rule: if device has onoff, isOn = onoff. Period. Nothing else touches it.
+          //       The toggle shows "is this thermostat turned on", not "is it heating now".
+          //       Heating state (orange row/badge) is handled separately via power/load_status.
+          // Fallback for devices with no onoff: use mode signals instead.
           if (hasOnOff && source.capabilitiesObj.onoff) {
             const v = source.capabilitiesObj.onoff;
             isOn = v.value !== undefined ? v.value : v;
-          }
-          // tuya_thermostat_load_status = actual relay/element state (true = actively heating)
-          // This is more accurate than onoff (which just means thermostat is enabled/not standby)
-          if (hasTuyaLoadStatus && source.capabilitiesObj.tuya_thermostat_load_status) {
+          } else if (hasTuyaLoadStatus && source.capabilitiesObj.tuya_thermostat_load_status) {
+            // No onoff cap — use element state as best proxy
             const v = source.capabilitiesObj.tuya_thermostat_load_status;
             isOn = v.value !== undefined ? v.value : v;
-          }
-          // tuya_thermostat_mode 'off' means thermostat is fully disabled
-          if (hasTuyaMode && source.capabilitiesObj.tuya_thermostat_mode) {
+          } else if (hasTuyaMode && source.capabilitiesObj.tuya_thermostat_mode) {
+            // No onoff/load cap — 'off' means disabled, anything else means enabled
             const v = source.capabilitiesObj.tuya_thermostat_mode;
             const mode = v.value !== undefined ? v.value : v;
-            if (mode === 'off' || mode === '0') isOn = false;
+            isOn = !(mode === 'off' || mode === '0' || mode === 0);
+          } else if (hasZg9030aModes && source.capabilitiesObj.zg9030a_modes) {
+            // Futurehome ZG9030A with no onoff cap
+            const v = source.capabilitiesObj.zg9030a_modes;
+            const mode = v.value !== undefined ? v.value : v;
+            isOn = !(mode === 'off' || mode === 0 || mode === '0');
           }
-          // Futurehome ZG9030A: zg9030a_modes drives actual heating state
-          // mode 'off' (or 0) = thermostat disabled; anything else = active
+          // Log Futurehome mode for diagnostics
           if (hasZg9030aModes && source.capabilitiesObj.zg9030a_modes) {
             const v = source.capabilitiesObj.zg9030a_modes;
             const mode = v.value !== undefined ? v.value : v;
-            const onoffRaw = source.capabilitiesObj.onoff ? (source.capabilitiesObj.onoff.value !== undefined ? source.capabilitiesObj.onoff.value : source.capabilitiesObj.onoff) : 'N/A';
-            this.log(`[FloorHeater]   [Futurehome] onoff=${onoffRaw} zg9030a_modes=${JSON.stringify(mode)} power=${currentPowerW}`);
-            if (mode === 'off' || mode === 0 || mode === '0') {
-              isOn = false;
-            } else if (mode != null) {
-              isOn = true; // manual, schedule, holiday etc. = thermostat is active
-            }
-          }
-          // onoff=false is always the hard override — device is physically disabled.
-          // Must run AFTER mode-specific checks (e.g. zg9030a_modes) because those can
-          // overwrite isOn=false (set from onoff) with isOn=true (set from mode='heat')
-          // even though the device was turned off by mitigation. onoff wins last.
-          if (hasOnOff && source.capabilitiesObj.onoff) {
-            const v = source.capabilitiesObj.onoff;
-            const onoffVal = v.value !== undefined ? v.value : v;
-            if (onoffVal === false) {
-              this.log(`[FloorHeater]   isOn hard override → false (onoff=false takes precedence over mode)`);
-              isOn = false;
-            }
-          }
-          // Power-based fallback: if device is drawing significant power it IS on
-          if (!isOn && currentPowerW != null && currentPowerW > 50) {
-            this.log(`[FloorHeater]   isOn override → true (power=${currentPowerW}W)`);
-            isOn = true;
+            this.log(`[FloorHeater]   [Futurehome] zg9030a_modes=${JSON.stringify(mode)} isOn=${isOn}`);
           }
           if (hasThermostatMode && source.capabilitiesObj.thermostat_mode) {
             const v = source.capabilitiesObj.thermostat_mode;
@@ -3396,6 +3379,14 @@ class PowerGuardApp extends Homey.App {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
         await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+        // User manually turned device ON — clear any mitigation so the bounce guard
+        // doesn't immediately fight back and turn it off again.
+        const prevLen = this._mitigatedDevices.length;
+        this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== deviceId);
+        if (this._mitigatedDevices.length !== prevLen) {
+          this._persistMitigatedDevices();
+          this.log(`[FloorHeater] ${device.name} cleared from mitigation list (manual ON override)`);
+        }
         this.log(`[FloorHeater] ${device.name} turned ON`);
         return { ok: true, message: `${device.name} turned on` };
         
@@ -3518,16 +3509,16 @@ class PowerGuardApp extends Homey.App {
           } catch (_) {}
         }
 
-        // ── Heater power estimation workaround ──
-        // Smart heaters (e.g. Adax) are always onoff=true in Homey but their
-        // heating element cycles at hardware level. We estimate actual draw
-        // based on how close the room is to setpoint:
+        // ── Adax heater power estimation workaround ──
+        // Adax heaters are always onoff=true in Homey but their heating element
+        // cycles at hardware level. We estimate actual draw based on how close
+        // the room is to setpoint:
         //   ≥ target+0.0: element off/idle        → 0W
         //   target-0.5 to target: near setpoint, light cycling  → 20% rated
         //   target-2.0 to target-0.5: moderate cycling           → 50% rated
         //   < target-2.0: actively heating                       → 100% rated
-        const devCls = (device.class || '').toLowerCase();
-        if ((devCls === 'thermostat' || devCls === 'heater') && currentW > 0) {
+        const isAdaxDevice = (device.driverUri || '').includes('no.adax');
+        if (isAdaxDevice && currentW > 0) {
           // If this device has already been mitigated, show 0W immediately
           // (command was sent; heater will respond within ~20 min for cloud devices)
           const isMitigated = (this._mitigatedDevices || []).some(m => m.deviceId === devId);
