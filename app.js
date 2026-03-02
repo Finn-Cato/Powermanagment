@@ -2998,6 +2998,25 @@ class PowerGuardApp extends Homey.App {
       // Skip chargers with no car connected
       if (!this._isCarConnected(entry.deviceId)) continue;
 
+      // Skip chargers that have finished charging — car is full, no point limiting them
+      {
+        const evData = this._evPowerData[entry.deviceId];
+        const cs = evData?.chargerStatus;
+        const isChargingComplete = [4, 'completed', 'COMPLETED', 'Completed'].includes(cs)
+                                && (evData?.powerW || 0) < 100;
+        if (isChargingComplete) {
+          // Clean up any stale mitigation so UI doesn't show "device controlled"
+          const stale = this._mitigatedDevices.findIndex(m => m.deviceId === entry.deviceId);
+          if (stale >= 0) {
+            this._mitigatedDevices.splice(stale, 1);
+            this._persistMitigatedDevices();
+            this._fireTrigger('mitigation_cleared', { device_name: entry.name });
+            this.log(`[EV] _mitigateEaseeChargers: skipped fully-charged car ${entry.name} (status=${cs})`);
+          }
+          continue;
+        }
+      }
+
       const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
       const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
 
