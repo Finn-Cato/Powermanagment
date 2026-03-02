@@ -3518,16 +3518,16 @@ class PowerGuardApp extends Homey.App {
           } catch (_) {}
         }
 
-        // ── Adax heater power estimation workaround ──
-        // Adax heaters are always onoff=true in Homey but their heating element
-        // cycles at hardware level. We estimate actual draw based on how close
-        // the room is to setpoint:
+        // ── Heater power estimation workaround ──
+        // Smart heaters (e.g. Adax) are always onoff=true in Homey but their
+        // heating element cycles at hardware level. We estimate actual draw
+        // based on how close the room is to setpoint:
         //   ≥ target+0.0: element off/idle        → 0W
         //   target-0.5 to target: near setpoint, light cycling  → 20% rated
         //   target-2.0 to target-0.5: moderate cycling           → 50% rated
         //   < target-2.0: actively heating                       → 100% rated
-        const isAdaxDevice = (device.driverUri || '').includes('no.adax');
-        if (isAdaxDevice && currentW > 0) {
+        const devCls = (device.class || '').toLowerCase();
+        if ((devCls === 'thermostat' || devCls === 'heater') && currentW > 0) {
           // If this device has already been mitigated, show 0W immediately
           // (command was sent; heater will respond within ~20 min for cloud devices)
           const isMitigated = (this._mitigatedDevices || []).some(m => m.deviceId === devId);
