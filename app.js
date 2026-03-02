@@ -1538,40 +1538,40 @@ class PowerGuardApp extends Homey.App {
   // ─── Flow cards ───────────────────────────────────────────────────────────
 
   _registerFlowCards() {
-    this._triggerPowerLimitExceeded = this.homey.flow.getTriggerCardById('power_limit_exceeded');
-    this._triggerMitigationApplied  = this.homey.flow.getTriggerCardById('mitigation_applied');
-    this._triggerMitigationCleared  = this.homey.flow.getTriggerCardById('mitigation_cleared');
-    this._triggerProfileChanged     = this.homey.flow.getTriggerCardById('profile_changed');
+    this._triggerPowerLimitExceeded = this.homey.flow.getFlowCardTrigger('power_limit_exceeded');
+    this._triggerMitigationApplied  = this.homey.flow.getFlowCardTrigger('mitigation_applied');
+    this._triggerMitigationCleared  = this.homey.flow.getFlowCardTrigger('mitigation_cleared');
+    this._triggerProfileChanged     = this.homey.flow.getFlowCardTrigger('profile_changed');
 
-    const condEnabled = this.homey.flow.getConditionCardById('guard_enabled');
+    const condEnabled = this.homey.flow.getFlowCardCondition('guard_enabled');
     if (condEnabled) condEnabled.registerRunListener(() => this._settings.enabled);
 
-    const condOverLimit = this.homey.flow.getConditionCardById('is_over_limit');
+    const condOverLimit = this.homey.flow.getFlowCardCondition('is_over_limit');
     if (condOverLimit) condOverLimit.registerRunListener(() =>
       this._overLimitCount >= this._settings.hysteresisCount);
 
-    const condProfile = this.homey.flow.getConditionCardById('profile_is');
+    const condProfile = this.homey.flow.getFlowCardCondition('profile_is');
     if (condProfile) condProfile.registerRunListener((args) =>
       this._settings.profile === args.profile);
 
-    const actEnable = this.homey.flow.getActionCardById('enable_guard');
+    const actEnable = this.homey.flow.getFlowCardAction('enable_guard');
     if (actEnable) actEnable.registerRunListener(() => {
       this._settings.enabled = true;
       this.homey.settings.set('enabled', true);
       this._updateVirtualDevice({ onoff: true }).catch(() => {});
     });
 
-    const actDisable = this.homey.flow.getActionCardById('disable_guard');
+    const actDisable = this.homey.flow.getFlowCardAction('disable_guard');
     if (actDisable) actDisable.registerRunListener(() => {
       this._settings.enabled = false;
       this.homey.settings.set('enabled', false);
       this._updateVirtualDevice({ onoff: false }).catch(() => {});
     });
 
-    const actProfile = this.homey.flow.getActionCardById('set_profile');
+    const actProfile = this.homey.flow.getFlowCardAction('set_profile');
     if (actProfile) actProfile.registerRunListener((args) => this._setProfile(args.profile));
 
-    const actReset = this.homey.flow.getActionCardById('reset_statistics');
+    const actReset = this.homey.flow.getFlowCardAction('reset_statistics');
     if (actReset) actReset.registerRunListener(() => this._resetStatistics());
   }
 
