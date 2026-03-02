@@ -1,4 +1,8 @@
 {
+  "0.7.1": {
+    "en": "Fixed: EV charger 'Device controlled' badge now clears automatically when charging is complete (car full). Fixed: app startup crash caused by wrong Homey SDK v3 flow card API calls — flow triggers (power limit exceeded, mitigation applied/cleared, profile changed) now fire correctly. Fixed: missing API endpoints added.",
+    "no": "Fiks: EV-lader 'Enhetsstyrt'-merket fjernes nå automatisk når ladingen er ferdig (bilen er full). Fiks: app-krasj ved oppstart forårsaket av feil Homey SDK v3 flyt-kort API-kall — flyt-triggere fungerer nå korrekt. Fiks: manglende API-endepunkter lagt til."
+  },
   "0.6.61": {
     "en": "Bug fixes for Adax heaters and Tuya floor thermostats: power estimation now scoped to Adax devices only. Thermostat toggle in Heaters tab now correctly reflects enabled/disabled state (not heating state). Fixed thermostat on/off toggle being stuck OFF when room was already at setpoint."
   },
