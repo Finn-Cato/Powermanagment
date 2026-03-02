@@ -2273,6 +2273,26 @@ class PowerGuardApp extends Homey.App {
         continue;
       }
 
+      // Clear mitigation when charging is complete — car is full, no more power draw.
+      // Status 4 / 'completed' means the car accepted the full charge and stopped.
+      // We keep the car as "connected" (still plugged in) but stop showing "device controlled".
+      {
+        const evData = this._evPowerData[entry.deviceId];
+        const cs = evData?.chargerStatus;
+        const isChargingComplete = [4, 'completed', 'COMPLETED', 'Completed'].includes(cs)
+                                && (evData?.powerW || 0) < 100;
+        if (isChargingComplete) {
+          const stale = this._mitigatedDevices.findIndex(m => m.deviceId === entry.deviceId);
+          if (stale >= 0) {
+            this._mitigatedDevices.splice(stale, 1);
+            this._persistMitigatedDevices();
+            this._fireTrigger('mitigation_cleared', { device_name: entry.name });
+            this.log(`[EV] Removed mitigation for fully-charged car: ${entry.name} (status=${cs})`);
+          }
+          continue;
+        }
+      }
+
       // Per-charger smart throttle based on confirmation state
       // Confirmed commands → shorter wait (charger is responsive)
       // Unconfirmed → longer wait (charger may be slow or unresponsive)
