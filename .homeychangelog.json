@@ -1,4 +1,7 @@
 {
+  "0.6.61": {
+    "en": "Bug fixes for Adax heaters and Tuya floor thermostats: power estimation now scoped to Adax devices only. Thermostat toggle in Heaters tab now correctly reflects enabled/disabled state (not heating state). Fixed thermostat on/off toggle being stuck OFF when room was already at setpoint."
+  },
   "0.6.2": {
     "en": "Multi-charger support: available headroom is now pooled and split evenly across all actively charging cars — a second connected-but-idle car no longer steals half the budget. EV charger phase count (1-phase / 3-phase) is now auto-detected from the live power/current ratio; no manual electrical config needed. Strict profile raised to 95% safety margin. Devices tab now always shows the EV charger as controlled by Power Guard while a car is connected and charging. Fixed a calculation bug that could cause charger current adjustments to be silently skipped.",
     "no": "Støtte for flere ladere: tilgjengelig effekt samles og fordeles likt mellom alle biler som faktisk lader — en tilkoblet-men-hvilende bil stjeler ikke lenger halve budsjettet. Fase-antall for EV-lader (enfase / trefase) detekteres nå automatisk fra live effekt/strøm-forholdet; ingen manuell konfigurasjon trengs. Streng profil hevet til 95% sikkerhetsmargin. Enheter-fanen viser nå alltid EV-laderen som styrt av Power Guard mens en bil er tilkoblet og lader. Rettet en beregningsfeil som kunne føre til at strømjusteringer ble stille hoppet over."
@@ -81,5 +84,8 @@
   },
   "0.6.4": {
     "en": "bug fix"
+  },
+  "0.6.6": {
+    "en": "$changelog = \"Fixed thermostat bounce blocking priority list. Fixed Panelovn ON badge when mitigated. Heaters tab uses power sensor as authoritative source.\"; echo $changelog | homey app publish"
   }
 }
