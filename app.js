@@ -2435,7 +2435,7 @@ class PowerGuardApp extends Homey.App {
    */
   _calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
-    const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 7A (some chargers unstable at 6A)
+    const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 6A minimum (Easee supports 6A)
     const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA);
 
     const evData = this._evPowerData[chargerEntry.deviceId];
