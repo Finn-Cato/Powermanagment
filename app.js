@@ -1463,20 +1463,24 @@ class PowerGuardApp extends Homey.App {
     if (!this._api) return;
     const release = await this._mutex.acquire();
     try {
-      const toRestore = this._mitigatedDevices[this._mitigatedDevices.length - 1];
-      if (!toRestore) return;
-
-      // Skip dynamic_current entries already at full current — these are passive monitoring
-      // entries kept in _mitigatedDevices only so the Devices tab shows the charger as
-      // "controlled". The charger is already at its circuit limit, nothing to restore.
-      // Without this guard, _triggerRestore would call restoreDevice() every 10s (each
-      // HAN poll) → holds the mutex for up to 10s → settings API calls queue up → UI freeze.
-      if (toRestore.action === 'dynamic_current') {
-        const fullCurrent = (toRestore.previousState && toRestore.previousState.targetCurrent) || 32;
-        if ((toRestore.currentTargetA || 0) >= fullCurrent) {
-          return; // Passive monitoring entry — charger already at full current, nothing to do
+      // Never auto-restore dynamic_current (EV charger) entries here.
+      // Charger current is managed exclusively by _adjustEVChargersForPower, which already
+      // ramps current back up when budget allows. If _triggerRestore ran here it would send
+      // the charger straight back to 32A the moment power dips under the limit — undoing
+      // the EV adjust work and causing an infinite oscillation loop (32A → step down →
+      // under limit → restore to 32A → step down → ...).
+      //
+      // IMPORTANT: find the last NON-charger entry so that a charger sitting at the end of
+      // _mitigatedDevices doesn't permanently block thermostats/water heaters from restoring.
+      let toRestoreIdx = -1;
+      for (let i = this._mitigatedDevices.length - 1; i >= 0; i--) {
+        if (this._mitigatedDevices[i].action !== 'dynamic_current') {
+          toRestoreIdx = i;
+          break;
         }
       }
+      if (toRestoreIdx < 0) return; // Nothing to restore (only EV charger entries)
+      const toRestore = this._mitigatedDevices[toRestoreIdx];
 
       // Post-mitigation cooldown: block ALL restores for 240 s after the last mitigation event.
       // This is a safety net for cases where the headroom guard can't fire because the device
@@ -1521,15 +1525,20 @@ class PowerGuardApp extends Homey.App {
           this._api.devices.getDevice({ id: toRestore.deviceId }),
           10000, `getDevice(${toRestore.deviceId})`
         );
-        if (!device) { this._mitigatedDevices.pop(); this._persistMitigatedDevices(); return; }
+        if (!device) { this._mitigatedDevices.splice(toRestoreIdx, 1); this._persistMitigatedDevices(); return; }
 
         const restored = await restoreDevice(device, toRestore.action, toRestore.previousState);
         if (restored) {
-          this._mitigatedDevices.pop();
+          this._mitigatedDevices.splice(toRestoreIdx, 1);
           this._addLog(`Restored: ${device.name}`);
           this._appLogEntry('mitigation', `Restored: ${device.name}`);
           this._persistMitigatedDevices();
-          if (this._mitigatedDevices.length === 0) {
+          // Clear alarm if no non-charger devices remain mitigated AND no charger is paused/throttled
+          const anyNonChargerLeft = this._mitigatedDevices.some(m => m.action !== 'dynamic_current');
+          const anyChargerLimited = this._mitigatedDevices.some(m =>
+            m.action === 'dynamic_current' && (m.currentTargetA === 0 || m.currentTargetA === null || m.currentTargetA < (m.previousState?.targetCurrent || 32))
+          );
+          if (!anyNonChargerLeft && !anyChargerLimited) {
             this._fireTrigger('mitigation_cleared', { device_name: device.name });
             await this._updateVirtualDevice({ alarm: false });
           }
@@ -1537,9 +1546,13 @@ class PowerGuardApp extends Homey.App {
           // restoreDevice returned false (e.g. action no longer matches device capabilities).
           // Remove the stuck entry so it doesn't block all future restores.
           this.log(`[Restore] restoreDevice returned false for ${device.name} (action=${toRestore.action}) — removing stuck entry`);
-          this._mitigatedDevices.pop();
+          this._mitigatedDevices.splice(toRestoreIdx, 1);
           this._persistMitigatedDevices();
-          if (this._mitigatedDevices.length === 0) {
+          const anyNonChargerLeft2 = this._mitigatedDevices.some(m => m.action !== 'dynamic_current');
+          const anyChargerLimited2 = this._mitigatedDevices.some(m =>
+            m.action === 'dynamic_current' && (m.currentTargetA === 0 || m.currentTargetA === null || m.currentTargetA < (m.previousState?.targetCurrent || 32))
+          );
+          if (!anyNonChargerLeft2 && !anyChargerLimited2) {
             this._fireTrigger('mitigation_cleared', { device_name: device.name });
             await this._updateVirtualDevice({ alarm: false });
           }
@@ -1549,7 +1562,7 @@ class PowerGuardApp extends Homey.App {
         const errMsg = (err.message || '').toLowerCase();
         if (errMsg.includes('not_found') || errMsg.includes('device_not_found') || errMsg.includes('timed out')) {
           this.log(`[Restore] Device ${toRestore.deviceId} gone or unreachable, removing stale entry`);
-          this._mitigatedDevices.pop();
+          this._mitigatedDevices.splice(toRestoreIdx, 1);
           this._persistMitigatedDevices();
           return;
         }
