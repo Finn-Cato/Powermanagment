@@ -2361,9 +2361,13 @@ class PowerGuardApp extends Homey.App {
       if (alreadyTracked && targetCurrent === null && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null)) {
         continue;
       }
-      // Same current (within 1A, inclusive): skip re-send that would restart the 45s unconfirmed throttle
+      // Same current (within 1A, inclusive): skip re-send that would restart the 45s unconfirmed throttle.
+      // EXCEPTION: if we are still over the limit, always allow 1A adjustments through —
+      // 1A on 3-phase = ~690W, on 1-phase = ~230W, which could be exactly what is needed.
+      // The <= 1 skip exists only to avoid noise when power is already under control.
+      const isOverLimit = smoothedPower > limit;
       if (alreadyTracked && targetCurrent !== null &&
-          Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) <= 1) {
+          Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) <= 1 && !isOverLimit) {
         continue;
       }
       // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
@@ -2511,7 +2515,9 @@ class PowerGuardApp extends Homey.App {
     let targetCurrent;
     if (offeredCurrent > 0 && chargerPowerW > 500) {
       // Proportional: offeredCurrent × (desiredPower / actualPower)
-      const proportionalA = Math.round(offeredCurrent * (perChargerBudgetW / chargerPowerW));
+      // Use Math.floor (not round) so we always stay within the budget — rounding up
+      // could push the charger slightly over the allowed watts and keep us over the limit.
+      const proportionalA = Math.floor(offeredCurrent * (perChargerBudgetW / chargerPowerW));
       if (proportionalA < minCurrent) {
         this.log(`EV calc (proportional): budget=${Math.round(perChargerBudgetW)}W → ${proportionalA}A < min ${minCurrent}A → PAUSE`);
         return null;
@@ -2730,15 +2736,18 @@ class PowerGuardApp extends Homey.App {
         if (wasPaused && device.capabilities.includes('charging_button')) {
           const btnVal = device.capabilitiesObj?.charging_button?.value;
           if (btnVal === false) {
-            const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
+            // Always resume at startCurrent (11A) — never jump straight to the calculated optimal.
+            // The next adjustment cycle (15s later after confirmation) will ramp up to the real
+            // optimal current. This prevents a sudden high-current spike on resume.
+            const resumeA = CHARGER_DEFAULTS.startCurrent;
             // Set current via flow first, then enable charging
             await callZaptecFlow(resumeA);
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
               10000, `zaptecResume(${deviceId})`
             );
-            this._addLog(`Zaptec resumed: ${device.name} → ${resumeA}A`);
-            this._appLogEntry('charger', `Zaptec resumed: ${device.name} → ${resumeA}A`);
+            this._addLog(`Zaptec resumed: ${device.name} → ${resumeA}A (next cycle will optimize to ${currentA}A)`);
+            this._appLogEntry('charger', `Zaptec resumed: ${device.name} → ${resumeA}A (target=${currentA}A, will ramp up)`);
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], { lastCommandA: resumeA, commandTime: Date.now(), confirmed: false, timedOut: false });
             delete this._pendingChargerCommands[deviceId];
@@ -2862,7 +2871,10 @@ class PowerGuardApp extends Homey.App {
         const enuaIsPaused = chargingCapVal === false
           || chargerStatus === 'Paused' || chargerStatus === 'paused';
         if (enuaIsPaused && device.capabilities.includes('toggleChargingCapability')) {
-          const resumeA = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
+          // Always resume at startCurrent (11A) — never jump straight to the calculated optimal.
+          // The next adjustment cycle (15s later after confirmation) will ramp up to the real
+          // optimal current. This prevents a sudden high-current spike on resume.
+          const resumeA = CHARGER_DEFAULTS.startCurrent;
           const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(32, resumeA));
           // Set current limit via flow first
           await callEnuaFlow(clampedA);
@@ -2871,8 +2883,8 @@ class PowerGuardApp extends Homey.App {
             device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true }),
             10000, `enuaResume(${deviceId})`
           );
-          this._addLog(`Enua resumed: ${device.name} → ${clampedA}A`);
-          this._appLogEntry('charger', `Enua resumed: ${device.name} → ${clampedA}A (status was: ${chargerStatus})`);
+          this._addLog(`Enua resumed: ${device.name} → ${clampedA}A (next cycle will optimize to ${currentA}A)`);
+          this._appLogEntry('charger', `Enua resumed: ${device.name} → ${clampedA}A (target=${currentA}A, will ramp up, status was: ${chargerStatus})`);
           if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
           Object.assign(this._chargerState[deviceId], { lastCommandA: clampedA, commandTime: Date.now(), confirmed: false, timedOut: false });
           delete this._pendingChargerCommands[deviceId];
@@ -2977,8 +2989,11 @@ class PowerGuardApp extends Homey.App {
         if (wasPaused && device.capabilities.includes('onoff')) {
           const isOff = device.capabilitiesObj?.onoff?.value === false;
           if (isOff) {
-            // Use startCurrent (11A) for reliable resume — ensures charger starts properly
-            const resumeCurrent = Math.max(currentA, CHARGER_DEFAULTS.startCurrent);
+            // Always resume at startCurrent (11A) — never jump straight to the calculated optimal.
+            // The next adjustment cycle (15s later after confirmation) will ramp up to the real
+            // optimal current based on live conditions. This prevents a sudden high-current spike
+            // when a big load turns off while the charger was paused.
+            const resumeCurrent = CHARGER_DEFAULTS.startCurrent;
 
             const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
               .find(cap => (device.capabilities || []).includes(cap));
@@ -2992,8 +3007,8 @@ class PowerGuardApp extends Homey.App {
               device.setCapabilityValue({ capabilityId: 'onoff', value: true }),
               10000, `resumeCharger(${deviceId})`
             );
-            this._addLog(`Easee resumed: ${device.name} → ${resumeCurrent}A (startCurrent=${CHARGER_DEFAULTS.startCurrent}A)`);
-            this._appLogEntry('charger', `Easee resumed: ${device.name} → ${resumeCurrent}A`);
+            this._addLog(`Easee resumed: ${device.name} → ${resumeCurrent}A (next cycle will optimize to ${currentA}A)`);
+            this._appLogEntry('charger', `Easee resumed: ${device.name} → ${resumeCurrent}A (target=${currentA}A, will ramp up)`);
             // Record command for confirmation tracking
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], { lastCommandA: resumeCurrent, commandTime: Date.now(), confirmed: false, timedOut: false });
