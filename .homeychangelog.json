@@ -1,4 +1,8 @@
 {
+  "0.7.12": {
+    "en": "Fixed: EV charger now always resumes from pause at a safe 11A start current instead of jumping straight to the calculated optimal (which could overshoot the limit). Fixed: proportional current calculation now floors instead of rounds so it never exceeds the power budget. Fixed: 1A adjustments are no longer skipped when the household is still over the limit — small reductions were being silently blocked.",
+    "no": "Fiks: EV-lader starter nå alltid fra pause med trygg 11A startstrøm i stedet for å hoppe rett til beregnet optimal strøm (som kunne overskride grensen). Fiks: proporsjonal strømberegning bruker nå gulv i stedet for runding slik at effektbudsjettet aldri overskrides. Fiks: 1A-justeringer blokkeres ikke lenger når husholdningen fortsatt er over grensen."
+  },
   "0.7.11": {
     "en": "Fixed: 'mitigation cleared' flow trigger now includes the device name token (was crashing silently). EV charger 'Device controlled' badge now clears automatically when charging is complete. Fixed app startup failure caused by wrong Homey SDK v3 flow card API calls — flow triggers now fire correctly.",
     "no": "Fiks: Flyt-trigger 'tiltak fjernet' inneholder nå enhetsnavn-tokenet (krasjet stille før). EV-lader 'Enhetsstyrt'-merket fjernes nå automatisk når ladingen er ferdig. Fiks: app-krasj ved oppstart forårsaket av feil Homey SDK v3 API-kall er rettet."
