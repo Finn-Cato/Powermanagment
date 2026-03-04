@@ -2454,9 +2454,10 @@ class PowerGuardApp extends Homey.App {
     }
 
     if (perChargerBudgetW <= 0) {
-      // No headroom but household isn't over limit → keep at minimum current
-      this.log(`EV calc: budget=${Math.round(perChargerBudgetW)}W → KEEP MIN ${minCurrent}A`);
-      return minCurrent;
+      // No headroom at all → pause the charger rather than keeping it at 7A
+      // (7A still draws ~1600-4800W which would keep us over the limit)
+      this.log(`EV calc: budget=${Math.round(perChargerBudgetW)}W ≤ 0 → PAUSE`);
+      return null;
     }
 
     // Proportional scaling: when charger is actively drawing power with known offered current,
@@ -2466,12 +2467,20 @@ class PowerGuardApp extends Homey.App {
     if (offeredCurrent > 0 && chargerPowerW > 500) {
       // Proportional: offeredCurrent × (desiredPower / actualPower)
       const proportionalA = Math.round(offeredCurrent * (perChargerBudgetW / chargerPowerW));
-      targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, proportionalA));
+      if (proportionalA < minCurrent) {
+        this.log(`EV calc (proportional): budget=${Math.round(perChargerBudgetW)}W → ${proportionalA}A < min ${minCurrent}A → PAUSE`);
+        return null;
+      }
+      targetCurrent = Math.min(maxCurrent, proportionalA);
       this.log(`EV calc (proportional): charger=${Math.round(chargerPowerW)}W@${offeredCurrent}A, budget=${Math.round(perChargerBudgetW)}W → ${targetCurrent}A`);
     } else {
       // Additive fallback: when charger is not active or no offered current data
       const availableCurrentA = Math.floor(perChargerBudgetW / chargerVoltage);
-      targetCurrent = Math.max(minCurrent, Math.min(maxCurrent, availableCurrentA));
+      if (availableCurrentA < minCurrent) {
+        this.log(`EV calc (additive): budget=${Math.round(perChargerBudgetW)}W → ${availableCurrentA}A < min ${minCurrent}A → PAUSE`);
+        return null;
+      }
+      targetCurrent = Math.min(maxCurrent, availableCurrentA);
       this.log(`EV calc (additive): phases=${chargerPhases}, budget=${Math.round(perChargerBudgetW)}W → ${targetCurrent}A`);
     }
     return targetCurrent;
@@ -3021,7 +3030,12 @@ class PowerGuardApp extends Homey.App {
         }
       }
 
-      const targetCurrent = this._calculateOptimalChargerCurrent(totalOverload, entry);
+      const evDataM = this._evPowerData[entry.deviceId];
+      const chargerPowerWM = evDataM?.powerW || 0;
+      const householdNonChargerW = Math.max(0, currentPower - chargerPowerWM);
+      const householdAloneExceedsLimitM = householdNonChargerW > (limit - 200);
+      const perChargerBudgetWM = limit - householdNonChargerW - 200;
+      const targetCurrent = this._calculateOptimalChargerCurrent(perChargerBudgetWM, householdAloneExceedsLimitM, entry);
       const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
 
       if (success) {
