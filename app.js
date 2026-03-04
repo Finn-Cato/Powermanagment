@@ -1272,6 +1272,51 @@ class PowerGuardApp extends Homey.App {
           this.log(`[Mitigation] ${entry.name} caps: ${caps.join(', ')}`);
           this.log(`[Mitigation] ${entry.name} values: ${JSON.stringify(capInfo)}`);
 
+          // ── Idle guard ────────────────────────────────────────────────────────
+          // Skip thermostats/heaters that are not currently drawing power.
+          // A thermostat set to 13°C in a 22°C room draws 0W — mitigating it wastes
+          // a cycle slot without reducing household load at all.
+          // Detection priority:
+          //   1. measure_power < 50W  → definitely idle
+          //   2. tuya_thermostat_load_status === false  → element not firing
+          //   3. onoff === false  → device already off
+          // Only applies to thermostat/heater actions. Does NOT apply if already
+          // mitigated in step 2 (was heating earlier, now cooled — keep it off).
+          if (entry.action === 'target_temperature' || entry.action === 'onoff' || entry.action === 'hoiax_power') {
+            let isIdle = false;
+            let idleReason = '';
+            if (caps.includes('measure_power') && obj.measure_power != null) {
+              const pw = typeof obj.measure_power.value === 'number' ? obj.measure_power.value : obj.measure_power;
+              if (pw < 50) { isIdle = true; idleReason = `measure_power=${Math.round(pw)}W`; }
+            }
+            if (!isIdle && caps.includes('tuya_thermostat_load_status') && obj.tuya_thermostat_load_status != null) {
+              const ls = obj.tuya_thermostat_load_status.value !== undefined ? obj.tuya_thermostat_load_status.value : obj.tuya_thermostat_load_status;
+              if (ls === false) { isIdle = true; idleReason = 'tuya_thermostat_load_status=false'; }
+            }
+            if (!isIdle && caps.includes('onoff') && obj.onoff != null) {
+              const onoffVal = obj.onoff.value !== undefined ? obj.onoff.value : obj.onoff;
+              if (onoffVal === false) { isIdle = true; idleReason = 'onoff=false'; }
+            }
+
+            const existingMitigationCheck = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
+            if (isIdle) {
+              if (!existingMitigationCheck) {
+                // Not yet mitigated — skip entirely, device contributes nothing to overload
+                this.log(`[Mitigation] SKIP ${entry.name}: idle (${idleReason}) — not drawing power, skipping this cycle`);
+                scanResults.push({ name: entry.name, action: entry.action, result: `idle-skip (${idleReason})` });
+                continue;
+              } else if (existingMitigationCheck.step2Applied) {
+                // Already turned off in step 2 — skip (already off)
+                this.log(`[Mitigation] SKIP ${entry.name}: idle (${idleReason}) and step 2 already applied`);
+                scanResults.push({ name: entry.name, action: entry.action, result: `idle-skip step2 already done (${idleReason})` });
+                continue;
+              }
+              // existingMitigation but step2 not yet applied — fall through to step 2
+              // (temp was lowered in step 1; device may restart when room cools → turn it off)
+            }
+          }
+          // ─────────────────────────────────────────────────────────────────────
+
           // Check if already mitigated (re-entry for Høiax / thermostat two-step)
           const existingMitigation = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
