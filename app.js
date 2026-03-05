@@ -2396,20 +2396,8 @@ class PowerGuardApp extends Homey.App {
         continue;
       }
 
-      // Charger start threshold: only START a paused charger when enough power for startCurrent
-      // This prevents rapid on/off cycling when hovering near the limit
-      const isCurrentlyPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
-      if (isCurrentlyPaused && targetCurrent !== null && targetCurrent < CHARGER_DEFAULTS.startCurrent) {
-        // Don't restart below startCurrent — wait until we have headroom for at least 11A
-        const cEvData = this._evPowerData[entry.deviceId];
-        const chargerPhases = cEvData?.detectedPhases || entry.chargerPhases || 3;
-        const voltage = chargerPhases === 1 ? 230 : 692;
-        const startThresholdW = CHARGER_DEFAULTS.startCurrent * voltage;  // ~2530W for 1-phase, ~7612W for 3-phase
-        if (perChargerBudgetW < startThresholdW) {
-          this.log(`EV throttle: not restarting ${entry.name}, need ${Math.round(startThresholdW)}W (${CHARGER_DEFAULTS.startCurrent}A) but only ${Math.round(perChargerBudgetW)}W available`);
-          continue;
-        }
-      }
+      // No start-threshold block needed: brand handlers now resume at Math.min(startCurrent, targetCurrent)
+      // so the resume current is always within the calculated budget.
 
       let success = false;
       if (brand === 'easee' || !brand) {
@@ -2749,10 +2737,10 @@ class PowerGuardApp extends Homey.App {
         if (wasPaused && device.capabilities.includes('charging_button')) {
           const btnVal = device.capabilitiesObj?.charging_button?.value;
           if (btnVal === false) {
-            // Always resume at startCurrent (11A) — never jump straight to the calculated optimal.
-            // The next adjustment cycle (15s later after confirmation) will ramp up to the real
-            // optimal current. This prevents a sudden high-current spike on resume.
-            const resumeA = CHARGER_DEFAULTS.startCurrent;
+            // Resume at the lower of startCurrent (11A) or the calculated target.
+            // - If budget allows 13A+ → resume at 11A (soft start, ramps up next cycle)
+            // - If budget only allows e.g. 8A → resume at 8A (within budget, no overshoot)
+            const resumeA = Math.min(CHARGER_DEFAULTS.startCurrent, currentA);
             // Set current via flow first, then enable charging
             await callZaptecFlow(resumeA);
             await withTimeout(
@@ -2884,10 +2872,10 @@ class PowerGuardApp extends Homey.App {
         const enuaIsPaused = chargingCapVal === false
           || chargerStatus === 'Paused' || chargerStatus === 'paused';
         if (enuaIsPaused && device.capabilities.includes('toggleChargingCapability')) {
-          // Always resume at startCurrent (11A) — never jump straight to the calculated optimal.
-          // The next adjustment cycle (15s later after confirmation) will ramp up to the real
-          // optimal current. This prevents a sudden high-current spike on resume.
-          const resumeA = CHARGER_DEFAULTS.startCurrent;
+          // Resume at the lower of startCurrent (11A) or the calculated target.
+          // - If budget allows 13A+ → resume at 11A (soft start, ramps up next cycle)
+          // - If budget only allows e.g. 8A → resume at 8A (within budget, no overshoot)
+          const resumeA = Math.min(CHARGER_DEFAULTS.startCurrent, currentA);
           const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(32, resumeA));
           // Set current limit via flow first
           await callEnuaFlow(clampedA);
@@ -3002,11 +2990,12 @@ class PowerGuardApp extends Homey.App {
         if (wasPaused && device.capabilities.includes('onoff')) {
           const isOff = device.capabilitiesObj?.onoff?.value === false;
           if (isOff) {
-            // Always resume at startCurrent (11A) — never jump straight to the calculated optimal.
-            // The next adjustment cycle (15s later after confirmation) will ramp up to the real
-            // optimal current based on live conditions. This prevents a sudden high-current spike
-            // when a big load turns off while the charger was paused.
-            const resumeCurrent = CHARGER_DEFAULTS.startCurrent;
+            // Resume at the lower of startCurrent (11A) or the calculated target.
+            // - If budget allows 13A+ → resume at 11A (soft start, ramps up next cycle)
+            // - If budget only allows e.g. 8A → resume at 8A (within budget, no overshoot)
+            // This prevents the deadlock where the charger can never restart because
+            // budget < 11A threshold yet budget IS enough for a lower safe current.
+            const resumeCurrent = Math.min(CHARGER_DEFAULTS.startCurrent, currentA);
 
             const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
               .find(cap => (device.capabilities || []).includes(cap));
