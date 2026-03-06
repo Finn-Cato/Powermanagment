@@ -1,4 +1,8 @@
 {
+  "0.7.16": {
+    "en": "Added: Enua charger is now recognised by Power Guard and can be paused/resumed during overload mitigation. Note: the Enua Homey app does not expose a current-control capability, so only on/off (pause/resume charging) is supported for now — dynamic current stepping is not possible until Enua adds that to their app.",
+    "no": "Lagt til: Enua-lader gjenkjennes nå av Power Guard og kan settes på pause/gjenopptas under effektbegrensning. Merk: Enua sin Homey-app eksponerer ikke noen strømstyringsfunksjon, så kun av/på (pause/gjenoppta lading) støttes forelopig — dynamisk strømstyring er ikke mulig før Enua legger det til i sin app."
+  },
   "0.7.15": {
     "en": "Fixed: Høiax water heater with max_power_2000 capability (2000W model) was not being stepped down — only on/off was used. Power stepping now works correctly for all Høiax Connected models (2kW and 3kW).",
     "no": "Fiks: Høiax varmtvannsbereder med max_power_2000-kapabilitet (2000W-modell) ble ikke trappet ned — kun av/på ble brukt. Effekttrapping fungerer nå korrekt for alle Høiax Connected-modeller (2kW og 3kW)."

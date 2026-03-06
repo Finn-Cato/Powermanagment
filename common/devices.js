@@ -49,12 +49,20 @@ function getAvailableActions(capabilities) {
   if (!available.includes(ACTIONS.HOIAX_POWER) && capabilities.includes('max_power')) {
     available.push(ACTIONS.HOIAX_POWER);
   }
+  // Enua charger: on/off only via toggleChargingCapability (no dynamic current capability exposed by Enua app).
+  // TODO: For full dynamic current control, replace this with a call to the Enua flow card API:
+  //   homey.flow.runFlowCardAction({ uri: 'no.enua', id: 'set-max-current' }, device, { current: X })
+  //   Once that is implemented, remove this toggleChargingCapability fallback.
+  if (!available.includes(ACTIONS.CHARGE_PAUSE) && capabilities.includes('toggleChargingCapability')) {
+    available.push(ACTIONS.CHARGE_PAUSE);
+  }
   return available;
 }
 
 function isControllable(device) {
   const caps = device.capabilities || [];
-  return caps.includes('onoff') || caps.includes('dim') || caps.includes('target_temperature') || caps.includes('target_current') || caps.includes('max_power_3000') || caps.includes('max_power');
+  return caps.includes('onoff') || caps.includes('dim') || caps.includes('target_temperature') || caps.includes('target_current') || caps.includes('max_power_3000') || caps.includes('max_power')
+    || caps.includes('toggleChargingCapability'); // Enua charger (on/off only — no dynamic current cap exposed)
 }
 
 /**
