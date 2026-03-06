@@ -1,4 +1,8 @@
 {
+  "0.7.17": {
+    "en": "Fixed: Høiax water heater was turning off immediately instead of stepping down (high → medium → low → off). This happened when the current power level was not yet reported by the Høiax app — Power Guard now defaults to stepping down from high_power instead of jumping straight to off.",
+    "no": "Fiks: Høiax varmtvannsbereder ble slått av direkte i stedet for å trappes ned (høy → middels → lav → av). Dette skjedde når nåværende effektnivå ikke var rapportert av Høiax-appen — Power Guard setter nå effekten ett steg ned fra høy i stedet for å slå av med en gang."
+  },
   "0.7.16": {
     "en": "Added: Enua charger is now recognised by Power Guard and can be paused/resumed during overload mitigation. Note: the Enua Homey app does not expose a current-control capability, so only on/off (pause/resume charging) is supported for now — dynamic current stepping is not possible until Enua adds that to their app.",
     "no": "Lagt til: Enua-lader gjenkjennes nå av Power Guard og kan settes på pause/gjenopptas under effektbegrensning. Merk: Enua sin Homey-app eksponerer ikke noen strømstyringsfunksjon, så kun av/på (pause/gjenoppta lading) støttes forelopig — dynamisk strømstyring er ikke mulig før Enua legger det til i sin app."

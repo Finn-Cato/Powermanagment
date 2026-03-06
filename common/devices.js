@@ -199,16 +199,20 @@ async function applyAction(device, action) {
       if (maxPowerCap) {
         const currentLevel = obj[maxPowerCap] ? obj[maxPowerCap].value : null;
         const steps = HOIAX_POWER_STEPS[maxPowerCap];
-        const currentIdx = steps.indexOf(currentLevel);
+        let currentIdx = steps.indexOf(currentLevel);
 
-        if (currentIdx >= 0 && currentIdx < steps.length - 1) {
+        // If level is null/unknown (e.g. Høiax app hasn't reported it yet),
+        // assume device is at high_power and step down from there instead of jumping to off.
+        if (currentIdx === -1) currentIdx = 0;
+
+        if (currentIdx < steps.length - 1) {
           // Step down one level (e.g. high_power → medium_power)
           const nextLevel = steps[currentIdx + 1];
           await device.setCapabilityValue({ capabilityId: maxPowerCap, value: nextLevel });
           return true;
         }
 
-        // At lowest step or unknown level → turn off entirely
+        // At lowest step → turn off entirely
         if (caps.includes('onoff')) {
           await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
           return true;
