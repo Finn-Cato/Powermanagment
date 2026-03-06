@@ -1,4 +1,8 @@
 {
+  "0.7.15": {
+    "en": "Fixed: Høiax water heater with max_power_2000 capability (2000W model) was not being stepped down — only on/off was used. Power stepping now works correctly for all Høiax Connected models (2kW and 3kW).",
+    "no": "Fiks: Høiax varmtvannsbereder med max_power_2000-kapabilitet (2000W-modell) ble ikke trappet ned — kun av/på ble brukt. Effekttrapping fungerer nå korrekt for alle Høiax Connected-modeller (2kW og 3kW)."
+  },
   "0.7.14": {
     "en": "Fixed: EV charger would not restart after being paused, even when power was available. The charger required 7600W of free headroom before it could restart (enough for 11A on 3-phase) — if only 5000W was free the charger stayed paused forever. Now the charger restarts at whatever current the budget allows (minimum 6A), and only uses the full 11A soft-start when the budget supports it.",
     "no": "Fiks: EV-laderen startet ikke igjen etter pause selv om det var nok effekt tilgjengelig. Laderen krevde 7600W fri kapasitet før den kunne starte (nok til 11A på 3-fase) — hvis bare 5000W var ledig ble laderen stående på pause for alltid. Nå starter laderen på den strømmen budsjettet tillater (minimum 6A), og bruker bare full 11A myk-start når budsjettet er stort nok."

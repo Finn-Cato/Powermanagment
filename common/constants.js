@@ -62,6 +62,7 @@ const ACTIONS = {
 // max_power      = Høiax Connected 200 (2000W, 1300W, 700W)
 const HOIAX_POWER_STEPS = {
   max_power_3000: ['high_power', 'medium_power', 'low_power'],
+  max_power_2000: ['high_power', 'medium_power', 'low_power'],
   max_power:      ['high_power', 'medium_power', 'low_power'],
 };
 

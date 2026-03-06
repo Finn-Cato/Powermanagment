@@ -181,6 +181,7 @@ async function applyAction(device, action) {
     // ─── [B] WATER HEATER (Høiax): step down power level, then turn off ───
     case ACTIONS.HOIAX_POWER: {
       const maxPowerCap = caps.includes('max_power_3000') ? 'max_power_3000'
+                        : caps.includes('max_power_2000') ? 'max_power_2000'
                         : caps.includes('max_power') ? 'max_power'
                         : null;
 
@@ -318,6 +319,7 @@ async function restoreDevice(device, action, previousState) {
 
     case ACTIONS.HOIAX_POWER: {
       const maxPowerCap = caps.includes('max_power_3000') ? 'max_power_3000'
+                        : caps.includes('max_power_2000') ? 'max_power_2000'
                         : caps.includes('max_power') ? 'max_power'
                         : null;
 
