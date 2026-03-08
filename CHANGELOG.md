@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.13 (2026-03-08)
+## v0.8.14 (2026-03-08)
 - UI: Settings and System moved into Overview tab as sub-tabs (🏠 Overview / ⚙️ Settings / 📊 System) — reduces main tab bar clutter
 - Smart tab and Heaters tab are now mutually exclusive: Smart tab visible only when Smart Price Control is ON, Heaters tab visible only when OFF
 - Active Mode card hidden on Overview when Smart Price Control is OFF
