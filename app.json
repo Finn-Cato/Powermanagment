@@ -209,6 +209,14 @@
     "getEaseeStatus": {
       "method": "GET",
       "path": "/easee-status"
+    },
+    "getPriceData": {
+      "method": "GET",
+      "path": "/price-data"
+    },
+    "setPriceSettings": {
+      "method": "POST",
+      "path": "/price-settings"
     }
   },
   "flow": {
