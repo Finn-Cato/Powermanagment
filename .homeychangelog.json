@@ -121,5 +121,8 @@
   },
   "0.7.0": {
     "en": "Adax fix and bugfix heaters"
+  },
+  "0.8.0": {
+    "en": "Added Home / Night / Away / Holiday mode engine"
   }
 }
