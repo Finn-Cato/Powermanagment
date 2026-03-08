@@ -4138,8 +4138,48 @@ class PowerGuardApp extends Homey.App {
     }, 30 * 60 * 1000);
   }
 
+  /** Read price data from Homey Logic variables set by a running HomeyScript */
+  async _fetchFromHomeyLogicVariables() {
+    if (!this._api) return null;
+    const vars = await this._api.logic.getVariables();
+    const v = {};
+    Object.values(vars).forEach(vr => { v[vr.name] = vr.value; });
+    if (v['strømpris_nå_øre'] == null) return null;
+    const levelRaw = ((v['strømpris'] || v['Strømpris'] || 'normal') + '').toLowerCase();
+    const level = ['billig', 'normal', 'dyr', 'ekstremt dyr'].includes(levelRaw) ? levelRaw : 'normal';
+    const chargeMode = ((v['lademodus'] || 'normal') + '').toLowerCase();
+    return {
+      level,
+      chargeMode,
+      currentOre:           v['strømpris_nå_øre'],
+      spotOre:              v['strømpris_nå_øre'],
+      nextOre:              v['strømpris_neste_time_øre'] != null ? v['strømpris_neste_time_øre'] : null,
+      nightDiscount:        false,
+      hoursToCheap:         v['timer_til_billig']         != null ? v['timer_til_billig']         : null,
+      cheapestPriceOre:     v['billigste_pris_igjen_øre'] != null ? v['billigste_pris_igjen_øre'] : null,
+      cheapestHoursLeft:    v['billigste_timer_igjen']    != null ? v['billigste_timer_igjen']    : null,
+      mostExpensivePriceOre:v['dyreste_pris_igjen_øre']   != null ? v['dyreste_pris_igjen_øre']   : null,
+      nextCheapTime:        v['neste_billige_time']  || null,
+      nextExpensiveTime:    v['neste_dyre_time']     || null,
+      timeOfDay:            v['TimeOfDay']           || null,
+      entries: [],
+      stats:   null,
+      source:    'homey-logic',
+      updatedAt: Date.now(),
+    };
+  }
+
   async _fetchAndEvaluatePrices() {
     try {
+      // Try live Homey Logic variables first (HomeyScript integration)
+      const logicState = await this._fetchFromHomeyLogicVariables().catch(() => null);
+      if (logicState) {
+        this._priceState = logicState;
+        this._appLogEntry('system', `[Price] (HomeyScript) Level=${logicState.level} (${logicState.currentOre}øre) Mode=${logicState.chargeMode}`);
+        return;
+      }
+
+      // Fall back to direct API fetch
       const cfg = this._priceSettings;
       const now = new Date();
       const entries = await this._priceFetchAllRelevant(now, cfg);
