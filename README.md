@@ -6,6 +6,16 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 
 > ⚠️ **Trial version** — use at your own risk. Please report bugs on the [Issues page](https://github.com/Finn-Cato/Powermanagment/issues).
 
+## What's New
+
+| Version | Change |
+|---------|--------|
+| **0.7.17** | Fixed: Høiax water heater was turning off immediately instead of stepping down — now correctly steps high → medium → low → off |
+| **0.7.16** | Added: Enua charger is now recognised and can be paused/resumed (on/off only — dynamic current stepping not yet supported by Enua's Homey app) |
+| **0.7.15** | Fixed: Høiax 2000W model was not being stepped — power stepping now works for both 2kW and 3kW models |
+| **0.7.14** | Fixed: EV charger would not restart after pause if less than 7600W of headroom was free — charger now restarts at whatever current the budget allows |
+| **0.7.13** | Fixed: EV charger oscillation loop — restore routine was resetting to 32A every time power dipped, undoing all reductions |
+
 ## Supported Hardware
 
 | Type | Supported |
@@ -48,8 +58,8 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - **Retry with backoff** — retries failed commands up to 2 times with increasing delays
 - **Pending command tracking** — prevents sending new commands while a previous command is still being processed
 - **Zaptec support** — detects Zaptec chargers (Go, Go2, Home, Pro) via the `charging_button` capability for charge pause/resume
-- **Enua support** — detects Enua Charge E chargers with dynamic current control (6–32 A) and pause/resume via Flow API
-- **Multi-brand** — works with Easee (`target_charger_current` / `target_circuit_current`), Zaptec (`charging_button` / Flow API), and Enua (Flow API) control methods
+- **Enua support** — detects Enua Charge E chargers and supports pause/resume (on/off). Dynamic current stepping is not yet available as the Enua Homey app does not expose a current-control capability.
+- **Multi-brand** — works with Easee (`target_charger_current` / `target_circuit_current`), Zaptec (`charging_button` / Flow API), and Enua (`toggleChargingCapability`) control methods
 
 ### Thermostat Control
 
