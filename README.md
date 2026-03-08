@@ -10,11 +10,11 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 
 | Version | Change |
 |---------|--------|
+| **0.8.1** | Added: Home / Night / Away / Holiday mode engine with per-device preferences (On/Off, thermostat temp, EV Allow/Pause, Høiax High/Med/Low/Off). Night schedule with 24h time steppers. Compact mode bar UI. |
 | **0.7.17** | Fixed: Høiax water heater was turning off immediately instead of stepping down — now correctly steps high → medium → low → off |
 | **0.7.16** | Added: Enua charger is now recognised and can be paused/resumed (on/off only — dynamic current stepping not yet supported by Enua's Homey app) |
 | **0.7.15** | Fixed: Høiax 2000W model was not being stepped — power stepping now works for both 2kW and 3kW models |
 | **0.7.14** | Fixed: EV charger would not restart after pause if less than 7600W of headroom was free — charger now restarts at whatever current the budget allows |
-| **0.7.13** | Fixed: EV charger oscillation loop — restore routine was resetting to 32A every time power dipped, undoing all reductions |
 
 ## Supported Hardware
 
@@ -68,6 +68,19 @@ Power Guard monitors your household power consumption in real-time using a HAN m
 - Cross-fallback: if `target_temperature` isn't available, falls back to `onoff` (and vice versa)
 - Automatic restore to previous temperature when power is safe
 
+### Mode Engine (Home / Night / Away / Holiday)
+
+- Four modes: **Home**, **Night**, **Away**, **Holiday** — switch manually or automatically
+- **Night schedule** — automatically switches between Home and Night at chosen times (24h time steppers, ▲/▼ in 10-min steps)
+- **Per-device preferences per mode:**
+  - On/Off devices → On / Off / — (leave as-is)
+  - Thermostats → target temperature stepper
+  - EV chargers → Allow / Pause / —
+  - Høiax water heaters → High / Medium / Low / Off / —
+- Active mode shown with orange highlight on the mode bar
+- Mode changes fire a Homey flow trigger (`mode_changed`)
+- Mode engine always respects Power Guard mitigation — won't restore a device that is currently being throttled
+
 ### Effekttariff Tracking (Capacity Tariff)
 
 - Tracks hourly energy consumption using trapezoidal integration
@@ -113,6 +126,7 @@ The app has six tabs in the settings page:
 |-----|-------------|
 | **⚙️ Settings** | Live status, power limit, protection mode, effekttariff tracking, activity log, mitigation scan |
 | **📱 Devices** | Enable/disable devices, set priority order and actions |
+| **🏠 Modes** | Home/Night/Away/Holiday mode engine — activate modes, set night schedule, configure per-device preferences |
 | **📊 System** | Power meter selection, HAN diagnostics, managed charger details and test buttons |
 | **⚡ Power** | Real-time power consumption per device |
 | **🌡️ Heaters** | Thermostat control — temperature, on/off, live readings |
