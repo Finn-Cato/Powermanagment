@@ -225,18 +225,18 @@
 
     <!-- Tab bar -->
     <div class="tab-bar">
-      <button class="tab-btn active" id="tb-settings" onclick="showTab('settings')"><span class="tab-icon">⚙️</span><span class="tab-label">Settings</span></button>
+      <button class="tab-btn active" id="tb-overview" onclick="showTab('overview')"><span class="tab-icon">🏠</span><span class="tab-label">Overview</span></button>
+      <button class="tab-btn"        id="tb-settings" onclick="showTab('settings')"><span class="tab-icon">⚙️</span><span class="tab-label">Settings</span></button>
       <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')"><span class="tab-icon">📱</span><span class="tab-label">Devices</span></button>
       <button class="tab-btn"        id="tb-system"   onclick="showTab('system')"><span class="tab-icon">📊</span><span class="tab-label">System</span></button>
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label">Log</span></button>
-      <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Price</span></button>
-      <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🏠</span><span class="tab-label">Modes</span></button>
+      <button class="tab-btn"        id="tb-smart"       onclick="showTab('smart')"><span class="tab-icon">🧠</span><span class="tab-label">Smart</span></button>
     </div>
 
-    <!-- ── Settings tab ──────────────────────────────────────────────────── -->
-    <div id="tab-settings">
+    <!-- ── Overview tab ──────────────────────────────────────────────────── -->
+    <div id="tab-overview">
 
       <div class="card">
         <h2>Current Status</h2>
@@ -295,6 +295,48 @@
         <!-- Hidden sync element for s-enabled -->
         <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
       </div>
+
+      <div class="card">
+        <h2>Quick Controls</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Price control</label>
+            <span class="hint">Soft-caps charger current based on spot price. Hard power-limit enforcement is unaffected.</span>
+          </div>
+          <div class="control"><label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label></div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:10px 14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
+          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Active: <strong id="modes-active-badge" style="color:var(--text-primary);">–</strong></span>
+          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🏠 Home</button>
+          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🌙 Night</button>
+          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🚗 Away</button>
+          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">❄️ Holiday</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Power Meter</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Power meter device</label>
+            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
+          </div>
+          <div class="control">
+            <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
+              <option value="auto">Auto-detect</option>
+            </select>
+          </div>
+        </div>
+        <div id="meter-status" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
+      </div>
+
+    </div><!-- /#tab-overview -->
+
+    <!-- ── Settings tab ──────────────────────────────────────────────────── -->
+    <div id="tab-settings" style="display:none">
 
       <div class="card">
         <div class="row">
@@ -403,22 +445,6 @@
 
     <!-- ── System tab ────────────────────────────────────────────────────── -->
     <div id="tab-system" style="display:none">
-
-      <div class="card">
-        <h2>Power Meter Selection</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Power meter device</label>
-            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
-          </div>
-          <div class="control">
-            <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
-              <option value="auto">Auto-detect</option>
-            </select>
-          </div>
-        </div>
-        <div id="meter-status" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
-      </div>
 
       <div class="card">
         <h2>HAN Meter Diagnostics</h2>
@@ -592,8 +618,17 @@
 
     </div><!-- /#tab-log -->
 
-    <!-- ── Price tab ────────────────────────────────────────────── -->
-    <div id="tab-price" style="display:none">
+    <!-- ── Smart tab ────────────────────────────────────────────── -->
+    <div id="tab-smart" style="display:none">
+
+      <!-- Smart sub-tab bar -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
+        <button id="stb-price" onclick="showSmartSubTab('price')" class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;">💰 Price</button>
+        <button id="stb-modes" onclick="showSmartSubTab('modes')" class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;">🏠 Modes</button>
+      </div>
+
+      <!-- ── Price panel ── -->
+      <div id="smart-panel-price">
 
       <!-- Status card -->
       <div class="card">
@@ -619,7 +654,8 @@
           </div>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;font-weight:500">18-HOUR PRICE TIMELINE</div>
-        <div id="price-chart" style="display:flex;align-items:flex-end;gap:2px;height:80px;background:var(--bg-surface);border-radius:8px;padding:8px;overflow-x:auto"></div>
+        <div id="price-chart" style="display:flex;align-items:flex-end;gap:2px;height:80px;background:var(--bg-surface);border-radius:8px;padding:8px 8px 0 8px;overflow-x:auto"></div>
+        <div id="price-chart-labels" style="display:flex;gap:2px;padding:0 8px;margin-top:2px;overflow-x:hidden;"></div>
         <div id="price-chart-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:10px;color:var(--text-muted)">
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#34c759;margin-right:3px"></span>Cheap</span>
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8e8e93;margin-right:3px"></span>Normal</span>
@@ -636,13 +672,6 @@
       <!-- Settings card -->
       <div class="card">
         <h2>Price Control Settings</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Enable price control</label>
-            <span class="hint">When enabled, Power Guard softly caps charger current based on spot price. Hard power-limit enforcement is unaffected.</span>
-          </div>
-          <div class="control"><label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label></div>
-        </div>
         <div class="row">
           <div class="label-group">
             <label>Price area</label>
@@ -679,23 +708,31 @@
             <span class="range-val" id="ps-capLav-val">50%</span>
           </div>
         </div>
-      </div>
-
-    </div><!-- /#tab-price -->
-
-    <!-- ── Modes tab ────────────────────────────────────────────────── -->
-    <div id="tab-modes" style="display:none">
-
-      <!-- Active mode + activate buttons -->
-      <div class="card" style="padding:10px 14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
-          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Active: <strong id="modes-active-badge" style="color:var(--text-primary);">–</strong></span>
-          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🏠 Home</button>
-          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🌙 Night</button>
-          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🚗 Away</button>
-          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">❄️ Holiday</button>
+        <div class="row">
+          <div class="label-group">
+            <label>Norgespris</label>
+            <span class="hint">Enable if you have Norgespris. You pay a fixed flat rate instead of spot price. Price control will use this fixed rate for all hours.</span>
+          </div>
+          <div class="control"><label class="toggle"><input type="checkbox" id="ps-norgespris" onchange="psToggleNorgespris(); priceSaveSettings();"><span class="slider"></span></label></div>
+        </div>
+        <div id="ps-norgespris-rows" style="display:none">
+          <div class="row">
+            <div class="label-group">
+              <label>Flat rate</label>
+              <span class="hint">The fixed price you pay per kWh incl. VAT. Default 50 øre. Use 40 øre if you are in Nordland, Troms or Finnmark (no VAT on electricity).</span>
+            </div>
+            <div class="control">
+              <input type="number" id="ps-norgesprisFlatOre" min="1" max="200" step="1" value="50" onchange="priceSaveSettings()">
+              <span style="font-size:12px;color:var(--text-muted)">øre/kWh</span>
+            </div>
+          </div>
         </div>
       </div>
+
+      </div><!-- /#smart-panel-price -->
+
+      <!-- ── Modes panel ── -->
+      <div id="smart-panel-modes" style="display:none">
 
       <!-- Night schedule -->
       <div class="card" style="padding:10px 14px;">
@@ -742,7 +779,9 @@
         <div id="modes-dev-holiday" style="display:none"></div>
       </div>
 
-    </div><!-- /#tab-modes -->
+      </div><!-- /#smart-panel-modes -->
+
+    </div><!-- /#tab-smart -->
 
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
     <div id="tab-devices" style="display:none">
@@ -867,8 +906,18 @@
     else { s.style.display = 'none'; a.innerHTML = '&#9654;'; }
   }
 
+  function showSmartSubTab(name) {
+    ['price','modes'].forEach(function(n) {
+      document.getElementById('smart-panel-' + n).style.display = n === name ? 'block' : 'none';
+      var btn = document.getElementById('stb-' + n);
+      btn.classList[n === name ? 'add' : 'remove']('active');
+    });
+    if (name === 'price') { loadPriceData(); }
+    else if (name === 'modes') { loadModesSettings(); }
+  }
+
   function showTab(name) {
-    ['settings','system','devices','consumption','floorheater','log','price','modes'].forEach(function(t) {
+    ['overview','settings','system','devices','consumption','floorheater','log','smart'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -892,9 +941,11 @@
       loadFloorHeaters();
     } else if (name === 'log') {
       loadAppLog();
-    } else if (name === 'price') {
+    } else if (name === 'smart') {
+      showSmartSubTab('price');
+    } else if (name === 'overview') {
+      loadAll();
       loadPriceData();
-    } else if (name === 'modes') {
       loadModesSettings();
     } else {
       loadAll();
@@ -2410,6 +2461,10 @@
             .catch(function(err) { dbg('Status poll error: ' + (err.message || err)); });
         }, 2000);
 
+        // Load overview-specific data (price control toggle + active mode badge)
+        loadPriceData();
+        loadModesSettings();
+
         // Full data refresh every 30 seconds to keep everything in sync
         setInterval(function() {
           loadAll();
@@ -2815,9 +2870,8 @@
   }
 
   // ══════════════════════════════════════════════════════════════════
-  // ██ SECTION — SPOT PRICE TAB                                     ██
+  // ██ SECTION — SPOT PRICE (Smart tab › Price panel)               ██
   // ══════════════════════════════════════════════════════════════════
-  // TO REMOVE: delete this section + the 'price' tab button + `tab-price` div
 
   var _priceAutoRefresh = null;
 
@@ -2826,11 +2880,12 @@
       .then(function(data) {
         renderPriceState(data.state);
         renderPriceSettings(data.settings);
-        // Auto-refresh every 60s while tab is visible
+        // Auto-refresh every 60s while Smart/Price panel is visible
         if (!_priceAutoRefresh) {
           _priceAutoRefresh = setInterval(function() {
-            var tab = document.getElementById('tab-price');
-            if (tab && tab.style.display !== 'none') loadPriceData();
+            var tab   = document.getElementById('tab-smart');
+            var panel = document.getElementById('smart-panel-price');
+            if (tab && tab.style.display !== 'none' && panel && panel.style.display !== 'none') loadPriceData();
           }, 60000);
         }
       })
@@ -2855,6 +2910,7 @@
       document.getElementById('price-next-cheap').textContent      = '–';
       document.getElementById('price-next-expensive').textContent   = '–';
       document.getElementById('price-chart').innerHTML              = '';
+      document.getElementById('price-chart-labels').innerHTML         = '';
       document.getElementById('price-stats').textContent       = '';
       return;
     }
@@ -2871,8 +2927,10 @@
     lblEl.textContent  = levelLabels[lvl] || lvl;
     lblEl.style.color  = levelColors[lvl] || '';
 
-    document.getElementById('price-ore-now').textContent =
-      state.currentOre + ' øre/kWh' + (state.nightDiscount ? ' (night rate)' : '');
+    var oreLabel = state.currentOre + ' øre/kWh';
+    if (state.nightDiscount) oreLabel += ' (night rate)';
+    if (state.norgespris > 0) oreLabel += ' · Norgespris flat rate (spot: ' + state.spotOre + ' øre)';
+    document.getElementById('price-ore-now').textContent = oreLabel;
 
     var mEl = document.getElementById('price-charge-badge');
     mEl.textContent = modeLabels[mode] || mode;
@@ -2902,6 +2960,7 @@
       var maxOre = state.stats.max;
       var range  = maxOre - minOre || 1;
       var bars   = '';
+      var labels  = '';
       var nowTs  = Date.now();
       entries.forEach(function(e) {
         var barH   = Math.round(((e.ore - minOre) / range) * 60) + 8;
@@ -2909,13 +2968,18 @@
         var ets    = new Date(e.hour).getTime();
         var isCurrent = ets <= nowTs && nowTs < ets + 3600000;
         var hLabel = new Date(e.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' });
+        var hShort = new Date(e.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', timeZone: 'Europe/Oslo' });
         bars += '<div title="' + hLabel + ': ' + e.ore + ' øre (' + e.level + ')" ' +
           'style="flex:1;min-width:14px;height:' + barH + 'px;background:' + col + ';border-radius:3px 3px 0 0;' +
           'opacity:' + (isCurrent ? '1' : '0.6') + ';' +
           'outline:' + (isCurrent ? '2px solid var(--text-primary)' : 'none') + ';' +
           'cursor:default"></div>';
+        labels += '<div style="flex:1;min-width:14px;text-align:center;font-size:9px;' +
+          'color:' + (isCurrent ? 'var(--text-primary)' : 'var(--text-muted)') + ';' +
+          'font-weight:' + (isCurrent ? '700' : '400') + ';overflow:hidden;">' + hShort + '</div>';
       });
       chartEl.innerHTML = bars;
+      document.getElementById('price-chart-labels').innerHTML = labels;
     } else {
       chartEl.innerHTML = '<span style="font-size:11px;color:var(--text-muted);align-self:center">No price data</span>';
     }
@@ -2946,14 +3010,29 @@
       var lavValEl = document.getElementById('ps-capLav-val');
       if (lavValEl) lavValEl.textContent = pct + '%';
     }
+    var npEl = document.getElementById('ps-norgespris');
+    if (npEl) { npEl.checked = !!cfg.norgesprisEnabled; psToggleNorgespris(); }
+    var npFlatEl = document.getElementById('ps-norgesprisFlatOre');
+    if (npFlatEl) npFlatEl.value = cfg.norgesprisFlatOre != null ? cfg.norgesprisFlatOre : 50;
+  }
+
+  function psToggleNorgespris() {
+    var on = document.getElementById('ps-norgespris') && document.getElementById('ps-norgespris').checked;
+    var rows = document.getElementById('ps-norgespris-rows');
+    if (rows) rows.style.display = on ? 'block' : 'none';
   }
 
   function priceSaveSettings() {
-    var enabled = document.getElementById('ps-enabled').checked;
-    var area    = document.getElementById('ps-priceArea').value;
-    var disc    = Number(document.getElementById('ps-nightDiscountOre').value) || 0;
-    var capLav  = Number(document.getElementById('ps-capLav').value) / 100;
-    hApi('POST', '/price-settings', { enabled: enabled, priceArea: area, nightDiscountOre: disc, capLav: capLav })
+    var enabled    = document.getElementById('ps-enabled').checked;
+    var area       = document.getElementById('ps-priceArea').value;
+    var disc       = Number(document.getElementById('ps-nightDiscountOre').value) || 0;
+    var capLav     = Number(document.getElementById('ps-capLav').value) / 100;
+    var npEnabled  = document.getElementById('ps-norgespris') ? document.getElementById('ps-norgespris').checked : false;
+    var npFlat     = Number(document.getElementById('ps-norgesprisFlatOre') ? document.getElementById('ps-norgesprisFlatOre').value : 50) || 50;
+    hApi('POST', '/price-settings', {
+      enabled: enabled, priceArea: area, nightDiscountOre: disc, capLav: capLav,
+      norgesprisEnabled: npEnabled, norgesprisFlatOre: npFlat
+    })
       .then(function() { loadPriceData(); })
       .catch(function(e) { console.error('Price settings save error:', e); });
   }
