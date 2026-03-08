@@ -3506,7 +3506,7 @@ class PowerGuardApp extends Homey.App {
     // Control a floor heater using live HomeyAPI device (not cached data!)
     try {
       if (!this._api) {
-        this.log(`[FloorHeater] Control failed: HomeyAPI not available`);
+        this._appLogEntry('charger', `[FloorHeater] Control failed: HomeyAPI not available`);
         return { ok: false, error: 'HomeyAPI not available' };
       }
       
@@ -3514,15 +3514,24 @@ class PowerGuardApp extends Homey.App {
       const device = await this._api.devices.getDevice({ id: deviceId });
       
       if (!device) {
-        this.log(`[FloorHeater] Device not found via API: ${deviceId}`);
+        this._appLogEntry('charger', `[FloorHeater] Device not found: ${deviceId}`);
         return { ok: false, error: 'Device not found' };
       }
+
+      // Helper: try object-style first, fall back to string-style (handles homey-api version differences)
+      const setCap = async (capId, val) => {
+        try {
+          await device.setCapabilityValue({ capabilityId: capId, value: val });
+        } catch (e1) {
+          // Fallback to old string-style API
+          await device.setCapabilityValue(capId, val);
+        }
+      };
       
       // Use capabilities array (most reliable) and capabilitiesObj for values
       const caps = device.capabilities || [];
       const obj  = device.capabilitiesObj || {};
-      this.log(`[FloorHeater] Control: ${action} on "${device.name}" (value: ${value})`);
-      this.log(`[FloorHeater]   Available caps: ${caps.join(', ')}`);
+      this._appLogEntry('charger', `[FloorHeater] ${action} "${device.name}" val=${value} caps=${caps.join(',')}`);
       
       // Find correct target temperature capability
       let targetTempCap = null;
@@ -3532,9 +3541,9 @@ class PowerGuardApp extends Homey.App {
       
       if (action === 'on') {
         if (caps.includes('onoff')) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+          await setCap('onoff', true);
         } else if (caps.includes('toggleChargingCapability')) {
-          await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true });
+          await setCap('toggleChargingCapability', true);
         } else {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
@@ -3546,18 +3555,18 @@ class PowerGuardApp extends Homey.App {
           this._persistMitigatedDevices();
           this.log(`[FloorHeater] ${device.name} cleared from mitigation list (manual ON override)`);
         }
-        this.log(`[FloorHeater] ${device.name} turned ON`);
+        this._appLogEntry('charger', `[FloorHeater] ${device.name} → ON`);
         return { ok: true, message: `${device.name} turned on` };
         
       } else if (action === 'off') {
         if (caps.includes('onoff')) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+          await setCap('onoff', false);
         } else if (caps.includes('toggleChargingCapability')) {
-          await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: false });
+          await setCap('toggleChargingCapability', false);
         } else {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
-        this.log(`[FloorHeater] ${device.name} turned OFF`);
+        this._appLogEntry('charger', `[FloorHeater] ${device.name} → OFF`);
         return { ok: true, message: `${device.name} turned off` };
         
       } else if (action === 'setTarget') {
@@ -3566,7 +3575,7 @@ class PowerGuardApp extends Homey.App {
           return { ok: false, error: 'Invalid temperature value' };
         }
         if (!targetTempCap) {
-          this.log(`[FloorHeater] No target temp cap found. Available: ${caps.join(', ')}`);
+          this._appLogEntry('charger', `[FloorHeater] No temp cap on "${device.name}". Caps: ${caps.join(',')}`);
           return { ok: false, error: `${device.name} has no temperature control capability` };
         }
         // Switch to manual/heat mode first so thermostats with a cloud schedule
@@ -3574,12 +3583,12 @@ class PowerGuardApp extends Homey.App {
         if (caps.includes('thermostat_mode')) {
           const currentMode = obj.thermostat_mode ? obj.thermostat_mode.value : null;
           if (currentMode !== 'heat') {
-            this.log(`[FloorHeater] ${device.name} switching thermostat_mode → heat (was: ${currentMode})`);
-            await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: 'heat' });
+            this._appLogEntry('charger', `[FloorHeater] ${device.name} switching thermostat_mode → heat (was: ${currentMode})`);
+            await setCap('thermostat_mode', 'heat');
           }
         }
-        await device.setCapabilityValue({ capabilityId: targetTempCap, value: temp });
-        this.log(`[FloorHeater] ${device.name} set to ${temp}°C via ${targetTempCap}`);
+        await setCap(targetTempCap, temp);
+        this._appLogEntry('charger', `[FloorHeater] ${device.name} set to ${temp}°C via ${targetTempCap} ✓`);
         return { ok: true, message: `${device.name} set to ${temp}°C` };
         
       } else if (action === 'setHoiax') {
@@ -3590,8 +3599,8 @@ class PowerGuardApp extends Homey.App {
                           : null;
         if (value === 'off') {
           if (caps.includes('onoff')) {
-            await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
-            this.log(`[FloorHeater] Høiax ${device.name} turned OFF`);
+            await setCap('onoff', false);
+            this._appLogEntry('charger', `[FloorHeater] Høiax ${device.name} → OFF`);
             return { ok: true, message: `${device.name} turned off` };
           }
           return { ok: false, error: `${device.name} has no onoff capability` };
@@ -3601,16 +3610,16 @@ class PowerGuardApp extends Homey.App {
         }
         // Ensure device is on before setting power level
         if (caps.includes('onoff') && obj.onoff && obj.onoff.value === false) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+          await setCap('onoff', true);
         }
-        await device.setCapabilityValue({ capabilityId: maxPowerCap, value: value });
-        this.log(`[FloorHeater] Høiax ${device.name} set to ${value} via ${maxPowerCap}`);
+        await setCap(maxPowerCap, value);
+        this._appLogEntry('charger', `[FloorHeater] Høiax ${device.name} set to ${value} via ${maxPowerCap} ✓`);
         return { ok: true, message: `${device.name} set to ${value}` };
       } else {
         return { ok: false, error: `Unknown action: ${action}` };
       }
     } catch (err) {
-      this.log(`[FloorHeater] Control error: ${err.message}`);
+      this._appLogEntry('charger', `[FloorHeater] ✗ ${action} on ${deviceId}: ${err.message}`);
       return { ok: false, error: err.message };
     }
   }
@@ -4233,6 +4242,7 @@ class PowerGuardApp extends Homey.App {
         spotOre:    r2(currentEntry.spotOre),
         nextOre:    nextEntry ? r2(nextEntry.adjustedOre) : null,
         nightDiscount: currentEntry.nightDiscountApplied,
+        norgespris: currentEntry.norgesprisApplied ? (cfg.norgesprisFlatOre || 50) : 0,
         entries: lookahead.map(e => ({
           hour:  e.start.toISOString(),
           ore:   r2(e.adjustedOre),
@@ -4303,7 +4313,11 @@ class PowerGuardApp extends Homey.App {
         const localHour    = getLocalHour(start);
         const spotOre      = r.NOK_per_kWh * 100;
         const nightDiscount = isNight(localHour) ? (cfg.nightDiscountOre || 0) : 0;
-        return { start, end, localHour, spotOre, adjustedOre: spotOre - nightDiscount, nightDiscountApplied: nightDiscount > 0 };
+        // Norgespris: flat rate replaces spot — you always pay cfg.norgesprisFlatOre regardless of spot
+        const adjustedOre = cfg.norgesprisEnabled
+          ? (cfg.norgesprisFlatOre || 50)
+          : (spotOre - nightDiscount);
+        return { start, end, localHour, spotOre, nightDiscountApplied: nightDiscount > 0, norgesprisApplied: !!cfg.norgesprisEnabled, adjustedOre };
       })
       .filter(Boolean)
       .sort((a, b) => a.start - b.start);
@@ -4505,12 +4519,18 @@ class PowerGuardApp extends Homey.App {
     await this._applyMode(mode);
   }
 
-  async _applyMode(mode) {
+  async _applyMode(mode, filterDeviceId = null) {
     const prefs = this._modeSettings.devicePrefs || {};
     const priorityList = this.homey.settings.get('priorityList') || [];
     if (!this._api) return;
 
+    if (!filterDeviceId) {
+      this._appLogEntry('charger', `[Modes] Applying mode="${mode}" to ${priorityList.length} entries. Prefs keys: ${Object.keys(prefs).length}`);
+    }
+
     for (const entry of priorityList) {
+      // If called from a single-device pref change, only process that device
+      if (filterDeviceId && entry.deviceId !== filterDeviceId) continue;
       if (entry.enabled === false) continue;
       const devPrefs = prefs[entry.deviceId];
       if (!devPrefs) continue;
@@ -4559,10 +4579,19 @@ class PowerGuardApp extends Homey.App {
         {}, this._modeSettings.nightSchedule, body.nightSchedule
       );
     }
-    if (body.devicePrefs && typeof body.devicePrefs === 'object') {
+    const prefsChanged = body.devicePrefs && typeof body.devicePrefs === 'object';
+    if (prefsChanged) {
       this._modeSettings.devicePrefs = body.devicePrefs;
     }
     this.homey.settings.set('modeSettings', this._modeSettings);
+    // If device preferences changed, re-apply the active mode for the changed device only.
+    // Passing changedDeviceId avoids re-triggering ALL devices (e.g. EV chargers) on every click.
+    if (prefsChanged) {
+      const changedDeviceId = body.changedDeviceId || null;
+      await this._applyMode(this._modeSettings.activeMode, changedDeviceId).catch(err =>
+        this.error('[Modes] Error re-applying mode after pref save:', err.message)
+      );
+    }
   }
 
 }
