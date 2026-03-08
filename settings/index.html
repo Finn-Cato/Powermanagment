@@ -274,11 +274,15 @@
           <div id="ev-grid" class="status-grid"></div>
         </div>
         <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">RECENT ACTIVITY</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
+               onclick="(function(btn){var d=document.getElementById('log-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'▶ RECENT ACTIVITY':'▼ RECENT ACTIVITY';})(this)">
+            ▼ RECENT ACTIVITY</div>
           <div id="log-container"><div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div></div>
         </div>
         <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">LAST MITIGATION SCAN</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
+               onclick="(function(btn){var d=document.getElementById('scan-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'▶ LAST MITIGATION SCAN':'▼ LAST MITIGATION SCAN';})(this)">
+            ▼ LAST MITIGATION SCAN</div>
           <div id="scan-container"><div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div></div>
         </div>
         <!-- Effekttariff (Capacity Tariff) Section -->
@@ -440,9 +444,6 @@
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
           <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px;">
             🔌 Test charger control
-          </button>
-          <button class="btn-secondary" onclick="showDiagnostics()" style="font-size:12px; padding:6px 14px; margin-left:6px;">
-            🔍 Diagnostics
           </button>
           <div id="charger-test-result" style="margin-top:8px; font-size:12px; display:none;"></div>
         </div>
@@ -1288,11 +1289,10 @@
           html += '<div style="margin-bottom:8px;"><strong>Capabilities:</strong> <span style="color:var(--text-muted); word-break:break-all;">' + escHtml(d.capabilities.join(', ')) + '</span></div>';
         }
 
-        // Recent raw readings
+        // Recent raw readings (collapsible)
         var log = d.rawLog || [];
         if (log.length > 0) {
-          html += '<div style="margin-top:6px;"><strong>Recent readings:</strong></div>';
-          html += '<div style="max-height:160px; overflow-y:auto; background:var(--bg-surface); border-radius:6px; padding:6px; margin-top:4px; font-family:monospace; font-size:11px;">';
+          var logRows = '';
           for (var i = log.length - 1; i >= 0; i--) {
             var entry = log[i];
             var t = entry.time ? entry.time.substring(11, 19) : '?';
@@ -1300,9 +1300,15 @@
                          : entry.source === 'poll' ? '<span style="color:#ff9500">poll</span>'
                          : entry.source === 'spike-filtered' ? '<span style="color:#ff3b30">spike</span>'
                          : '<span style="color:#007aff">' + escHtml(entry.source) + '</span>';
-            html += '<div>' + t + '  ' + String(entry.value).padStart(7) + ' W  ' + srcBadge + '</div>';
+            logRows += '<div>' + t + '  ' + String(entry.value).padStart(7) + ' W  ' + srcBadge + '</div>';
           }
-          html += '</div>';
+          html += '<div style="margin-top:6px;">' +
+            '<button class="btn-secondary" style="font-size:11px; padding:3px 10px;" ' +
+            'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ Recent readings (' + log.length + ')\': \'▼ Recent readings (' + log.length + ')\';  })(this)">' +
+            '▶ Recent readings (' + log.length + ')</button>' +
+            '<div style="display:none; max-height:160px; overflow-y:auto; background:var(--bg-surface); border-radius:6px; padding:6px; margin-top:4px; font-family:monospace; font-size:11px;">' +
+            logRows +
+            '</div></div>';
         }
 
         // Power buffer
@@ -1356,8 +1362,7 @@
   //                                       snapshot
   //  d. updateChargerPhases()           — 1-phase / 3-phase selector
   //  e. testChargerControl()            — send a test current command
-  //  f. showDiagnostics()               — full charger diagnostics panel
-  //  g. getVoltageConverter()           — A → W converter helper
+  //  f. getVoltageConverter()           — A → W converter helper
   //  h. getMaxAmpFromWatt()             — W → A helper
   //
   //  ⚡ ACTIVE — ID47 = permanent Ladergrense, ID48 = Midlertidig
@@ -1426,13 +1431,12 @@
             'Phases and max current are auto-detected from live data — configure limits in your charger\'s own app.' +
             '</div>';
 
-    // Debug: show raw charger_status values from the Easee API
-    html += '<div style="margin-top:12px; padding:8px; background:var(--bg-surface); border-radius:6px; font-size:11px; font-family:monospace; color:var(--text-muted); line-height:1.6;">';
-    html += '<div style="font-weight:600; margin-bottom:4px;">🔍 Raw charger status (debug)</div>';
+    // Debug: show raw charger_status values — collapsible
+    var rawRows = '';
     chargers.forEach(function(charger) {
       var live = _lastChargerStatus[charger.deviceId] || {};
       var lim  = _lastChargerLimits[charger.deviceId];
-      html += '<div>' + escHtml(charger.name) + ': ' +
+      rawRows += '<div style="padding:2px 0;">' + escHtml(charger.name) + ': ' +
               'charger_status=' + (live.chargerStatus !== undefined && live.chargerStatus !== null ? live.chargerStatus : 'N/A') +
               ' | status=' + (live.status || '?') +
               ' | label=' + (live.statusLabel || '?') +
@@ -1447,7 +1451,14 @@
               ' | isCharging=' + (live.isCharging !== undefined ? live.isCharging : '?') +
               '</div>';
     });
-    html += '</div>';
+    html += '<div style="margin-top:10px;">' +
+            '<button class="btn-secondary" style="font-size:11px; padding:3px 10px;" ' +
+            'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ Raw status\':\'▼ Raw status\';})(this)">' +
+            '▶ Raw status</button>' +
+            '<div style="display:none; margin-top:6px; padding:8px; background:var(--bg-surface); border-radius:6px; font-size:11px; font-family:monospace; color:var(--text-muted); line-height:1.6;">' +
+            rawRows +
+            '</div>' +
+            '</div>';
 
     container.innerHTML = html;
   }
@@ -1517,54 +1528,6 @@
       })
       .catch(function(err) {
         resultDiv.innerHTML = '<span style="color:#ff3b30">⚠ Test failed: ' + (err.message || err) + '</span>';
-      });
-  }
-
-  function showDiagnostics() {
-    var resultDiv = document.getElementById('charger-test-result');
-    resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<span style="color:var(--text-muted)">⏳ Loading diagnostics...</span>';
-
-    hApi('GET', '/diagnostic', null)
-      .then(function(data) {
-        if (!data) {
-          resultDiv.innerHTML = '<span style="color:#ff3b30">⚠ No data</span>';
-          return;
-        }
-        var html = '<div style="padding:4px 0; font-weight:600; border-bottom:2px solid var(--border-color);">Power Guard Diagnostics</div>';
-        html += '<div style="padding:3px 0;">⚡ <strong>Power:</strong> ' + (data.currentPowerW || 0) + 'W / ' + (data.limitW || 0) + 'W limit</div>';
-        html += '<div style="padding:3px 0;">📊 <strong>Over-limit count:</strong> ' + (data.overLimitCount || 0) + ' / ' + (data.hysteresisCount || 0) + ' needed</div>';
-        html += '<div style="padding:3px 0;">🔌 <strong>HAN connected:</strong> ' + (data.hanConnected ? '✅ Yes' : '❌ No') + '</div>';
-        html += '<div style="padding:3px 0;">📡 <strong>Last HAN reading:</strong> ' + (data.lastHanReading || 'never') + '</div>';
-        html += '<div style="padding:3px 0;">📦 <strong>Power buffer:</strong> ' + (data.powerBufferLen || 0) + ' readings</div>';
-        html += '<div style="padding:3px 0;">🛡️ <strong>Guard enabled:</strong> ' + (data.enabled ? '✅ Yes' : '❌ No') + '</div>';
-        html += '<div style="padding:3px 0;">⏱️ <strong>Cooldown:</strong> ' + (data.cooldownSeconds || 0) + 's</div>';
-        html += '<div style="padding:3px 0;">🕐 <strong>Last mitigation:</strong> ' + (data.lastMitigationTime || 'never') + '</div>';
-
-        var md = data.mitigatedDevices || [];
-        html += '<div style="padding:3px 0;">📋 <strong>Devices controlled:</strong> ' + md.length + '</div>';
-        md.forEach(function(m) {
-          html += '<div style="padding:2px 0 2px 16px; color:#ff9500;">→ ' + m.deviceId.substring(0, 8) + '... action=' + m.action + (m.currentTargetA != null ? ' @ ' + m.currentTargetA + 'A' : '') + '</div>';
-        });
-
-        var chargers = data.easeeChargers || [];
-        html += '<div style="padding:3px 0; margin-top:4px;"><strong>Configured chargers:</strong> ' + chargers.length + '</div>';
-        chargers.forEach(function(c) {
-          html += '<div style="padding:2px 0 2px 16px;">🔋 ' + c.name + ' (limit=' + (c.circuitLimitA || '?') + 'A, enabled=' + c.enabled + ')</div>';
-        });
-
-        var logs = data.recentLog || [];
-        if (logs.length) {
-          html += '<div style="padding:3px 0; margin-top:4px;"><strong>Recent log:</strong></div>';
-          logs.forEach(function(l) {
-            html += '<div style="padding:1px 0 1px 16px; font-size:11px; color:var(--text-muted);">' + l + '</div>';
-          });
-        }
-
-        resultDiv.innerHTML = html;
-      })
-      .catch(function(err) {
-        resultDiv.innerHTML = '<span style="color:#ff3b30">⚠ Diagnostics failed: ' + (err.message || err) + '</span>';
       });
   }
 
@@ -2661,18 +2624,23 @@
         han.capabilities.join(', ') + '</div>';
     }
 
-    // Recent raw readings
+    // Recent raw readings (collapsible)
     if (han.rawLog && han.rawLog.length > 0) {
-      html += '<div style="margin-top:8px;"><strong>Recent readings:</strong></div>';
-      html += '<div style="font-family:monospace; font-size:10px; background:var(--bg-surface); padding:6px; border-radius:6px; max-height:120px; overflow-y:auto;">';
+      var sumLogRows = '';
       han.rawLog.slice().reverse().forEach(function(r) {
         var srcColor = r.source === 'event' ? '#34c759' : r.source === 'poll' ? '#ff9500' : r.source === 'spike-filtered' ? '#ff3b30' : '#8e8e93';
         var t = r.time ? r.time.replace('T', ' ').substring(0, 19) : '??';
-        html += '<div><span style="color:var(--text-muted)">' + t + '</span> ' +
+        sumLogRows += '<div><span style="color:var(--text-muted)">' + t + '</span> ' +
           '<span style="color:' + srcColor + '">[' + (r.source || '?') + ']</span> ' +
           '<strong>' + r.value + 'W</strong></div>';
       });
-      html += '</div>';
+      html += '<div style="margin-top:8px;">' +
+        '<button class="btn-secondary" style="font-size:11px; padding:3px 10px;" ' +
+        'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ Recent readings (' + han.rawLog.length + ')\': \'▼ Recent readings (' + han.rawLog.length + ')\';  })(this)">' +
+        '▶ Recent readings (' + han.rawLog.length + ')</button>' +
+        '<div style="display:none; font-family:monospace; font-size:10px; background:var(--bg-surface); padding:6px; border-radius:6px; max-height:120px; overflow-y:auto; margin-top:4px;">' +
+        sumLogRows +
+        '</div></div>';
     }
 
     // Power buffer

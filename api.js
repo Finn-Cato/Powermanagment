@@ -83,10 +83,6 @@ module.exports = {
     return homey.app.getDevicesForSettings();
   },
 
-  async getDiagnostic({ homey }) {
-    return homey.app.getDiagnosticInfo();
-  },
-
   async getAllData({ homey }) {
     const s = homey.settings;
     return {

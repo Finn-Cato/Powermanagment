@@ -4015,6 +4015,15 @@ class PowerGuardApp extends Homey.App {
         const btnVal = obj.charging_button ? obj.charging_button.value : null;
         results.steps.push({ step: 'charging_button', ok: true, detail: `Current value: ${btnVal}` });
 
+        // Write-back test (write same value back — no actual change)
+        try {
+          const writeVal = btnVal !== null ? btnVal : true;
+          await device.setCapabilityValue({ capabilityId: 'charging_button', value: writeVal });
+          results.steps.push({ step: 'Write test', ok: true, detail: `Wrote charging_button = ${writeVal} (same as current — no change)` });
+        } catch (err) {
+          results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write charging_button: ${err.message}` });
+        }
+
         // Check car connected status
         const carConnected = obj['alarm_generic.car_connected'] ? obj['alarm_generic.car_connected'].value : 'unknown';
         results.steps.push({ step: 'Car connected', ok: true, detail: `${carConnected}` });
@@ -4052,15 +4061,14 @@ class PowerGuardApp extends Homey.App {
               const actionList = allZaptec.map(a => `${a.uri}/${a.id}`).join(', ');
               results.steps.push({ step: 'Flow API', ok: false, detail: `No actions at homey:app:com.zaptec, but found Zaptec-related: ${actionList}` });
             } else {
-              results.steps.push({ step: 'Flow API', ok: true, detail: 'No Zaptec flow actions found via enumeration — will use hardcoded fallback (installation_current_control). This is normal on some Homey setups.' });
+              results.steps.push({ step: 'Flow API', ok: false, detail: 'No Zaptec flow actions found via enumeration. Dynamic current control via Flow API may not work.' });
             }
           }
         } catch (flowErr) {
           results.steps.push({ step: 'Flow API', ok: false, detail: `Flow API error: ${flowErr.message}` });
         }
 
-        results.steps.push({ step: 'Control test', ok: true, detail: 'Zaptec: pause=charging_button, dynamic current=Flow API. Read test OK.' });
-        results.success = true;
+        results.success = !results.steps.some(s => s.ok === false);
 
       } else if (isEnua) {
         // ── Enua test path ──
@@ -4068,6 +4076,15 @@ class PowerGuardApp extends Homey.App {
 
         const chargingVal = obj.toggleChargingCapability ? obj.toggleChargingCapability.value : null;
         results.steps.push({ step: 'toggleChargingCapability', ok: true, detail: `Current value: ${chargingVal}` });
+
+        // Write-back test (write same value back — no actual change)
+        try {
+          const writeVal = chargingVal !== null ? chargingVal : true;
+          await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: writeVal });
+          results.steps.push({ step: 'Write test', ok: true, detail: `Wrote toggleChargingCapability = ${writeVal} (same as current — no change)` });
+        } catch (err) {
+          results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write toggleChargingCapability: ${err.message}` });
+        }
 
         const statusVal = obj.chargerStatusCapability ? obj.chargerStatusCapability.value : null;
         results.steps.push({ step: 'chargerStatusCapability', ok: true, detail: `Status: ${statusVal}` });
@@ -4102,15 +4119,14 @@ class PowerGuardApp extends Homey.App {
               const actionList = allEnua.map(a => `${a.uri}/${a.id}`).join(', ');
               results.steps.push({ step: 'Flow API', ok: false, detail: `No actions at homey:app:no.enua, but found Enua-related: ${actionList}` });
             } else {
-              results.steps.push({ step: 'Flow API', ok: true, detail: 'No Enua flow actions found via enumeration — will use hardcoded fallback (changeCurrentLimitAction). This is normal on some Homey setups.' });
+              results.steps.push({ step: 'Flow API', ok: false, detail: 'No Enua flow actions found via enumeration. Dynamic current control via Flow API may not work.' });
             }
           }
         } catch (flowErr) {
           results.steps.push({ step: 'Flow API', ok: false, detail: `Flow API error: ${flowErr.message}` });
         }
 
-        results.steps.push({ step: 'Control test', ok: true, detail: 'Enua: pause=toggleChargingCapability, dynamic current=Flow API. Read test OK.' });
-        results.success = true;
+        results.success = !results.steps.some(s => s.ok === false);
 
       } else if (isEasee) {
         // ── Easee test path ──

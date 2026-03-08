@@ -131,5 +131,8 @@
   },
   "0.8.1": {
     "en": "Added Home / Night / Away / Holiday mode engine"
+  },
+  "0.8.12": {
+    "en": "bugfix"
   }
 }
