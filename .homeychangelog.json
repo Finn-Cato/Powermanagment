@@ -1,7 +1,6 @@
 {
   "0.8.0": {
-    "en": "Added Home / Night / Away / Holiday mode engine. Night schedule with 24-hour time steppers (▲/▼, 10-min steps) and schedule type selector. Per-device preferences per mode: On/Off for switches, target temperature for thermostats, Allow/Pause for EV chargers, High/Med/Low/Off for Høiax water heaters. Active mode shown with orange highlight on mode buttons. EV charger mode control supports both onoff and toggleChargingCapability. Høiax water heater uses correct power-level steps (not temperature). Mode engine respects Power Guard mitigation — won't restore a device currently being throttled. UI: compact single-row mode bar, compact Night Schedule card.",
-    "no": "Lagt til Home / Natt / Borte / Ferie-modus. Nattsplan med 24-timers skritt-velger (▲/▼, 10-min steg) og plantype. Per-enhet preferanser per modus: På/Av for brytere, måltemperatur for termostater, Tillat/Pause for EV-ladere, Høy/Middels/Lav/Av for Høiax varmtvannsbereder. Aktivt modus vises med oransje markering. EV-lader støtter både onoff og toggleChargingCapability. Høiax bruker korrekte effektnivåtrinn. Modus-motoren respekterer Power Guard-begrensning — gjenoppretter ikke en enhet som begrenses. UI: kompakt modusrad og nattsplantkort."
+    "en": "Added Home / Night / Away / Holiday mode engine"
   },
   "0.7.17": {
     "en": "Fixed: Høiax water heater was turning off immediately instead of stepping down (high → medium → low → off). This happened when the current power level was not yet reported by the Høiax app — Power Guard now defaults to stepping down from high_power instead of jumping straight to off.",
@@ -126,7 +125,7 @@
   "0.7.0": {
     "en": "Adax fix and bugfix heaters"
   },
-  "0.8.0": {
+  "0.8.1": {
     "en": "Added Home / Night / Away / Holiday mode engine"
   }
 }
