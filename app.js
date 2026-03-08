@@ -6,6 +6,7 @@ const { Mutex } = require('async-mutex');
 const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
+const https = require('https');
 const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
 const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS } = require('./common/constants');
@@ -4197,9 +4198,20 @@ class PowerGuardApp extends Homey.App {
     };
     const fetchDay = async (y, m, d) => {
       const url = `https://www.hvakosterstrommen.no/api/v1/prices/${y}/${m}-${d}_${area}.json`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-      return res.json();
+      return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+          if (res.statusCode !== 200) {
+            reject(new Error(`HTTP ${res.statusCode} for ${url}`));
+            res.resume();
+            return;
+          }
+          let raw = '';
+          res.on('data', chunk => { raw += chunk; });
+          res.on('end', () => {
+            try { resolve(JSON.parse(raw)); } catch (e) { reject(e); }
+          });
+        }).on('error', reject);
+      });
     };
     const today = toDateParts(now);
     let rows = await fetchDay(today.year, today.month, today.day);
