@@ -3026,7 +3026,7 @@
     var typeEl = document.getElementById('modes-sched-type');
     if (typeEl) typeEl.value = sched.type || 'custom';
     var customEl = document.getElementById('modes-sched-custom');
-    if (customEl) customEl.style.display = sched.type === 'homey' ? 'none' : 'flex';
+    if (customEl) customEl.style.display = 'flex';
     var pad = function(n) { return String(n || 0).padStart(2, '0'); };
     var fromEl = document.getElementById('modes-sched-from');
     if (fromEl) fromEl.textContent = pad(sched.fromHH != null ? sched.fromHH : 22) + ':' + pad(sched.fromMM != null ? sched.fromMM : 0);
@@ -3037,7 +3037,7 @@
   function saveNightSchedule() {
     var type    = document.getElementById('modes-sched-type').value;
     var customEl = document.getElementById('modes-sched-custom');
-    if (customEl) customEl.style.display = type === 'homey' ? 'none' : 'flex';
+    if (customEl) customEl.style.display = 'flex';
     var fromParts = (document.getElementById('modes-sched-from').textContent || '22:00').split(':');
     var toParts   = (document.getElementById('modes-sched-to').textContent   || '07:00').split(':');
     var fromHH = parseInt(fromParts[0]) || 0;

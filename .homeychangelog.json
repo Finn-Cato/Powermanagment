@@ -1,4 +1,8 @@
 {
+  "0.8.11": {
+    "en": "Fixed: Night schedule time steppers were hidden when switching to 'Use Homey night hours' — they are now always visible.",
+    "no": "Fiks: Nattplan-tidsvelgerne ble skjult ved valg av 'Bruk Homey nattimer' — de er nå alltid synlige."
+  },
   "0.8.0": {
     "en": "Added Home / Night / Away / Holiday mode engine"
   },
