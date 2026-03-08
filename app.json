@@ -221,6 +221,18 @@
     "refreshPriceData": {
       "method": "POST",
       "path": "/price-refresh"
+    },
+    "getModesSettings": {
+      "method": "GET",
+      "path": "/modes"
+    },
+    "setModesSettings": {
+      "method": "POST",
+      "path": "/modes"
+    },
+    "activateMode": {
+      "method": "POST",
+      "path": "/mode-activate"
     }
   },
   "flow": {
@@ -305,6 +317,24 @@
             "example": "strict"
           }
         ]
+      },
+      {
+        "id": "mode_changed",
+        "title": {
+          "en": "Mode changed",
+          "no": "Modus endret"
+        },
+        "tokens": [
+          {
+            "name": "mode",
+            "type": "string",
+            "title": {
+              "en": "Mode",
+              "no": "Modus"
+            },
+            "example": "night"
+          }
+        ]
       }
     ],
     "conditions": [
@@ -361,6 +391,30 @@
             ]
           }
         ]
+      },
+      {
+        "id": "mode_is",
+        "title": {
+          "en": "Active mode is",
+          "no": "Aktivt modus er"
+        },
+        "titleFormatted": {
+          "en": "Active mode is [[mode]]",
+          "no": "Aktivt modus er [[mode]]"
+        },
+        "args": [
+          {
+            "name": "mode",
+            "type": "dropdown",
+            "title": { "en": "Mode", "no": "Modus" },
+            "values": [
+              { "id": "home",    "label": { "en": "Home",    "no": "Hjemme" } },
+              { "id": "night",   "label": { "en": "Night",   "no": "Natt"   } },
+              { "id": "away",    "label": { "en": "Away",    "no": "Borte"  } },
+              { "id": "holiday", "label": { "en": "Holiday", "no": "Ferie"  } }
+            ]
+          }
+        ]
       }
     ],
     "actions": [
@@ -414,6 +468,30 @@
                   "no": "Sol-vennlig"
                 }
               }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "set_mode",
+        "title": {
+          "en": "Set mode",
+          "no": "Sett modus"
+        },
+        "titleFormatted": {
+          "en": "Set mode to [[mode]]",
+          "no": "Sett modus til [[mode]]"
+        },
+        "args": [
+          {
+            "name": "mode",
+            "type": "dropdown",
+            "title": { "en": "Mode", "no": "Modus" },
+            "values": [
+              { "id": "home",    "label": { "en": "Home",    "no": "Hjemme" } },
+              { "id": "night",   "label": { "en": "Night",   "no": "Natt"   } },
+              { "id": "away",    "label": { "en": "Away",    "no": "Borte"  } },
+              { "id": "holiday", "label": { "en": "Holiday", "no": "Ferie"  } }
             ]
           }
         ]

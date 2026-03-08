@@ -232,6 +232,7 @@
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label">Log</span></button>
       <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Price</span></button>
+      <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🏠</span><span class="tab-label">Modes</span></button>
     </div>
 
     <!-- ── Settings tab ──────────────────────────────────────────────────── -->
@@ -681,6 +682,71 @@
 
     </div><!-- /#tab-price -->
 
+    <!-- ── Modes tab ────────────────────────────────────────────────── -->
+    <div id="tab-modes" style="display:none">
+
+      <!-- Active mode + activate buttons -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <h2 style="margin:0 0 2px;">Mode</h2>
+            <div style="font-size:12px;color:var(--text-muted);">Active: <strong id="modes-active-badge" style="color:var(--text-primary);">–</strong></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;min-width:70px;">🏠 Home</button>
+          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;min-width:70px;">🌙 Night</button>
+          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;min-width:70px;">🚗 Away</button>
+          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;min-width:70px;">❄️ Holiday</button>
+        </div>
+      </div>
+
+      <!-- Night schedule -->
+      <div class="card">
+        <h2>Night Schedule</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;">Automatically switches between Home and Night mode at the chosen times.</p>
+        <div class="row">
+          <div class="label-group"><label>Schedule type</label></div>
+          <div class="control">
+            <select id="modes-sched-type" onchange="saveNightSchedule()">
+              <option value="custom">Custom time</option>
+              <option value="homey">Use Homey night hours</option>
+            </select>
+          </div>
+        </div>
+        <div id="modes-sched-custom" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;">
+          <span style="font-size:13px;color:var(--text-muted);">Night from</span>
+          <input type="number" id="modes-sched-fromHH" min="0" max="23" value="22" style="width:54px;" onchange="saveNightSchedule()">
+          <span style="font-size:13px;color:var(--text-muted);">:</span>
+          <input type="number" id="modes-sched-fromMM" min="0" max="59" value="0"  style="width:54px;" onchange="saveNightSchedule()">
+          <span style="font-size:13px;color:var(--text-muted);margin:0 4px;">→</span>
+          <input type="number" id="modes-sched-toHH"   min="0" max="23" value="7"  style="width:54px;" onchange="saveNightSchedule()">
+          <span style="font-size:13px;color:var(--text-muted);">:</span>
+          <input type="number" id="modes-sched-toMM"   min="0" max="59" value="0"  style="width:54px;" onchange="saveNightSchedule()">
+        </div>
+      </div>
+
+      <!-- Per-device preferences -->
+      <div class="card">
+        <h2>Device Preferences</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;">
+          Set the desired state for each managed device in each mode. Power Guard still overrides these during high-power events.
+        </p>
+        <!-- Sub-tab bar -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+          <button id="msub-home"    onclick="showModeSubTab('home')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🏠 Home</button>
+          <button id="msub-night"   onclick="showModeSubTab('night')"   class="btn-secondary" style="font-size:12px;padding:5px 12px;">🌙 Night</button>
+          <button id="msub-away"    onclick="showModeSubTab('away')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🚗 Away</button>
+          <button id="msub-holiday" onclick="showModeSubTab('holiday')" class="btn-secondary" style="font-size:12px;padding:5px 12px;">❄️ Holiday</button>
+        </div>
+        <div id="modes-dev-home"></div>
+        <div id="modes-dev-night"   style="display:none"></div>
+        <div id="modes-dev-away"    style="display:none"></div>
+        <div id="modes-dev-holiday" style="display:none"></div>
+      </div>
+
+    </div><!-- /#tab-modes -->
+
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
     <div id="tab-devices" style="display:none">
 
@@ -805,7 +871,7 @@
   }
 
   function showTab(name) {
-    ['settings','system','devices','consumption','floorheater','log','price'].forEach(function(t) {
+    ['settings','system','devices','consumption','floorheater','log','price','modes'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -831,6 +897,8 @@
       loadAppLog();
     } else if (name === 'price') {
       loadPriceData();
+    } else if (name === 'modes') {
+      loadModesSettings();
     } else {
       loadAll();
     }
@@ -2924,6 +2992,188 @@
     hApi('POST', '/price-settings', { enabled: enabled, priceArea: area, nightDiscountOre: disc, capLav: capLav })
       .then(function() { loadPriceData(); })
       .catch(function(e) { console.error('Price settings save error:', e); });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // ██ SECTION — MODES TAB                                          ██
+  // ════════════════════════════════════════════════════════════════
+
+  var _modesData   = null;  // { modeSettings, priorityList }
+  var _modesSubTab = 'home';
+
+  var MODE_LABELS = { home: '🏠 Home', night: '🌙 Night', away: '🚗 Away', holiday: '❄️ Holiday' };
+
+  function loadModesSettings() {
+    hApi('GET', '/modes', null)
+      .then(function(data) {
+        _modesData = data;
+        renderModesActive(data.modeSettings.activeMode);
+        renderNightSchedule(data.modeSettings.nightSchedule || {});
+        renderModeDevices(_modesSubTab);
+        updateModeSubTabHighlight(_modesSubTab);
+      })
+      .catch(function(err) { console.error('loadModesSettings error:', err); });
+  }
+
+  function renderModesActive(mode) {
+    var el = document.getElementById('modes-active-badge');
+    if (el) el.textContent = MODE_LABELS[mode] || mode;
+    ['home','night','away','holiday'].forEach(function(m) {
+      var btn = document.getElementById('mode-btn-' + m);
+      if (!btn) return;
+      btn.style.fontWeight  = m === mode ? '700' : '';
+      btn.style.borderColor = m === mode ? 'var(--orange)' : '';
+    });
+  }
+
+  function renderNightSchedule(sched) {
+    var typeEl = document.getElementById('modes-sched-type');
+    if (typeEl) typeEl.value = sched.type || 'custom';
+    var customEl = document.getElementById('modes-sched-custom');
+    if (customEl) customEl.style.display = sched.type === 'homey' ? 'none' : 'flex';
+    var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
+    set('modes-sched-fromHH', sched.fromHH != null ? sched.fromHH : 22);
+    set('modes-sched-fromMM', sched.fromMM != null ? sched.fromMM : 0);
+    set('modes-sched-toHH',   sched.toHH   != null ? sched.toHH   : 7);
+    set('modes-sched-toMM',   sched.toMM   != null ? sched.toMM   : 0);
+  }
+
+  function saveNightSchedule() {
+    var type   = document.getElementById('modes-sched-type').value;
+    var fromHH = parseInt(document.getElementById('modes-sched-fromHH').value) || 0;
+    var fromMM = parseInt(document.getElementById('modes-sched-fromMM').value) || 0;
+    var toHH   = parseInt(document.getElementById('modes-sched-toHH').value)   || 0;
+    var toMM   = parseInt(document.getElementById('modes-sched-toMM').value)   || 0;
+    var customEl = document.getElementById('modes-sched-custom');
+    if (customEl) customEl.style.display = type === 'homey' ? 'none' : 'flex';
+    var sched = { type: type, fromHH: fromHH, fromMM: fromMM, toHH: toHH, toMM: toMM };
+    if (_modesData) _modesData.modeSettings.nightSchedule = sched;
+    hApi('POST', '/modes', { nightSchedule: sched })
+      .catch(function(e) { console.error('saveNightSchedule error:', e); });
+  }
+
+  function showModeSubTab(mode) {
+    _modesSubTab = mode;
+    ['home','night','away','holiday'].forEach(function(m) {
+      var d = document.getElementById('modes-dev-' + m);
+      if (d) d.style.display = m === mode ? 'block' : 'none';
+    });
+    updateModeSubTabHighlight(mode);
+    renderModeDevices(mode);
+  }
+
+  function updateModeSubTabHighlight(mode) {
+    ['home','night','away','holiday'].forEach(function(m) {
+      var b = document.getElementById('msub-' + m);
+      if (!b) return;
+      b.style.fontWeight  = m === mode ? '700' : '';
+      b.style.borderColor = m === mode ? 'var(--orange)' : '';
+    });
+  }
+
+  function renderModeDevices(mode) {
+    var el = document.getElementById('modes-dev-' + mode);
+    if (!el) return;
+    if (!_modesData || !_modesData.priorityList || !_modesData.priorityList.length) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No managed devices yet. Add devices in the Devices tab first.</div>';
+      return;
+    }
+    var devicePrefs = (_modesData.modeSettings.devicePrefs || {});
+    var rows = [];
+    _modesData.priorityList.forEach(function(entry) {
+      if (entry.enabled === false) return;
+      var prefs   = devicePrefs[entry.deviceId] || {};
+      var modePref = prefs[mode] || {};
+      rows.push(buildModeDeviceRow(entry, modePref, mode));
+    });
+    if (!rows.length) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No active devices.</div>';
+    } else {
+      el.innerHTML = rows.join('');
+    }
+  }
+
+  function buildModeDeviceRow(entry, modePref, mode) {
+    var action = entry.action || 'onoff';
+    var actionLabel = {
+      onoff: 'On/Off', dim: 'Dim',
+      target_temperature: 'Thermostat',
+      charge_pause: 'EV Charger',
+      dynamic_current: 'EV Charger',
+      hoiax_power: 'Water Heater'
+    }[action] || action;
+    var safeId = entry.deviceId.replace(/[^a-z0-9]/gi, '_');
+    var row = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);">';
+    row += '<div><div style="font-size:13px;font-weight:600;">' + escHtml(entry.name) + '</div>';
+    row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + '</div></div>';
+    row += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
+
+    if (action === 'target_temperature' || action === 'hoiax_power') {
+      var isEnabled = modePref.value != null;
+      var val = isEnabled ? modePref.value : 20;
+      row += '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);cursor:pointer;">';
+      row += '<input type="checkbox" ' + (isEnabled ? 'checked ' : '') + 'onchange="modeToggleEnabled(\'' + entry.deviceId + '\',\'' + mode + '\',this.checked,\'' + action + '\')">';
+      row += 'Set</label>';
+      if (isEnabled) {
+        row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;">−</button>';
+        row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;">' + val + '°C</span>';
+        row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;">+</button>';
+      } else {
+        row += '<span style="font-size:12px;color:var(--text-muted);">—</span>';
+      }
+    } else if (action === 'onoff') {
+      var v = modePref.value;
+      row += '<button class="btn-small ' + (v === 'on' ? 'btn-primary' : 'btn-secondary') + '" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;">On</button>';
+      row += '<button class="btn-small ' + (v === 'off' ? 'btn-primary' : 'btn-secondary') + '" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;">Off</button>';
+      row += '<button class="btn-small ' + (v == null ? 'btn-primary' : 'btn-secondary') + '" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 10px;font-size:12px;">—</button>';
+    } else {
+      row += '<span style="font-size:12px;color:var(--text-muted);">—</span>';
+    }
+    row += '</div></div>';
+    return row;
+  }
+
+  function modeToggleEnabled(deviceId, mode, enabled, action) {
+    var defVal = (action === 'target_temperature' || action === 'hoiax_power') ? 20 : null;
+    _setModePref(deviceId, mode, enabled ? defVal : null);
+    renderModeDevices(mode);
+  }
+
+  function modeTempStep(deviceId, mode, delta) {
+    if (!_modesData) return;
+    var devPrefs = (_modesData.modeSettings.devicePrefs || {})[deviceId] || {};
+    var cur = (devPrefs[mode] && devPrefs[mode].value != null) ? devPrefs[mode].value : 20;
+    var nv  = Math.round((cur + delta) * 2) / 2;
+    nv = Math.max(5, Math.min(30, nv));
+    _setModePref(deviceId, mode, nv);
+    // Update value display without full re-render
+    var safeId = deviceId.replace(/[^a-z0-9]/gi, '_');
+    var el = document.getElementById('mtv-' + safeId + '-' + mode);
+    if (el) el.textContent = nv + '°C';
+  }
+
+  function modesSetOnOff(deviceId, mode, value) {
+    _setModePref(deviceId, mode, value);
+    renderModeDevices(mode);
+  }
+
+  function _setModePref(deviceId, mode, value) {
+    if (!_modesData) return;
+    if (!_modesData.modeSettings.devicePrefs) _modesData.modeSettings.devicePrefs = {};
+    if (!_modesData.modeSettings.devicePrefs[deviceId]) _modesData.modeSettings.devicePrefs[deviceId] = {};
+    _modesData.modeSettings.devicePrefs[deviceId][mode] = { value: value };
+    hApi('POST', '/modes', { devicePrefs: _modesData.modeSettings.devicePrefs })
+      .catch(function(e) { console.error('_setModePref error:', e); });
+  }
+
+  function doActivateMode(mode) {
+    hApi('POST', '/mode-activate', { mode: mode })
+      .then(function() {
+        if (_modesData) _modesData.modeSettings.activeMode = mode;
+        renderModesActive(mode);
+        showToast();
+      })
+      .catch(function(e) { console.error('doActivateMode error:', e); });
   }
 
 </script>

@@ -360,4 +360,23 @@ module.exports = {
   async refreshPriceData({ homey }) {
     await homey.app.refreshPriceData();
     return { ok: true };
-  },};
+  },
+
+  // ─── Section 14 — Mode Engine ─────────────────────────────────────────────
+
+  async getModesSettings({ homey }) {
+    return homey.app.getModesSettings();
+  },
+
+  async setModesSettings({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid body' };
+    await homey.app.saveModesSettings(body);
+    return { ok: true };
+  },
+
+  async activateMode({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid body' };
+    await homey.app.activateMode(body.mode);
+    return { ok: true };
+  },
+};

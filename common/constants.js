@@ -92,6 +92,28 @@ const EFFEKT_TIERS = [
   { maxKW: Infinity, label: '≥ 25 kW', index: 6 },
 ];
 
+// ── Mode engine ──────────────────────────────────────────────────────────────
+const MODES = {
+  HOME:    'home',
+  NIGHT:   'night',
+  AWAY:    'away',
+  HOLIDAY: 'holiday',
+};
+
+// Default modeSettings object stored under Homey settings key 'modeSettings'.
+// devicePrefs: { [deviceId]: { home: { value }, night: { value }, away: { value }, holiday: { value } } }
+const MODES_DEFAULTS = {
+  activeMode: 'home',
+  nightSchedule: {
+    type: 'custom',   // 'custom' | 'homey'
+    fromHH: 22,
+    fromMM: 0,
+    toHH: 7,
+    toMM: 0,
+  },
+  devicePrefs: {},
+};
+
 // Spot price engine defaults
 // Changing 'enabled' to true in settings activates price-based charger capping.
 const PRICE_DEFAULTS = {
@@ -106,4 +128,4 @@ const PRICE_DEFAULTS = {
   capMaks: 1.0,            // Charger current cap when mode=maks (no extra restriction)
 };
 
-module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, HOIAX_POWER_STEPS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS };
+module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, HOIAX_POWER_STEPS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS, MODES, MODES_DEFAULTS };

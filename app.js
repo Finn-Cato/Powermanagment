@@ -9,7 +9,7 @@ const path = require('path');
 const https = require('https');
 const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
-const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS } = require('./common/constants');
+const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS, MODES, MODES_DEFAULTS } = require('./common/constants');
 
 // Minimum time to wait after any mitigation before restoring any device.
 // Acts as a safety net for cases where the headroom snapshot is unreliable (e.g. 0W at snapshot time).
@@ -106,6 +106,10 @@ class PowerGuardApp extends Homey.App {
     this._priceState    = null;   // null = no data yet; populated by _fetchAndEvaluatePrices()
     this._priceSettings = Object.assign({}, PRICE_DEFAULTS);
     this._priceEngineInterval = null;
+
+    // Mode engine state (SECTION 11)
+    this._modeSettings = JSON.parse(JSON.stringify(MODES_DEFAULTS));
+    this._modeSchedulerInterval = null;
 
     // Hourly energy tracking
     this._hourlyEnergy = {
@@ -241,6 +245,13 @@ class PowerGuardApp extends Homey.App {
       await this._startPriceEngine();
     } catch (err) {
       this.error('Price engine start error (non-fatal):', err);
+    }
+
+    // Start mode scheduler (Home/Night/Away/Holiday) — non-fatal
+    try {
+      await this._startModeScheduler();
+    } catch (err) {
+      this.error('Mode scheduler start error (non-fatal):', err);
     }
 
     // Initialize power consumption tracking after API is ready (don't call on startup, it fails)
@@ -1615,6 +1626,7 @@ class PowerGuardApp extends Homey.App {
     this._triggerMitigationApplied  = this.homey.flow.getTriggerCard('mitigation_applied');
     this._triggerMitigationCleared  = this.homey.flow.getTriggerCard('mitigation_cleared');
     this._triggerProfileChanged     = this.homey.flow.getTriggerCard('profile_changed');
+    this._triggerModeChanged        = this.homey.flow.getTriggerCard('mode_changed');
 
     const condEnabled = this.homey.flow.getConditionCard('guard_enabled');
     if (condEnabled) condEnabled.registerRunListener(() => this._settings.enabled);
@@ -1626,6 +1638,10 @@ class PowerGuardApp extends Homey.App {
     const condProfile = this.homey.flow.getConditionCard('profile_is');
     if (condProfile) condProfile.registerRunListener((args) =>
       this._settings.profile === args.profile);
+
+    const condMode = this.homey.flow.getConditionCard('mode_is');
+    if (condMode) condMode.registerRunListener((args) =>
+      this._modeSettings.activeMode === args.mode);
 
     const actEnable = this.homey.flow.getActionCard('enable_guard');
     if (actEnable) actEnable.registerRunListener(() => {
@@ -1644,6 +1660,9 @@ class PowerGuardApp extends Homey.App {
     const actProfile = this.homey.flow.getActionCard('set_profile');
     if (actProfile) actProfile.registerRunListener((args) => this._setProfile(args.profile));
 
+    const actMode = this.homey.flow.getActionCard('set_mode');
+    if (actMode) actMode.registerRunListener((args) => this.activateMode(args.mode));
+
     const actReset = this.homey.flow.getActionCard('reset_statistics');
     if (actReset) actReset.registerRunListener(() => this._resetStatistics());
   }
@@ -1654,6 +1673,7 @@ class PowerGuardApp extends Homey.App {
       mitigation_applied:   this._triggerMitigationApplied,
       mitigation_cleared:   this._triggerMitigationCleared,
       profile_changed:      this._triggerProfileChanged,
+      mode_changed:         this._triggerModeChanged,
     };
     const card = map[id];
     if (!card) return;
@@ -4369,6 +4389,125 @@ class PowerGuardApp extends Homey.App {
     this._priceSettings = Object.assign({}, PRICE_DEFAULTS, settings);
     this.homey.settings.set('priceSettings', this._priceSettings);
     await this._fetchAndEvaluatePrices().catch(err => this.error('[Price] Re-fetch error:', err));
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // █ SECTION 11 — MODE ENGINE  (Home / Night / Away / Holiday)               █
+  // ════════════════════════════════════════════════════════════════
+  //  _startModeScheduler() — loads saved settings, applies current mode, starts
+  //      a 60-second tick that auto-switches Home↔Night based on schedule.
+  //  activateMode(mode)    — public; saves active mode, fires flow trigger,
+  //      calls _applyMode.
+  //  _applyMode(mode)      — sets device states (temp / on-off) for the mode.
+  //  getModesSettings()    — API getter: returns modeSettings + priorityList.
+  //  saveModesSettings()   — API setter: merges partial updates and persists.
+  // ════════════════════════════════════════════════════════════════
+
+  async _startModeScheduler() {
+    const saved = this.homey.settings.get('modeSettings');
+    if (saved && typeof saved === 'object') {
+      this._modeSettings = Object.assign(JSON.parse(JSON.stringify(MODES_DEFAULTS)), saved);
+      if (!this._modeSettings.devicePrefs) this._modeSettings.devicePrefs = {};
+      if (!this._modeSettings.nightSchedule) this._modeSettings.nightSchedule = JSON.parse(JSON.stringify(MODES_DEFAULTS.nightSchedule));
+    }
+    // Apply current mode on startup (deferred so API is ready)
+    setTimeout(() => {
+      this.activateMode(this._modeSettings.activeMode).catch(err =>
+        this.error('[Modes] Startup apply error:', err));
+    }, 5000);
+    // Check Night schedule every minute
+    this._modeSchedulerInterval = setInterval(() => {
+      this._checkNightSchedule().catch(() => {});
+    }, 60 * 1000);
+    this.log(`[Modes] Scheduler started. Active mode: ${this._modeSettings.activeMode}`);
+  }
+
+  async _checkNightSchedule() {
+    const sched = this._modeSettings.nightSchedule || {};
+    if (sched.type !== 'custom') return;
+
+    const now     = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const fromMins = (sched.fromHH || 22) * 60 + (sched.fromMM || 0);
+    const toMins   = (sched.toHH  || 7)  * 60 + (sched.toMM  || 0);
+
+    // Spans midnight when fromMins > toMins
+    const isNightTime = fromMins > toMins
+      ? nowMins >= fromMins || nowMins < toMins
+      : nowMins >= fromMins && nowMins < toMins;
+
+    const current = this._modeSettings.activeMode;
+    // Only auto-switch between home↔night.  Away/Holiday are always manual.
+    if (isNightTime && current === 'home') {
+      await this.activateMode('night');
+    } else if (!isNightTime && current === 'night') {
+      await this.activateMode('home');
+    }
+  }
+
+  async activateMode(mode) {
+    const valid = [MODES.HOME, MODES.NIGHT, MODES.AWAY, MODES.HOLIDAY];
+    if (!valid.includes(mode)) return;
+    const previous = this._modeSettings.activeMode;
+    this._modeSettings.activeMode = mode;
+    this.homey.settings.set('modeSettings', this._modeSettings);
+    if (mode !== previous) {
+      this._fireTrigger('mode_changed', { mode });
+      this._appLogEntry('system', `Mode changed: ${previous} → ${mode}`);
+      this.log(`[Modes] Active mode: ${mode}`);
+    }
+    await this._applyMode(mode);
+  }
+
+  async _applyMode(mode) {
+    const prefs = this._modeSettings.devicePrefs || {};
+    const priorityList = this.homey.settings.get('priorityList') || [];
+    if (!this._api) return;
+
+    for (const entry of priorityList) {
+      if (entry.enabled === false) continue;
+      const devPrefs = prefs[entry.deviceId];
+      if (!devPrefs) continue;
+      const modePref = devPrefs[mode];
+      if (!modePref || modePref.value == null) continue;
+
+      try {
+        const action = entry.action;
+        if (action === 'target_temperature' || action === 'hoiax_power') {
+          await this.controlFloorHeater(entry.deviceId, 'setTarget', modePref.value);
+        } else if (action === 'onoff') {
+          const wantOn = modePref.value === 'on';
+          // Don't restore a power-guarded device — let Power Guard re-evaluate
+          const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
+          if (wantOn && isMitigated) continue;
+          await this.controlFloorHeater(entry.deviceId, wantOn ? 'on' : 'off');
+        }
+        // charge_pause / dynamic_current are owned by the power mitigation engine
+      } catch (err) {
+        this.error(`[Modes] Error applying ${mode} to "${entry.name}":`, err.message);
+      }
+    }
+  }
+
+  getModesSettings() {
+    const priorityList = this.homey.settings.get('priorityList') || [];
+    return {
+      modeSettings: this._modeSettings,
+      priorityList,
+    };
+  }
+
+  async saveModesSettings(body) {
+    if (!body || typeof body !== 'object') return;
+    if (body.nightSchedule && typeof body.nightSchedule === 'object') {
+      this._modeSettings.nightSchedule = Object.assign(
+        {}, this._modeSettings.nightSchedule, body.nightSchedule
+      );
+    }
+    if (body.devicePrefs && typeof body.devicePrefs === 'object') {
+      this._modeSettings.devicePrefs = body.devicePrefs;
+    }
+    this.homey.settings.set('modeSettings', this._modeSettings);
   }
 
 }
