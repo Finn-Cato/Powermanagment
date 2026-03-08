@@ -42,9 +42,7 @@
     .header-title { flex: 1; position: relative; z-index: 1; }
     .header-top h1 span { color: var(--brand); }
     .subtitle { font-size: 13px; color: rgba(255,255,255,.55); margin-bottom: 0; }
-    #guard-toggle { width: 30px; height: 18px; }
-    #guard-toggle .slider { border-radius: 18px; }
-    #guard-toggle .slider:before { height: 14px; width: 14px; }
+
     h2  { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
     h2::before { content:''; width:3px; height:16px; border-radius:2px; background:var(--brand); flex-shrink:0; }
     .card { background: var(--bg-card); border-radius: var(--radius); padding: 16px 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-light); }
@@ -226,43 +224,101 @@
     <!-- Tab bar -->
     <div class="tab-bar">
       <button class="tab-btn active" id="tb-overview" onclick="showTab('overview')"><span class="tab-icon">🏠</span><span class="tab-label">Overview</span></button>
-      <button class="tab-btn"        id="tb-settings" onclick="showTab('settings')"><span class="tab-icon">⚙️</span><span class="tab-label">Settings</span></button>
       <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')"><span class="tab-icon">📱</span><span class="tab-label">Devices</span></button>
-      <button class="tab-btn"        id="tb-system"   onclick="showTab('system')"><span class="tab-icon">📊</span><span class="tab-label">System</span></button>
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label">Log</span></button>
       <button class="tab-btn"        id="tb-smart"       onclick="showTab('smart')"><span class="tab-icon">🧠</span><span class="tab-label">Smart</span></button>
     </div>
 
-    <!-- ── Overview tab ──────────────────────────────────────────────────── -->
+    <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
     <div id="tab-overview">
 
+      <!-- Overview sub-tab bar -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
+        <button id="otb-overview"  onclick="showOverviewSubTab('overview')"  class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;">🏠 Overview</button>
+        <button id="otb-settings"  onclick="showOverviewSubTab('settings')"  class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">⚙️ Settings</button>
+        <button id="otb-system"    onclick="showOverviewSubTab('system')"    class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">📊 System</button>
+      </div>
+
+      <!-- ── Overview panel ── -->
+      <div id="overview-panel-overview">
+
       <div class="card">
-        <h2>Current Status</h2>
+        <div class="row" style="margin-bottom:8px;">
+          <div class="label-group"><label style="font-size:16px;font-weight:600;">Power Guard</label></div>
+          <div class="control">
+            <label class="toggle" id="guard-toggle">
+              <input type="checkbox" id="s-enabled-toggle" onchange="updateEnabledSync(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <span id="st-enabled-big" style="display:none"></span>
+        <span id="st-profile-sub" style="display:none"></span>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5">Monitors your home’s total power consumption and automatically turns devices off to keep usage below your grid connection limit. When power drops back down, devices are restored.</div>
+        <!-- Hidden sync element for s-enabled -->
+        <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:8px;">
+          <div class="label-group"><label style="font-size:16px;font-weight:600;">Smart Price Control</label></div>
+          <div class="control">
+            <label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity — charging fast when power is cheap, slowing down when it’s expensive. Power Guard’s hard safety limit always takes priority.</div>
+      </div>
+
+      <div id="active-mode-card" style="display:none">
+      <div class="card" style="padding:10px 14px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:8px;">ACTIVE MODE</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
+          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🏠 Home</button>
+          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🌙 Night</button>
+          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🚗 Away</button>
+          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">❄️ Holiday</button>
+        </div>
+      </div>
+      </div>
+
+      <div class="card">
+        <h2>Power Meter</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Power meter device</label>
+            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
+          </div>
+          <div class="control">
+            <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
+              <option value="auto">Auto-detect</option>
+            </select>
+          </div>
+        </div>
+        <div id="meter-status" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
+      </div>
+
+      <!-- Effekttariff (Capacity Tariff) Section -->
+      <div class="card" id="effekt-section">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">⚡ EFFEKTTARIFF (TEST)</div>
+        <div id="effekt-container" style="background:var(--bg-surface);border-radius:8px;padding:10px;">
+          <div style="color:var(--text-tertiary);font-size:12px">Waiting for data...</div>
+        </div>
+      </div>
+
+      </div><!-- /#overview-panel-overview -->
+
+      <!-- ── Settings panel ── -->
+      <div id="overview-panel-settings" style="display:none">
+
+      <div class="card">
+        <h2>Live Status</h2>
         <div class="status-grid">
           <div class="stat-box">
             <div class="stat-label">Power right now</div>
             <div class="stat-value" id="st-power">– W</div>
             <div class="stat-sub">of <span id="st-limit">–</span> W limit</div>
-          </div>
-          <div class="stat-box">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;width:100%">
-              <div>
-                <div class="stat-label">Guard is active</div>
-                <div class="stat-value" id="st-enabled-big">–</div>
-                <div class="stat-sub" id="st-profile-sub">–</div>
-              </div>
-              <label class="toggle" id="guard-toggle" style="margin: 0;flex-shrink:0;margin-top:2px">
-                <input type="checkbox" id="s-enabled-toggle" onchange="updateEnabledSync(this.checked)">
-                <span class="slider"></span>
-              </label>
-            </div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">Power meter</div>
-            <div class="stat-value" id="st-han" style="font-size:14px;padding-top:4px">–</div>
-            <div class="stat-sub" id="st-han-age" style="font-size:10px;color:#8e8e93"></div>
           </div>
           <div class="stat-box">
             <div class="stat-label">Devices controlled</div>
@@ -285,58 +341,11 @@
             ▼ LAST MITIGATION SCAN</div>
           <div id="scan-container"><div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div></div>
         </div>
-        <!-- Effekttariff (Capacity Tariff) Section -->
-        <div style="margin-top:14px" id="effekt-section">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">⚡ EFFEKTTARIFF (TEST)</div>
-          <div id="effekt-container" style="background:var(--bg-surface);border-radius:8px;padding:10px;">
-            <div style="color:var(--text-tertiary);font-size:12px">Waiting for data...</div>
-          </div>
-        </div>
-        <!-- Hidden sync element for s-enabled -->
-        <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
       </div>
 
-      <div class="card">
-        <h2>Quick Controls</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Price control</label>
-            <span class="hint">Soft-caps charger current based on spot price. Hard power-limit enforcement is unaffected.</span>
-          </div>
-          <div class="control"><label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label></div>
-        </div>
-      </div>
-
-      <div class="card" style="padding:10px 14px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
-          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Active: <strong id="modes-active-badge" style="color:var(--text-primary);">–</strong></span>
-          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🏠 Home</button>
-          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🌙 Night</button>
-          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🚗 Away</button>
-          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">❄️ Holiday</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Power Meter</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Power meter device</label>
-            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
-          </div>
-          <div class="control">
-            <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
-              <option value="auto">Auto-detect</option>
-            </select>
-          </div>
-        </div>
-        <div id="meter-status" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
-      </div>
-
-    </div><!-- /#tab-overview -->
-
-    <!-- ── Settings tab ──────────────────────────────────────────────────── -->
-    <div id="tab-settings" style="display:none">
+      <!-- st-han / st-han-age kept hidden for JS compatibility (displayed on Overview tab) -->
+      <span id="st-han" style="display:none"></span>
+      <span id="st-han-age" style="display:none"></span>
 
       <div class="card">
         <div class="row">
@@ -441,10 +450,10 @@
 
 
 
-    </div><!-- /#tab-settings -->
+      </div><!-- /#overview-panel-settings -->
 
-    <!-- ── System tab ────────────────────────────────────────────────────── -->
-    <div id="tab-system" style="display:none">
+      <!-- ── System panel ── -->
+      <div id="overview-panel-system" style="display:none">
 
       <div class="card">
         <h2>HAN Meter Diagnostics</h2>
@@ -480,7 +489,10 @@
         <button class="btn-primary"   onclick="saveAll()">Save</button>
       </div>
 
-    </div><!-- /#tab-system -->
+      </div><!-- /#overview-panel-system -->
+
+    </div><!-- /#tab-overview -->
+
     <div id="tab-consumption" style="display:none">
 
       <div class="card">
@@ -625,6 +637,7 @@
       <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
         <button id="stb-price" onclick="showSmartSubTab('price')" class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;">💰 Price</button>
         <button id="stb-modes" onclick="showSmartSubTab('modes')" class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;">🏠 Modes</button>
+        <button id="stb-ev"    onclick="showSmartSubTab('ev')"    class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;">🔌 EV</button>
       </div>
 
       <!-- ── Price panel ── -->
@@ -781,6 +794,27 @@
 
       </div><!-- /#smart-panel-modes -->
 
+      <!-- ── EV Charger panel ── -->
+      <div id="smart-panel-ev" style="display:none">
+
+      <div class="card">
+        <h2>EV Charger Preferences</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;">Set whether each EV charger is allowed or paused in each mode. Power Guard's hard power limit always takes priority.</p>
+        <!-- Mode sub-tab bar -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
+          <button id="evsub-home"    onclick="showEvSubTab('home')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🏠 Home</button>
+          <button id="evsub-night"   onclick="showEvSubTab('night')"   class="btn-secondary" style="font-size:12px;padding:5px 12px;">🌙 Night</button>
+          <button id="evsub-away"    onclick="showEvSubTab('away')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🚗 Away</button>
+          <button id="evsub-holiday" onclick="showEvSubTab('holiday')" class="btn-secondary" style="font-size:12px;padding:5px 12px;">❄️ Holiday</button>
+        </div>
+        <div id="ev-dev-home"></div>
+        <div id="ev-dev-night"   style="display:none"></div>
+        <div id="ev-dev-away"    style="display:none"></div>
+        <div id="ev-dev-holiday" style="display:none"></div>
+      </div>
+
+      </div><!-- /#smart-panel-ev -->
+
     </div><!-- /#tab-smart -->
 
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
@@ -906,18 +940,30 @@
     else { s.style.display = 'none'; a.innerHTML = '&#9654;'; }
   }
 
+  function showOverviewSubTab(name) {
+    ['overview','settings','system'].forEach(function(n) {
+      document.getElementById('overview-panel-' + n).style.display = n === name ? 'block' : 'none';
+      var btn = document.getElementById('otb-' + n);
+      btn.classList[n === name ? 'add' : 'remove']('active');
+    });
+    if (name === 'overview') { loadAll(); loadPriceData(); loadModesSettings(); }
+    else if (name === 'settings') { loadAll(); }
+    else if (name === 'system') { loadAll(); }
+  }
+
   function showSmartSubTab(name) {
-    ['price','modes'].forEach(function(n) {
+    ['price','modes','ev'].forEach(function(n) {
       document.getElementById('smart-panel-' + n).style.display = n === name ? 'block' : 'none';
       var btn = document.getElementById('stb-' + n);
       btn.classList[n === name ? 'add' : 'remove']('active');
     });
     if (name === 'price') { loadPriceData(); }
     else if (name === 'modes') { loadModesSettings(); }
+    else if (name === 'ev') { loadEvDevices(); }
   }
 
   function showTab(name) {
-    ['overview','settings','system','devices','consumption','floorheater','log','smart'].forEach(function(t) {
+    ['overview','devices','consumption','floorheater','log','smart'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -944,9 +990,7 @@
     } else if (name === 'smart') {
       showSmartSubTab('price');
     } else if (name === 'overview') {
-      loadAll();
-      loadPriceData();
-      loadModesSettings();
+      showOverviewSubTab('overview');
     } else {
       loadAll();
     }
@@ -3014,6 +3058,31 @@
     if (npEl) { npEl.checked = !!cfg.norgesprisEnabled; psToggleNorgespris(); }
     var npFlatEl = document.getElementById('ps-norgesprisFlatOre');
     if (npFlatEl) npFlatEl.value = cfg.norgesprisFlatOre != null ? cfg.norgesprisFlatOre : 50;
+    _updateHeaterTabVisibility(!!cfg.enabled);
+  }
+
+  function _updateHeaterTabVisibility(priceEnabled) {
+    var heaterBtn   = document.getElementById('tb-floorheater');
+    var smartBtn    = document.getElementById('tb-smart');
+    var modeCard    = document.getElementById('active-mode-card');
+
+    if (priceEnabled) {
+      if (heaterBtn) heaterBtn.style.display = 'none';
+      if (smartBtn)  smartBtn.style.display  = '';
+      if (modeCard)  modeCard.style.display  = '';
+      // If user is currently on Heaters tab, redirect to Overview
+      if (document.getElementById('tab-floorheater').style.display !== 'none') {
+        showTab('overview');
+      }
+    } else {
+      if (heaterBtn) heaterBtn.style.display = '';
+      if (smartBtn)  smartBtn.style.display  = 'none';
+      if (modeCard)  modeCard.style.display  = 'none';
+      // If user is currently on Smart tab, redirect to Overview
+      if (document.getElementById('tab-smart').style.display !== 'none') {
+        showTab('overview');
+      }
+    }
   }
 
   function psToggleNorgespris() {
@@ -3024,6 +3093,7 @@
 
   function priceSaveSettings() {
     var enabled    = document.getElementById('ps-enabled').checked;
+    _updateHeaterTabVisibility(enabled);
     var area       = document.getElementById('ps-priceArea').value;
     var disc       = Number(document.getElementById('ps-nightDiscountOre').value) || 0;
     var capLav     = Number(document.getElementById('ps-capLav').value) / 100;
@@ -3043,12 +3113,30 @@
 
   var _modesData   = null;  // { modeSettings, priorityList }
   var _modesSubTab = 'home';
+  var _evSubTab = 'home';
+  var _liveTemps   = {};    // deviceId → { currentMeasure, currentTarget }
 
   var MODE_LABELS = { home: '🏠 Home', night: '🌙 Night', away: '🚗 Away', holiday: '❄️ Holiday' };
 
   function loadModesSettings() {
-    hApi('GET', '/modes', null)
-      .then(function(data) {
+    Promise.all([
+      hApi('GET', '/modes', null),
+      hApi('GET', '/floorHeaters', null).catch(function() { return []; })
+    ]).then(function(results) {
+        var data    = results[0];
+        var heaters = Array.isArray(results[1]) ? results[1] : [];
+        _liveTemps = {};
+        heaters.forEach(function(h) {
+          _liveTemps[h.deviceId] = {
+            currentMeasure: h.currentMeasure,
+            currentTarget:  h.currentTarget,
+            currentPowerW:  h.currentPowerW,
+            isOn:           h.isOn,
+            thermostatMode: h.thermostatMode,
+            mitigated:      h.mitigated,
+            mitigationStep: h.mitigationStep
+          };
+        });
         _modesData = data;
         renderModesActive(data.modeSettings.activeMode);
         renderNightSchedule(data.modeSettings.nightSchedule || {});
@@ -3064,8 +3152,17 @@
     ['home','night','away','holiday'].forEach(function(m) {
       var btn = document.getElementById('mode-btn-' + m);
       if (!btn) return;
-      btn.style.fontWeight  = m === mode ? '700' : '';
-      btn.style.borderColor = m === mode ? 'var(--orange)' : '';
+      if (m === mode) {
+        btn.style.fontWeight   = '700';
+        btn.style.border       = '2px solid var(--orange)';
+        btn.style.background   = 'rgba(249,115,22,0.12)';
+        btn.style.color        = 'var(--orange)';
+      } else {
+        btn.style.fontWeight   = '';
+        btn.style.border       = '';
+        btn.style.background   = '';
+        btn.style.color        = '';
+      }
     });
   }
 
@@ -3140,6 +3237,7 @@
     var rows = [];
     _modesData.priorityList.forEach(function(entry) {
       if (entry.enabled === false) return;
+      if (entry.action === 'charge_pause' || entry.action === 'dynamic_current') return; // EV chargers are in the EV tab
       var prefs   = devicePrefs[entry.deviceId] || {};
       var modePref = prefs[mode] || {};
       rows.push(buildModeDeviceRow(entry, modePref, mode));
@@ -3149,6 +3247,59 @@
     } else {
       el.innerHTML = rows.join('');
     }
+  }
+
+  function renderEvDevices(mode) {
+    var el = document.getElementById('ev-dev-' + mode);
+    if (!el) return;
+    if (!_modesData || !_modesData.priorityList || !_modesData.priorityList.length) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No managed devices yet. Add devices in the Devices tab first.</div>';
+      return;
+    }
+    var devicePrefs = (_modesData.modeSettings.devicePrefs || {});
+    var rows = [];
+    _modesData.priorityList.forEach(function(entry) {
+      if (entry.enabled === false) return;
+      if (entry.action !== 'charge_pause' && entry.action !== 'dynamic_current') return;
+      var prefs   = devicePrefs[entry.deviceId] || {};
+      var modePref = prefs[mode] || {};
+      rows.push(buildModeDeviceRow(entry, modePref, mode));
+    });
+    if (!rows.length) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No EV chargers managed. Add an EV charger in the Devices tab first.</div>';
+    } else {
+      el.innerHTML = rows.join('');
+    }
+  }
+
+  function showEvSubTab(mode) {
+    _evSubTab = mode;
+    ['home','night','away','holiday'].forEach(function(m) {
+      var d = document.getElementById('ev-dev-' + m);
+      if (d) d.style.display = m === mode ? 'block' : 'none';
+    });
+    ['home','night','away','holiday'].forEach(function(m) {
+      var b = document.getElementById('evsub-' + m);
+      if (!b) return;
+      b.style.fontWeight  = m === mode ? '700' : '';
+      b.style.borderColor = m === mode ? 'var(--orange)' : '';
+    });
+    renderEvDevices(mode);
+  }
+
+  function loadEvDevices() {
+    if (_modesData) {
+      renderEvDevices(_evSubTab);
+      showEvSubTab(_evSubTab);
+      return;
+    }
+    hApi('GET', '/modes', null)
+      .then(function(data) {
+        _modesData = data;
+        renderEvDevices(_evSubTab);
+        showEvSubTab(_evSubTab);
+      })
+      .catch(function(err) { console.error('loadEvDevices error:', err); });
   }
 
   function buildModeDeviceRow(entry, modePref, mode) {
@@ -3161,9 +3312,35 @@
       hoiax_power: 'Water Heater'
     }[action] || action;
     var safeId = entry.deviceId.replace(/[^a-z0-9]/gi, '_');
-    var row = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);">';
-    row += '<div><div style="font-size:13px;font-weight:600;">' + escHtml(entry.name) + '</div>';
-    row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + '</div></div>';
+
+    // Live state — same rules as Heaters tab
+    var drawing = false, pwrLabel = '', modeLabel = '', mitigLabel = '', liveTempStr = '';
+    var lt = _liveTemps[entry.deviceId];
+    if (lt) {
+      var hasPowerData = lt.currentPowerW != null;
+      var powerW = hasPowerData ? Number(lt.currentPowerW) : 0;
+      drawing = hasPowerData ? powerW > 5 : !!lt.isOn;
+      pwrLabel = powerW > 5
+        ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">&#9679; ' + Math.round(powerW) + 'W</span>'
+        : (!hasPowerData && lt.isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">&#9679; ON</span>' : '');
+      if (lt.thermostatMode) {
+        var isHeat = lt.thermostatMode === 'heat';
+        modeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:' + (isHeat ? 'rgba(249,115,22,.15)' : 'rgba(0,0,0,.06)') + ';color:' + (isHeat ? 'var(--orange)' : 'var(--text-muted)') + ';letter-spacing:.03em;white-space:nowrap;">' + escHtml(lt.thermostatMode) + '</span>';
+      }
+      if (lt.mitigated) {
+        var stepText = lt.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
+        mitigLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
+      }
+      if (action === 'target_temperature' && lt.currentMeasure != null) {
+        var nowStr = Number(lt.currentMeasure).toFixed(1) + '°';
+        var tgtStr = lt.currentTarget != null ? ' → ' + Number(lt.currentTarget).toFixed(1) + '°' : '';
+        liveTempStr = '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Now <b>' + nowStr + '</b>' + tgtStr + pwrLabel + '</div>';
+      }
+    }
+
+    var row = '<div class="heater-row' + (drawing ? ' is-on' : '') + '" style="justify-content:space-between;">';
+    row += '<div><div style="font-size:13px;font-weight:600;">' + escHtml(entry.name) + modeLabel + mitigLabel + '</div>';
+    row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + (lt && !liveTempStr ? pwrLabel : '') + '</div>' + liveTempStr + '</div>';
     row += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
 
     if (action === 'target_temperature') {
@@ -3224,7 +3401,7 @@
     if (!_modesData.modeSettings.devicePrefs) _modesData.modeSettings.devicePrefs = {};
     if (!_modesData.modeSettings.devicePrefs[deviceId]) _modesData.modeSettings.devicePrefs[deviceId] = {};
     _modesData.modeSettings.devicePrefs[deviceId][mode] = { value: value };
-    hApi('POST', '/modes', { devicePrefs: _modesData.modeSettings.devicePrefs })
+    hApi('POST', '/modes', { devicePrefs: _modesData.modeSettings.devicePrefs, changedDeviceId: deviceId })
       .catch(function(e) { console.error('_setModePref error:', e); });
   }
 
