@@ -686,43 +686,39 @@
     <div id="tab-modes" style="display:none">
 
       <!-- Active mode + activate buttons -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-          <div>
-            <h2 style="margin:0 0 2px;">Mode</h2>
-            <div style="font-size:12px;color:var(--text-muted);">Active: <strong id="modes-active-badge" style="color:var(--text-primary);">–</strong></div>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;min-width:70px;">🏠 Home</button>
-          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;min-width:70px;">🌙 Night</button>
-          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;min-width:70px;">🚗 Away</button>
-          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;min-width:70px;">❄️ Holiday</button>
+      <div class="card" style="padding:10px 14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
+          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;">Active: <strong id="modes-active-badge" style="color:var(--text-primary);">–</strong></span>
+          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🏠 Home</button>
+          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🌙 Night</button>
+          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🚗 Away</button>
+          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">❄️ Holiday</button>
         </div>
       </div>
 
       <!-- Night schedule -->
-      <div class="card">
-        <h2>Night Schedule</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;">Automatically switches between Home and Night mode at the chosen times.</p>
-        <div class="row">
-          <div class="label-group"><label>Schedule type</label></div>
-          <div class="control">
-            <select id="modes-sched-type" onchange="saveNightSchedule()">
+      <div class="card" style="padding:10px 14px;">
+        <h2 style="margin:0 0 4px;font-size:14px;">Night Schedule</h2>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px 0;">Automatically switches between Home and Night mode at the chosen times.</p>
+        <div id="modes-sched-custom" style="display:flex;align-items:center;gap:10px;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+            <button class="btn-small btn-secondary" onclick="schedStep('from',10)"  style="padding:1px 10px;font-size:11px;">▲</button>
+            <span id="modes-sched-from" style="font-size:13px;font-weight:700;min-width:44px;text-align:center;color:var(--text-primary);letter-spacing:1px;">22:00</span>
+            <button class="btn-small btn-secondary" onclick="schedStep('from',-10)" style="padding:1px 10px;font-size:11px;">▼</button>
+          </div>
+          <span style="font-size:13px;color:var(--text-muted);">&#8212;</span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+            <button class="btn-small btn-secondary" onclick="schedStep('to',10)"  style="padding:1px 10px;font-size:11px;">▲</button>
+            <span id="modes-sched-to" style="font-size:13px;font-weight:700;min-width:44px;text-align:center;color:var(--text-primary);letter-spacing:1px;">07:00</span>
+            <button class="btn-small btn-secondary" onclick="schedStep('to',-10)" style="padding:1px 10px;font-size:11px;">▼</button>
+          </div>
+          <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <span style="font-size:11px;color:var(--text-muted);">Schedule type</span>
+            <select id="modes-sched-type" onchange="saveNightSchedule()" style="font-size:12px;padding:3px 6px;">
               <option value="custom">Custom time</option>
               <option value="homey">Use Homey night hours</option>
             </select>
           </div>
-        </div>
-        <div id="modes-sched-custom" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;">
-          <span style="font-size:13px;color:var(--text-muted);">Night from</span>
-          <input type="number" id="modes-sched-fromHH" min="0" max="23" value="22" style="width:54px;" onchange="saveNightSchedule()">
-          <span style="font-size:13px;color:var(--text-muted);">:</span>
-          <input type="number" id="modes-sched-fromMM" min="0" max="59" value="0"  style="width:54px;" onchange="saveNightSchedule()">
-          <span style="font-size:13px;color:var(--text-muted);margin:0 4px;">→</span>
-          <input type="number" id="modes-sched-toHH"   min="0" max="23" value="7"  style="width:54px;" onchange="saveNightSchedule()">
-          <span style="font-size:13px;color:var(--text-muted);">:</span>
-          <input type="number" id="modes-sched-toMM"   min="0" max="59" value="0"  style="width:54px;" onchange="saveNightSchedule()">
         </div>
       </div>
 
@@ -3031,25 +3027,40 @@
     if (typeEl) typeEl.value = sched.type || 'custom';
     var customEl = document.getElementById('modes-sched-custom');
     if (customEl) customEl.style.display = sched.type === 'homey' ? 'none' : 'flex';
-    var set = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
-    set('modes-sched-fromHH', sched.fromHH != null ? sched.fromHH : 22);
-    set('modes-sched-fromMM', sched.fromMM != null ? sched.fromMM : 0);
-    set('modes-sched-toHH',   sched.toHH   != null ? sched.toHH   : 7);
-    set('modes-sched-toMM',   sched.toMM   != null ? sched.toMM   : 0);
+    var pad = function(n) { return String(n || 0).padStart(2, '0'); };
+    var fromEl = document.getElementById('modes-sched-from');
+    if (fromEl) fromEl.textContent = pad(sched.fromHH != null ? sched.fromHH : 22) + ':' + pad(sched.fromMM != null ? sched.fromMM : 0);
+    var toEl = document.getElementById('modes-sched-to');
+    if (toEl)   toEl.textContent   = pad(sched.toHH   != null ? sched.toHH   : 7)  + ':' + pad(sched.toMM   != null ? sched.toMM   : 0);
   }
 
   function saveNightSchedule() {
-    var type   = document.getElementById('modes-sched-type').value;
-    var fromHH = parseInt(document.getElementById('modes-sched-fromHH').value) || 0;
-    var fromMM = parseInt(document.getElementById('modes-sched-fromMM').value) || 0;
-    var toHH   = parseInt(document.getElementById('modes-sched-toHH').value)   || 0;
-    var toMM   = parseInt(document.getElementById('modes-sched-toMM').value)   || 0;
+    var type    = document.getElementById('modes-sched-type').value;
     var customEl = document.getElementById('modes-sched-custom');
     if (customEl) customEl.style.display = type === 'homey' ? 'none' : 'flex';
+    var fromParts = (document.getElementById('modes-sched-from').textContent || '22:00').split(':');
+    var toParts   = (document.getElementById('modes-sched-to').textContent   || '07:00').split(':');
+    var fromHH = parseInt(fromParts[0]) || 0;
+    var fromMM = parseInt(fromParts[1]) || 0;
+    var toHH   = parseInt(toParts[0])   || 0;
+    var toMM   = parseInt(toParts[1])   || 0;
     var sched = { type: type, fromHH: fromHH, fromMM: fromMM, toHH: toHH, toMM: toMM };
     if (_modesData) _modesData.modeSettings.nightSchedule = sched;
     hApi('POST', '/modes', { nightSchedule: sched })
       .catch(function(e) { console.error('saveNightSchedule error:', e); });
+  }
+
+  function schedStep(which, delta) {
+    var el = document.getElementById('modes-sched-' + which);
+    if (!el) return;
+    var parts = (el.textContent || '00:00').split(':');
+    var total = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0) + delta;
+    total = ((total % 1440) + 1440) % 1440;
+    var hh = Math.floor(total / 60);
+    var mm = total % 60;
+    var pad = function(n) { return String(n).padStart(2, '0'); };
+    el.textContent = pad(hh) + ':' + pad(mm);
+    saveNightSchedule();
   }
 
   function showModeSubTab(mode) {
@@ -3108,35 +3119,39 @@
     row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + '</div></div>';
     row += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
 
-    if (action === 'target_temperature' || action === 'hoiax_power') {
-      var isEnabled = modePref.value != null;
-      var val = isEnabled ? modePref.value : 20;
-      row += '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);cursor:pointer;">';
-      row += '<input type="checkbox" ' + (isEnabled ? 'checked ' : '') + 'onchange="modeToggleEnabled(\'' + entry.deviceId + '\',\'' + mode + '\',this.checked,\'' + action + '\')">';
-      row += 'Set</label>';
-      if (isEnabled) {
-        row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;">−</button>';
-        row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;">' + val + '°C</span>';
-        row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;">+</button>';
-      } else {
-        row += '<span style="font-size:12px;color:var(--text-muted);">—</span>';
-      }
+    if (action === 'target_temperature') {
+      var val = (modePref.value != null) ? modePref.value : 20;
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;">−</button>';
+      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;">' + val + '°C</span>';
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;">+</button>';
+    } else if (action === 'hoiax_power') {
+      var v = modePref.value;
+      var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
+      var defStyle = '';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'high_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'high_power' ? selStyle : defStyle) + '">High</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'medium_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'medium_power' ? selStyle : defStyle) + '">Med</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'low_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'low_power' ? selStyle : defStyle) + '">Low</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 8px;font-size:11px;' + (v === 'off' ? selStyle : defStyle) + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:11px;' + (v == null ? selStyle : defStyle) + '">—</button>';
     } else if (action === 'onoff') {
       var v = modePref.value;
-      row += '<button class="btn-small ' + (v === 'on' ? 'btn-primary' : 'btn-secondary') + '" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;">On</button>';
-      row += '<button class="btn-small ' + (v === 'off' ? 'btn-primary' : 'btn-secondary') + '" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;">Off</button>';
-      row += '<button class="btn-small ' + (v == null ? 'btn-primary' : 'btn-secondary') + '" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 10px;font-size:12px;">—</button>';
+      var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
+      var defStyle = '';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;' + (v === 'on' ? selStyle : defStyle) + '">On</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (v === 'off' ? selStyle : defStyle) + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 10px;font-size:12px;' + (v == null ? selStyle : defStyle) + '">—</button>';
+    } else if (action === 'charge_pause' || action === 'dynamic_current') {
+      var v = modePref.value;
+      var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
+      var defStyle = '';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;' + (v === 'on' ? selStyle : defStyle) + '">Allow</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (v === 'off' ? selStyle : defStyle) + '">Pause</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 10px;font-size:12px;' + (v == null ? selStyle : defStyle) + '">—</button>';
     } else {
       row += '<span style="font-size:12px;color:var(--text-muted);">—</span>';
     }
     row += '</div></div>';
     return row;
-  }
-
-  function modeToggleEnabled(deviceId, mode, enabled, action) {
-    var defVal = (action === 'target_temperature' || action === 'hoiax_power') ? 20 : null;
-    _setModePref(deviceId, mode, enabled ? defVal : null);
-    renderModeDevices(mode);
   }
 
   function modeTempStep(deviceId, mode, delta) {

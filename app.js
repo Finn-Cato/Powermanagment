@@ -3531,10 +3531,13 @@ class PowerGuardApp extends Homey.App {
       }
       
       if (action === 'on') {
-        if (!caps.includes('onoff')) {
+        if (caps.includes('onoff')) {
+          await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+        } else if (caps.includes('toggleChargingCapability')) {
+          await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true });
+        } else {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
-        await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
         // User manually turned device ON — clear any mitigation so the bounce guard
         // doesn't immediately fight back and turn it off again.
         const prevLen = this._mitigatedDevices.length;
@@ -3547,10 +3550,13 @@ class PowerGuardApp extends Homey.App {
         return { ok: true, message: `${device.name} turned on` };
         
       } else if (action === 'off') {
-        if (!caps.includes('onoff')) {
+        if (caps.includes('onoff')) {
+          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+        } else if (caps.includes('toggleChargingCapability')) {
+          await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: false });
+        } else {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
-        await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
         this.log(`[FloorHeater] ${device.name} turned OFF`);
         return { ok: true, message: `${device.name} turned off` };
         
@@ -3576,6 +3582,30 @@ class PowerGuardApp extends Homey.App {
         this.log(`[FloorHeater] ${device.name} set to ${temp}°C via ${targetTempCap}`);
         return { ok: true, message: `${device.name} set to ${temp}°C` };
         
+      } else if (action === 'setHoiax') {
+        // Set Høiax water heater power level for mode
+        const maxPowerCap = caps.includes('max_power_3000') ? 'max_power_3000'
+                          : caps.includes('max_power_2000') ? 'max_power_2000'
+                          : caps.includes('max_power')      ? 'max_power'
+                          : null;
+        if (value === 'off') {
+          if (caps.includes('onoff')) {
+            await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+            this.log(`[FloorHeater] Høiax ${device.name} turned OFF`);
+            return { ok: true, message: `${device.name} turned off` };
+          }
+          return { ok: false, error: `${device.name} has no onoff capability` };
+        }
+        if (!maxPowerCap) {
+          return { ok: false, error: `${device.name} has no Høiax power capability` };
+        }
+        // Ensure device is on before setting power level
+        if (caps.includes('onoff') && obj.onoff && obj.onoff.value === false) {
+          await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+        }
+        await device.setCapabilityValue({ capabilityId: maxPowerCap, value: value });
+        this.log(`[FloorHeater] Høiax ${device.name} set to ${value} via ${maxPowerCap}`);
+        return { ok: true, message: `${device.name} set to ${value}` };
       } else {
         return { ok: false, error: `Unknown action: ${action}` };
       }
@@ -4473,16 +4503,25 @@ class PowerGuardApp extends Homey.App {
 
       try {
         const action = entry.action;
-        if (action === 'target_temperature' || action === 'hoiax_power') {
+        if (action === 'target_temperature') {
           await this.controlFloorHeater(entry.deviceId, 'setTarget', modePref.value);
+        } else if (action === 'hoiax_power') {
+          await this.controlFloorHeater(entry.deviceId, 'setHoiax', modePref.value);
         } else if (action === 'onoff') {
           const wantOn = modePref.value === 'on';
           // Don't restore a power-guarded device — let Power Guard re-evaluate
           const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
           if (wantOn && isMitigated) continue;
           await this.controlFloorHeater(entry.deviceId, wantOn ? 'on' : 'off');
+        } else if (action === 'charge_pause' || action === 'dynamic_current') {
+          const wantOn = modePref.value === 'on';
+          const wantOff = modePref.value === 'off';
+          if (!wantOn && !wantOff) continue;
+          // Don't un-pause a charger that Power Guard is currently throttling
+          const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
+          if (wantOn && isMitigated) continue;
+          await this.controlFloorHeater(entry.deviceId, wantOn ? 'on' : 'off');
         }
-        // charge_pause / dynamic_current are owned by the power mitigation engine
       } catch (err) {
         this.error(`[Modes] Error applying ${mode} to "${entry.name}":`, err.message);
       }
