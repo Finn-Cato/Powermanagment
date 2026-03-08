@@ -217,6 +217,10 @@
     "setPriceSettings": {
       "method": "POST",
       "path": "/price-settings"
+    },
+    "refreshPriceData": {
+      "method": "POST",
+      "path": "/price-refresh"
     }
   },
   "flow": {

@@ -610,21 +610,10 @@
           <div class="stat-box">
             <div class="stat-label">Next cheap hour</div>
             <div class="stat-value" id="price-next-cheap" style="font-size:15px">–</div>
-            <div class="stat-sub" id="price-hours-to-cheap"></div>
           </div>
           <div class="stat-box">
             <div class="stat-label">Next expensive hour</div>
             <div class="stat-value" id="price-next-expensive" style="font-size:15px">–</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">Cheapest remaining</div>
-            <div class="stat-value" id="price-cheapest-ore" style="font-size:15px">–</div>
-            <div class="stat-sub" id="price-cheapest-hours"></div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">Most expensive remaining</div>
-            <div class="stat-value" id="price-priciest-ore" style="font-size:15px">–</div>
-            <div class="stat-sub" id="price-time-of-day"></div>
           </div>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;font-weight:500">18-HOUR PRICE TIMELINE</div>
@@ -636,7 +625,10 @@
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff3b30;margin-right:3px"></span>Extreme</span>
         </div>
         <div id="price-stats" style="font-size:11px;color:var(--text-muted);margin-top:10px"></div>
-        <div style="font-size:10px;color:var(--text-tertiary);margin-top:6px" id="price-updated"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+          <div style="font-size:10px;color:var(--text-tertiary)" id="price-updated"></div>
+          <button onclick="triggerPriceRefresh()" style="font-size:11px;padding:3px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);cursor:pointer">↻ Refresh</button>
+        </div>
       </div>
 
       <!-- Settings card -->
@@ -2815,20 +2807,22 @@
       });
   }
 
+  function triggerPriceRefresh() {
+    document.getElementById('price-updated').textContent = 'Refreshing…';
+    hApi('POST', '/price-refresh', {})
+      .then(function() { return loadPriceData(); })
+      .catch(function() { loadPriceData(); });
+  }
+
   function renderPriceState(state) {
     if (!state) {
       document.getElementById('price-level-badge').textContent = 'No data yet';
       document.getElementById('price-ore-now').textContent     = 'Waiting for first fetch…';
       document.getElementById('price-charge-badge').textContent = '–';
       document.getElementById('price-ore-next').textContent    = '';
-      document.getElementById('price-next-cheap').textContent  = '–';
-      document.getElementById('price-next-expensive').textContent = '–';
-      document.getElementById('price-hours-to-cheap').textContent = '';
-      document.getElementById('price-cheapest-ore').textContent  = '–';
-      document.getElementById('price-cheapest-hours').textContent = '';
-      document.getElementById('price-priciest-ore').textContent  = '–';
-      document.getElementById('price-time-of-day').textContent   = '';
-      document.getElementById('price-chart').innerHTML           = '';
+      document.getElementById('price-next-cheap').textContent      = '–';
+      document.getElementById('price-next-expensive').textContent   = '–';
+      document.getElementById('price-chart').innerHTML              = '';
       document.getElementById('price-stats').textContent       = '';
       return;
     }
@@ -2861,37 +2855,13 @@
     var nextCheap = entries.find(function(e) { return e.level === 'billig' && new Date(e.hour).getTime() > now; });
     var nextExp   = entries.find(function(e) { return (e.level === 'dyr' || e.level === 'ekstremt dyr') && new Date(e.hour).getTime() > now; });
 
-    // Next cheap hour — use HomeyScript variable directly if available, else scan entries
-    var cheapTimeEl = document.getElementById('price-next-cheap');
-    if (state.nextCheapTime) {
-      cheapTimeEl.textContent = state.nextCheapTime;
-    } else {
-      cheapTimeEl.textContent = nextCheap
-        ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
-        : (lvl === 'billig' ? 'Now' : '–');
-    }
-    var hToCheapEl = document.getElementById('price-hours-to-cheap');
-    if (hToCheapEl) hToCheapEl.textContent = state.hoursToCheap != null ? state.hoursToCheap + ' h away' : '';
+    document.getElementById('price-next-cheap').textContent = nextCheap
+      ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
+      : (lvl === 'billig' ? 'Now' : '–');
 
-    // Next expensive hour
-    var expTimeEl = document.getElementById('price-next-expensive');
-    if (state.nextExpensiveTime) {
-      expTimeEl.textContent = state.nextExpensiveTime;
-    } else {
-      expTimeEl.textContent = nextExp
-        ? new Date(nextExp.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
-        : (lvl === 'dyr' || lvl === 'ekstremt dyr' ? 'Now' : '–');
-    }
-
-    // Extra HomeyScript fields
-    var cheapOreEl = document.getElementById('price-cheapest-ore');
-    if (cheapOreEl) cheapOreEl.textContent = state.cheapestPriceOre != null ? state.cheapestPriceOre + ' øre' : '–';
-    var cheapHrsEl = document.getElementById('price-cheapest-hours');
-    if (cheapHrsEl) cheapHrsEl.textContent = state.cheapestHoursLeft != null ? state.cheapestHoursLeft + ' cheap hrs left' : '';
-    var priEel = document.getElementById('price-priciest-ore');
-    if (priEel) priEel.textContent = state.mostExpensivePriceOre != null ? state.mostExpensivePriceOre + ' øre' : '–';
-    var todEl = document.getElementById('price-time-of-day');
-    if (todEl) todEl.textContent = state.timeOfDay || '';
+    document.getElementById('price-next-expensive').textContent = nextExp
+      ? new Date(nextExp.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
+      : (lvl === 'dyr' || lvl === 'ekstremt dyr' ? 'Now' : '–');
 
     // Bar chart
     var chartEl = document.getElementById('price-chart');
@@ -2923,11 +2893,10 @@
     document.getElementById('price-stats').textContent =
       'Window: min ' + s.min + ' — avg ' + (s.mean || 0).toFixed(1) + ' — max ' + s.max + ' øre/kWh · spread ' + s.spread + ' øre';
 
-    // Last updated + source
+    // Last updated
     var ago = state.updatedAt ? Math.round((Date.now() - state.updatedAt) / 60000) : null;
-    var srcLabel = state.source === 'homey-logic' ? ' · via HomeyScript' : (state.source ? ' · via API' : '');
     document.getElementById('price-updated').textContent =
-      ago != null ? 'Last updated ' + (ago < 1 ? 'just now' : ago + ' min ago') + srcLabel : '';
+      ago != null ? 'Last updated ' + (ago < 1 ? 'just now' : ago + ' min ago') : '';
   }
 
   function renderPriceSettings(cfg) {

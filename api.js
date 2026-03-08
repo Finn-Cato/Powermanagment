@@ -356,4 +356,8 @@ module.exports = {
     await homey.app.savePriceSettings(body);
     return { ok: true };
   },
-};
+  /** Trigger an immediate price re-fetch from the UI refresh button */
+  async refreshPriceData({ homey }) {
+    await homey.app.refreshPriceData();
+    return { ok: true };
+  },};
