@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.7.18",
+  "version": "0.7.19",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -406,12 +406,39 @@
           {
             "name": "mode",
             "type": "dropdown",
-            "title": { "en": "Mode", "no": "Modus" },
+            "title": {
+              "en": "Mode",
+              "no": "Modus"
+            },
             "values": [
-              { "id": "home",    "label": { "en": "Home",    "no": "Hjemme" } },
-              { "id": "night",   "label": { "en": "Night",   "no": "Natt"   } },
-              { "id": "away",    "label": { "en": "Away",    "no": "Borte"  } },
-              { "id": "holiday", "label": { "en": "Holiday", "no": "Ferie"  } }
+              {
+                "id": "home",
+                "label": {
+                  "en": "Home",
+                  "no": "Hjemme"
+                }
+              },
+              {
+                "id": "night",
+                "label": {
+                  "en": "Night",
+                  "no": "Natt"
+                }
+              },
+              {
+                "id": "away",
+                "label": {
+                  "en": "Away",
+                  "no": "Borte"
+                }
+              },
+              {
+                "id": "holiday",
+                "label": {
+                  "en": "Holiday",
+                  "no": "Ferie"
+                }
+              }
             ]
           }
         ]
@@ -486,12 +513,39 @@
           {
             "name": "mode",
             "type": "dropdown",
-            "title": { "en": "Mode", "no": "Modus" },
+            "title": {
+              "en": "Mode",
+              "no": "Modus"
+            },
             "values": [
-              { "id": "home",    "label": { "en": "Home",    "no": "Hjemme" } },
-              { "id": "night",   "label": { "en": "Night",   "no": "Natt"   } },
-              { "id": "away",    "label": { "en": "Away",    "no": "Borte"  } },
-              { "id": "holiday", "label": { "en": "Holiday", "no": "Ferie"  } }
+              {
+                "id": "home",
+                "label": {
+                  "en": "Home",
+                  "no": "Hjemme"
+                }
+              },
+              {
+                "id": "night",
+                "label": {
+                  "en": "Night",
+                  "no": "Natt"
+                }
+              },
+              {
+                "id": "away",
+                "label": {
+                  "en": "Away",
+                  "no": "Borte"
+                }
+              },
+              {
+                "id": "holiday",
+                "label": {
+                  "en": "Holiday",
+                  "no": "Ferie"
+                }
+              }
             ]
           }
         ]
