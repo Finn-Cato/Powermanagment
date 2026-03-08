@@ -4141,6 +4141,8 @@ class PowerGuardApp extends Homey.App {
   /** Read price data from Homey Logic variables set by a running HomeyScript */
   async _fetchFromHomeyLogicVariables() {
     if (!this._api) return null;
+    // api.logic may or may not be available depending on homey-api version
+    if (typeof this._api.logic === 'undefined' || typeof this._api.logic.getVariables !== 'function') return null;
     const vars = await this._api.logic.getVariables();
     const v = {};
     Object.values(vars).forEach(vr => { v[vr.name] = vr.value; });
