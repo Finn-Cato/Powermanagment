@@ -8,7 +8,7 @@ const fsPromises = require('fs').promises;
 const path = require('path');
 const { movingAverage, isSpike, timestamp } = require('./common/tools');
 const { applyAction, restoreDevice } = require('./common/devices');
-const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS } = require('./common/constants');
+const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS } = require('./common/constants');
 
 // Minimum time to wait after any mitigation before restoring any device.
 // Acts as a safety net for cases where the headroom snapshot is unreliable (e.g. 0W at snapshot time).
@@ -99,6 +99,12 @@ class PowerGuardApp extends Homey.App {
     // Unified app log for remote diagnostics
     this._appLog = [];          // Ring buffer: last 300 entries {time, category, message}
     this._appStartTime = Date.now();
+
+    // Price engine state (SECTION 10)
+    // Set _priceState = null to disable entirely, or remove _startPriceEngine() call below.
+    this._priceState    = null;   // null = no data yet; populated by _fetchAndEvaluatePrices()
+    this._priceSettings = Object.assign({}, PRICE_DEFAULTS);
+    this._priceEngineInterval = null;
 
     // Hourly energy tracking
     this._hourlyEnergy = {
@@ -227,6 +233,14 @@ class PowerGuardApp extends Homey.App {
     this._watchdogInterval  = setInterval(() => this._watchdog().catch(() => {}), 10000);
     this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(() => {}), 60000);
     this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(() => {}), 3000);
+
+    // Start spot price engine — non-fatal, charger control still works without it
+    // To remove price feature entirely: delete this block + SECTION 10 at bottom of file
+    try {
+      await this._startPriceEngine();
+    } catch (err) {
+      this.error('Price engine start error (non-fatal):', err);
+    }
 
     // Initialize power consumption tracking after API is ready (don't call on startup, it fails)
     // It will populate when HAN readings arrive or when the tab is first opened
@@ -2486,7 +2500,9 @@ class PowerGuardApp extends Homey.App {
   _calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, chargerEntry) {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
     const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 6A minimum (Easee supports 6A)
-    const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA);
+    // Price cap: additive soft ceiling from price engine (full circuit limit when disabled/no data)
+    const priceCap = this._getPriceCurrentCap(circuitLimitA);
+    const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA, priceCap);
 
     const evData = this._evPowerData[chargerEntry.deviceId];
     const chargerPowerW = evData?.powerW || 0;
@@ -4087,6 +4103,254 @@ class PowerGuardApp extends Homey.App {
     }
 
     return results;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // █ SECTION 10 — SPOT PRICE ENGINE                                           █
+  // ════════════════════════════════════════════════════════════════
+  //  Fetches spot prices from hvakosterstrommen.no every 30 min.
+  //  Evaluates current price level (billig/normal/dyr/ekstremt dyr) and
+  //  derive a charge mode (av/lav/normal/maks) with hysteresis.
+  //
+  //  ADDITIVE: only caps charger current via _getPriceCurrentCap().
+  //  Power Guard's hard watt-limit enforcement is unaffected.
+  //  If price control is disabled or data unavailable: cap = circuitLimitA (no effect).
+  //
+  //  TO REMOVE ENTIRELY:
+  //    1. Delete this SECTION 10 block
+  //    2. Delete the _startPriceEngine() call in onInit
+  //    3. Delete the priceCap lines in _calculateOptimalChargerCurrent
+  //    4. Remove PRICE_DEFAULTS from constants.js and its import here
+  //    5. Remove getPriceData / setPriceSettings from api.js
+  //    6. Remove the price tab from settings/index.html
+  // ════════════════════════════════════════════════════════════════
+
+  async _startPriceEngine() {
+    const saved = this.homey.settings.get('priceSettings');
+    if (saved && typeof saved === 'object') {
+      this._priceSettings = Object.assign({}, PRICE_DEFAULTS, saved);
+    }
+    await this._fetchAndEvaluatePrices();
+    // Refresh every 30 minutes
+    this._priceEngineInterval = setInterval(() => {
+      this._fetchAndEvaluatePrices().catch(err => this.error('[Price] Fetch error:', err));
+    }, 30 * 60 * 1000);
+  }
+
+  async _fetchAndEvaluatePrices() {
+    try {
+      const cfg = this._priceSettings;
+      const now = new Date();
+      const entries = await this._priceFetchAllRelevant(now, cfg);
+      if (!entries.length) return;
+
+      const currentEntry = entries.find(e => now >= e.start && now < e.end);
+      if (!currentEntry) return;
+
+      const lookahead  = this._priceBuildWindow(entries, now, cfg.lookaheadHours || 18);
+      const stats      = this._priceStats(lookahead.map(e => e.adjustedOre));
+      const suggested  = this._priceSuggestLevel(currentEntry.adjustedOre, stats);
+      const prev       = this._priceState;
+      const finalLevel = this._priceApplyHysteresis(prev ? prev.level : null, suggested, currentEntry.adjustedOre, stats);
+
+      const nextEntry    = entries.find(e => e.start.getTime() === currentEntry.end.getTime()) || null;
+      const rawMode      = this._priceSuggestChargeMode(currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
+      const finalMode    = this._priceApplyChargeModeHysteresis(prev ? prev.chargeMode : null, rawMode, currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
+
+      const r2 = v => Math.round(v * 100) / 100;
+
+      this._priceState = {
+        level:      finalLevel,
+        chargeMode: finalMode,
+        currentOre: r2(currentEntry.adjustedOre),
+        spotOre:    r2(currentEntry.spotOre),
+        nextOre:    nextEntry ? r2(nextEntry.adjustedOre) : null,
+        nightDiscount: currentEntry.nightDiscountApplied,
+        entries: lookahead.map(e => ({
+          hour:  e.start.toISOString(),
+          ore:   r2(e.adjustedOre),
+          level: this._priceSuggestLevel(e.adjustedOre, stats),
+        })),
+        stats: {
+          min:    r2(stats.min),
+          max:    r2(stats.max),
+          mean:   r2(stats.mean),
+          p25:    r2(stats.p25),
+          p75:    r2(stats.p75),
+          p90:    r2(stats.p90),
+          spread: r2(stats.spread),
+        },
+        updatedAt: Date.now(),
+      };
+
+      this._appLogEntry('system', `[Price] Level=${finalLevel} (${r2(currentEntry.adjustedOre)}øre) Mode=${finalMode}`);
+    } catch (err) {
+      this.error('[Price] Evaluation error:', err);
+    }
+  }
+
+  async _priceFetchAllRelevant(now, cfg) {
+    const area = cfg.priceArea || 'NO4';
+    const toDateParts = (d) => {
+      const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+      return { year: p.find(x => x.type === 'year').value, month: p.find(x => x.type === 'month').value, day: p.find(x => x.type === 'day').value };
+    };
+    const fetchDay = async (y, m, d) => {
+      const url = `https://www.hvakosterstrommen.no/api/v1/prices/${y}/${m}-${d}_${area}.json`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      return res.json();
+    };
+    const today = toDateParts(now);
+    let rows = await fetchDay(today.year, today.month, today.day);
+    try {
+      const tmw = toDateParts(new Date(now.getTime() + 86400000));
+      const tmwRows = await fetchDay(tmw.year, tmw.month, tmw.day);
+      if (Array.isArray(tmwRows)) rows = rows.concat(tmwRows);
+    } catch (_) { /* Tomorrow's prices might not be published yet — fine */ }
+    return this._priceParseRows(rows, cfg);
+  }
+
+  _priceParseRows(rows, cfg) {
+    const getLocalHour = (date) =>
+      Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Oslo', hour: '2-digit', hour12: false }).format(date));
+    const isNight = (h) => h >= (cfg.nightStartHour || 22) || h < (cfg.nightEndHour || 6);
+    const parsed = rows
+      .filter(r => r && typeof r.NOK_per_kWh === 'number' && r.time_start)
+      .map(r => {
+        const start = new Date(r.time_start);
+        const end   = new Date(r.time_end);
+        if (isNaN(start.getTime())) return null;
+        const localHour    = getLocalHour(start);
+        const spotOre      = r.NOK_per_kWh * 100;
+        const nightDiscount = isNight(localHour) ? (cfg.nightDiscountOre || 0) : 0;
+        return { start, end, localHour, spotOre, adjustedOre: spotOre - nightDiscount, nightDiscountApplied: nightDiscount > 0 };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.start - b.start);
+    const seen = new Set();
+    return parsed.filter(e => { const k = e.start.getTime(); if (seen.has(k)) return false; seen.add(k); return true; });
+  }
+
+  _priceBuildWindow(entries, now, hours) {
+    const end = new Date(now.getTime() + hours * 3600000);
+    return entries.filter(e => e.end > now && e.start < end);
+  }
+
+  _priceStats(values) {
+    if (!values.length) return { min: 0, max: 0, mean: 0, p25: 0, p50: 0, p75: 0, p90: 0, spread: 0 };
+    const s = [...values].sort((a, b) => a - b);
+    const pct = (p) => { const i = (s.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return lo === hi ? s[lo] : s[hi] * (i - lo) + s[lo] * (1 - (i - lo)); };
+    const mean = s.reduce((a, b) => a + b, 0) / s.length;
+    return { min: s[0], max: s[s.length - 1], mean, p25: pct(0.25), p50: pct(0.5), p75: pct(0.75), p90: pct(0.9), spread: s[s.length - 1] - s[0] };
+  }
+
+  _priceSuggestLevel(ore, stats) {
+    const { spread, p25, p75, p90, mean } = stats;
+    if (spread <= 8)  return 'normal';
+    if (spread <= 16) return ore <= p25 ? 'billig' : 'normal';
+    if (spread <= 32) {
+      if (ore <= p25)       return 'billig';
+      if (ore >= p75 + 1)   return 'dyr';
+      return 'normal';
+    }
+    if (ore <= p25)                            return 'billig';
+    if (ore >= p90 && ore >= mean + 18)        return 'ekstremt dyr';
+    if (ore >= p75)                            return 'dyr';
+    return 'normal';
+  }
+
+  _priceApplyHysteresis(prev, suggested, ore, stats) {
+    if (!prev || prev === suggested) return suggested;
+    const margin = stats.spread <= 32 ? 6 : 4;
+    if (prev === 'billig'       && suggested === 'normal'      && ore <= stats.p25 + margin) return 'billig';
+    if (prev === 'normal') {
+      if (suggested === 'billig'      && ore >  stats.p25 - margin) return 'normal';
+      if (suggested === 'dyr'         && ore <  stats.p75 + margin) return 'normal';
+      if (suggested === 'ekstremt dyr'&& ore <  stats.p90 + margin) return 'normal';
+    }
+    if (prev === 'dyr') {
+      if (suggested === 'normal'      && ore >= stats.p75 - margin) return 'dyr';
+      if (suggested === 'ekstremt dyr'&& ore <  stats.p90 + margin) return 'dyr';
+    }
+    if (prev === 'ekstremt dyr' && suggested === 'dyr' && ore >= Math.max(stats.p90 - margin, stats.mean + 18 - margin)) return 'ekstremt dyr';
+    return suggested;
+  }
+
+  _priceSuggestChargeMode(currentEntry, nextEntry, level, stats, lookahead, cfg) {
+    const ore       = currentEntry.adjustedOre;
+    const nextOre   = nextEntry ? nextEntry.adjustedOre : ore;
+    const cheapest  = [...lookahead].sort((a, b) => a.adjustedOre - b.adjustedOre).slice(0, cfg.cheapHoursTarget || 6);
+    const isCheapest = cheapest.some(e => e.start.getTime() === currentEntry.start.getTime());
+    if (level === 'ekstremt dyr') return 'av';
+    if (level === 'dyr')    return isCheapest ? 'normal' : 'lav';
+    if (level === 'billig') return (isCheapest && ore <= stats.p25) ? 'maks' : 'normal';
+    if (isCheapest && ore <= stats.p50) return 'normal';
+    if (nextOre >= ore + 10) return 'normal';  // pre-charge before price jumps
+    return 'lav';
+  }
+
+  _priceApplyChargeModeHysteresis(prev, suggested, currentEntry, nextEntry, level, stats, lookahead, cfg) {
+    if (!prev || prev === suggested) return suggested;
+    if (level === 'ekstremt dyr') return 'av';
+    const ore        = currentEntry.adjustedOre;
+    const nextOre    = nextEntry ? nextEntry.adjustedOre : ore;
+    const cheapest   = [...lookahead].sort((a, b) => a.adjustedOre - b.adjustedOre).slice(0, cfg.cheapHoursTarget || 6);
+    const isCheapest = cheapest.some(e => e.start.getTime() === currentEntry.start.getTime());
+    const margin     = 5;
+    if (prev === 'av') {
+      if (suggested === 'lav'    && ore <= stats.p50 - margin) return 'lav';
+      if (suggested === 'normal' && (isCheapest || ore <= stats.p50 - margin || nextOre >= ore + 10 + margin)) return 'normal';
+      if (suggested === 'maks'   && isCheapest && ore <= stats.p25 - margin) return 'maks';
+      return 'av';
+    }
+    if (prev === 'lav') {
+      if (suggested === 'av'     && !(level === 'dyr' && ore >= stats.p75 + margin)) return 'lav';
+      if (suggested === 'normal' && !(isCheapest || ore <= stats.p50 - margin || nextOre >= ore + 10 + margin)) return 'lav';
+      if (suggested === 'maks'   && !(isCheapest && ore <= stats.p25 - margin)) return 'lav';
+    }
+    if (prev === 'normal') {
+      if (suggested === 'lav'    && (isCheapest || ore <= stats.p50 + margin || nextOre >= ore + 10 - margin)) return 'normal';
+      if (suggested === 'av'     && !(level === 'dyr' && ore >= stats.p75 + margin)) return 'normal';
+      if (suggested === 'maks'   && !(isCheapest && ore <= stats.p25 - margin)) return 'normal';
+    }
+    if (prev === 'maks') {
+      if (suggested === 'normal' && isCheapest && ore <= stats.p25 + margin) return 'maks';
+      if (suggested === 'lav'    && isCheapest && ore <= stats.p50 + margin) return 'normal';
+      if (suggested === 'av'     && !(level === 'dyr' && ore >= stats.p75 + margin)) return ore > stats.p50 ? 'lav' : 'normal';
+    }
+    return suggested;
+  }
+
+  /**
+   * Returns the price-based current cap for a charger.
+   * Additive layer on top of Power Guard's hard watt-limit.
+   * Returns circuitLimitA (no restriction) when price control is off or data unavailable.
+   */
+  _getPriceCurrentCap(circuitLimitA) {
+    if (!this._priceSettings.enabled || !this._priceState) return circuitLimitA;
+    const mode = this._priceState.chargeMode;
+    const cfg  = this._priceSettings;
+    if (mode === 'av')   return 0;  // Pause (→ _calculateOptimalChargerCurrent returns null)
+    if (mode === 'lav')  return Math.max(CHARGER_DEFAULTS.minCurrent, Math.floor(circuitLimitA * (cfg.capLav  || 0.5)));
+    if (mode === 'maks') return Math.floor(circuitLimitA * (cfg.capMaks || 1.0));
+    return circuitLimitA; // 'normal' = no price restriction
+  }
+
+  /** Public getter used by api.js getPriceData endpoint */
+  getPriceData() {
+    return {
+      state:    this._priceState,
+      settings: this._priceSettings,
+    };
+  }
+
+  /** Called by api.js setPriceSettings — saves and re-evaluates immediately */
+  async savePriceSettings(settings) {
+    if (!settings || typeof settings !== 'object') return;
+    this._priceSettings = Object.assign({}, PRICE_DEFAULTS, settings);
+    this.homey.settings.set('priceSettings', this._priceSettings);
+    await this._fetchAndEvaluatePrices().catch(err => this.error('[Price] Re-fetch error:', err));
   }
 
 }

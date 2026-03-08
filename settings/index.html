@@ -231,6 +231,7 @@
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label">Log</span></button>
+      <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Price</span></button>
     </div>
 
     <!-- ── Settings tab ──────────────────────────────────────────────────── -->
@@ -589,6 +590,94 @@
 
     </div><!-- /#tab-log -->
 
+    <!-- ── Price tab ────────────────────────────────────────────── -->
+    <div id="tab-price" style="display:none">
+
+      <!-- Status card -->
+      <div class="card">
+        <h2>Spot Price Now</h2>
+        <div class="status-grid" style="grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
+          <div class="stat-box">
+            <div class="stat-label">Price level</div>
+            <div class="stat-value" id="price-level-badge" style="font-size:15px">–</div>
+            <div class="stat-sub" id="price-ore-now">–</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Charger mode</div>
+            <div class="stat-value" id="price-charge-badge" style="font-size:15px">–</div>
+            <div class="stat-sub" id="price-ore-next">–</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Next cheap hour</div>
+            <div class="stat-value" id="price-next-cheap" style="font-size:15px">–</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Next expensive hour</div>
+            <div class="stat-value" id="price-next-expensive" style="font-size:15px">–</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;font-weight:500">18-HOUR PRICE TIMELINE</div>
+        <div id="price-chart" style="display:flex;align-items:flex-end;gap:2px;height:80px;background:var(--bg-surface);border-radius:8px;padding:8px;overflow-x:auto"></div>
+        <div id="price-chart-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:10px;color:var(--text-muted)">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#34c759;margin-right:3px"></span>Cheap</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8e8e93;margin-right:3px"></span>Normal</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff9500;margin-right:3px"></span>Expensive</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff3b30;margin-right:3px"></span>Extreme</span>
+        </div>
+        <div id="price-stats" style="font-size:11px;color:var(--text-muted);margin-top:10px"></div>
+        <div style="font-size:10px;color:var(--text-tertiary);margin-top:6px" id="price-updated"></div>
+      </div>
+
+      <!-- Settings card -->
+      <div class="card">
+        <h2>Price Control Settings</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Enable price control</label>
+            <span class="hint">When enabled, Power Guard softly caps charger current based on spot price. Hard power-limit enforcement is unaffected.</span>
+          </div>
+          <div class="control"><label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label></div>
+        </div>
+        <div class="row">
+          <div class="label-group">
+            <label>Price area</label>
+            <span class="hint">Norwegian spot price area (NO1–NO5). Default: NO4 (Nord-Norge).</span>
+          </div>
+          <div class="control">
+            <select id="ps-priceArea" onchange="priceSaveSettings()">
+              <option value="NO1">NO1 – Øst-Norge</option>
+              <option value="NO2">NO2 – Sør-Norge</option>
+              <option value="NO3">NO3 – Midt-Norge</option>
+              <option value="NO4" selected>NO4 – Nord-Norge</option>
+              <option value="NO5">NO5 – Vest-Norge</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label-group">
+            <label>Night discount (øre/kWh)</label>
+            <span class="hint">Subtracted from spot price between 22:00–06:00 to reflect lower nettleie at night.</span>
+          </div>
+          <div class="control">
+            <input type="number" id="ps-nightDiscountOre" min="0" max="50" step="1" value="12" onchange="priceSaveSettings()">
+            <span style="font-size:12px;color:var(--text-muted)">øre</span>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label-group">
+            <label>Charger limit when <b>lav</b></label>
+            <span class="hint">“Lav” mode caps the charger at this fraction of its circuit limit (e.g. 50% of 16A = 8A).</span>
+          </div>
+          <div class="control">
+            <input type="range" id="ps-capLav" min="10" max="90" step="5" value="50"
+              oninput="document.getElementById('ps-capLav-val').textContent=this.value+'%'" onchange="priceSaveSettings()">
+            <span class="range-val" id="ps-capLav-val">50%</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /#tab-price -->
+
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
     <div id="tab-devices" style="display:none">
 
@@ -713,7 +802,7 @@
   }
 
   function showTab(name) {
-    ['settings','system','devices','consumption','floorheater','log'].forEach(function(t) {
+    ['settings','system','devices','consumption','floorheater','log','price'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -737,6 +826,8 @@
       loadFloorHeaters();
     } else if (name === 'log') {
       loadAppLog();
+    } else if (name === 'price') {
+      loadPriceData();
     } else {
       loadAll();
     }
@@ -2687,6 +2778,144 @@
       }, 5000);
     }
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // ██ SECTION — SPOT PRICE TAB                                     ██
+  // ══════════════════════════════════════════════════════════════════
+  // TO REMOVE: delete this section + the 'price' tab button + `tab-price` div
+
+  var _priceAutoRefresh = null;
+
+  function loadPriceData() {
+    hApi('GET', '/price-data', null)
+      .then(function(data) {
+        renderPriceState(data.state);
+        renderPriceSettings(data.settings);
+        // Auto-refresh every 60s while tab is visible
+        if (!_priceAutoRefresh) {
+          _priceAutoRefresh = setInterval(function() {
+            var tab = document.getElementById('tab-price');
+            if (tab && tab.style.display !== 'none') loadPriceData();
+          }, 60000);
+        }
+      })
+      .catch(function(err) {
+        document.getElementById('price-level-badge').textContent = 'Error loading data';
+      });
+  }
+
+  function renderPriceState(state) {
+    if (!state) {
+      document.getElementById('price-level-badge').textContent = 'No data yet';
+      document.getElementById('price-ore-now').textContent     = 'Waiting for first fetch…';
+      document.getElementById('price-charge-badge').textContent = '–';
+      document.getElementById('price-ore-next').textContent    = '';
+      document.getElementById('price-next-cheap').textContent  = '–';
+      document.getElementById('price-next-expensive').textContent = '–';
+      document.getElementById('price-chart').innerHTML         = '';
+      document.getElementById('price-stats').textContent       = '';
+      return;
+    }
+
+    var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
+    var levelLabels = { 'billig': '🟢 Cheap', 'normal': '⚪ Normal', 'dyr': '🟠 Expensive', 'ekstremt dyr': '🔴 Extreme' };
+    var modeLabels  = { 'av': '⏸ Paused', 'lav': '🐢 Low', 'normal': '▶ Normal', 'maks': '⚡ Max' };
+    var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
+
+    var lvl = state.level || 'normal';
+    var mode = state.chargeMode || 'normal';
+
+    var lblEl = document.getElementById('price-level-badge');
+    lblEl.textContent  = levelLabels[lvl] || lvl;
+    lblEl.style.color  = levelColors[lvl] || '';
+
+    document.getElementById('price-ore-now').textContent =
+      state.currentOre + ' øre/kWh' + (state.nightDiscount ? ' (night rate)' : '');
+
+    var mEl = document.getElementById('price-charge-badge');
+    mEl.textContent = modeLabels[mode] || mode;
+    mEl.style.color = modeColors[mode] || '';
+
+    document.getElementById('price-ore-next').textContent =
+      state.nextOre != null ? 'Next hour: ' + state.nextOre + ' øre' : '';
+
+    // Find next cheap / next expensive from entries
+    var now = Date.now();
+    var entries = state.entries || [];
+    var nextCheap = entries.find(function(e) { return e.level === 'billig' && new Date(e.hour).getTime() > now; });
+    var nextExp   = entries.find(function(e) { return (e.level === 'dyr' || e.level === 'ekstremt dyr') && new Date(e.hour).getTime() > now; });
+
+    document.getElementById('price-next-cheap').textContent = nextCheap
+      ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
+      : (lvl === 'billig' ? 'Now' : '–');
+
+    document.getElementById('price-next-expensive').textContent = nextExp
+      ? new Date(nextExp.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
+      : (lvl === 'dyr' || lvl === 'ekstremt dyr' ? 'Now' : '–');
+
+    // Bar chart
+    var chartEl = document.getElementById('price-chart');
+    if (entries.length && state.stats) {
+      var minOre = state.stats.min;
+      var maxOre = state.stats.max;
+      var range  = maxOre - minOre || 1;
+      var bars   = '';
+      var nowTs  = Date.now();
+      entries.forEach(function(e) {
+        var barH   = Math.round(((e.ore - minOre) / range) * 60) + 8;
+        var col    = levelColors[e.level] || '#8e8e93';
+        var ets    = new Date(e.hour).getTime();
+        var isCurrent = ets <= nowTs && nowTs < ets + 3600000;
+        var hLabel = new Date(e.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' });
+        bars += '<div title="' + hLabel + ': ' + e.ore + ' øre (' + e.level + ')" ' +
+          'style="flex:1;min-width:14px;height:' + barH + 'px;background:' + col + ';border-radius:3px 3px 0 0;' +
+          'opacity:' + (isCurrent ? '1' : '0.6') + ';' +
+          'outline:' + (isCurrent ? '2px solid var(--text-primary)' : 'none') + ';' +
+          'cursor:default"></div>';
+      });
+      chartEl.innerHTML = bars;
+    } else {
+      chartEl.innerHTML = '<span style="font-size:11px;color:var(--text-muted);align-self:center">No price data</span>';
+    }
+
+    // Stats row
+    var s = state.stats || {};
+    document.getElementById('price-stats').textContent =
+      'Window: min ' + s.min + ' — avg ' + (s.mean || 0).toFixed(1) + ' — max ' + s.max + ' øre/kWh · spread ' + s.spread + ' øre';
+
+    // Last updated
+    var ago = state.updatedAt ? Math.round((Date.now() - state.updatedAt) / 60000) : null;
+    document.getElementById('price-updated').textContent =
+      ago != null ? 'Last updated ' + (ago < 1 ? 'just now' : ago + ' min ago') : '';
+  }
+
+  function renderPriceSettings(cfg) {
+    if (!cfg) return;
+    var enabledEl = document.getElementById('ps-enabled');
+    if (enabledEl) enabledEl.checked = !!cfg.enabled;
+    var areaEl = document.getElementById('ps-priceArea');
+    if (areaEl) areaEl.value = cfg.priceArea || 'NO4';
+    var discEl = document.getElementById('ps-nightDiscountOre');
+    if (discEl) discEl.value = cfg.nightDiscountOre != null ? cfg.nightDiscountOre : 12;
+    var lavEl = document.getElementById('ps-capLav');
+    if (lavEl) {
+      var pct = Math.round((cfg.capLav || 0.5) * 100);
+      lavEl.value = pct;
+      var lavValEl = document.getElementById('ps-capLav-val');
+      if (lavValEl) lavValEl.textContent = pct + '%';
+    }
+  }
+
+  function priceSaveSettings() {
+    var enabled = document.getElementById('ps-enabled').checked;
+    var area    = document.getElementById('ps-priceArea').value;
+    var disc    = Number(document.getElementById('ps-nightDiscountOre').value) || 0;
+    var capLav  = Number(document.getElementById('ps-capLav').value) / 100;
+    hApi('POST', '/price-settings', { enabled: enabled, priceArea: area, nightDiscountOre: disc, capLav: capLav })
+      .then(function() { loadPriceData(); })
+      .catch(function(e) { console.error('Price settings save error:', e); });
+  }
+
 </script>
 </body>
 </html>

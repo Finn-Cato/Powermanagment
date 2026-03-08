@@ -342,4 +342,18 @@ module.exports = {
   async getEaseeStatus({ homey }) {
     return homey.app.getEaseeDirectAPIStatus();
   },
+
+  // ─── Section 13 — Spot Price Engine ──────────────────────────────────────
+
+  /** Return current price state + settings for the Price tab */
+  async getPriceData({ homey }) {
+    return homey.app.getPriceData();
+  },
+
+  /** Save price settings and trigger an immediate re-evaluation */
+  async setPriceSettings({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid body' };
+    await homey.app.savePriceSettings(body);
+    return { ok: true };
+  },
 };

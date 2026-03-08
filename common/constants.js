@@ -92,4 +92,18 @@ const EFFEKT_TIERS = [
   { maxKW: Infinity, label: '≥ 25 kW', index: 6 },
 ];
 
-module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, HOIAX_POWER_STEPS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS };
+// Spot price engine defaults
+// Changing 'enabled' to true in settings activates price-based charger capping.
+const PRICE_DEFAULTS = {
+  enabled: false,          // Off by default — user must opt in
+  priceArea: 'NO4',        // NO1–NO5
+  nightDiscountOre: 12,    // Nettleie night discount subtracted from spot (øre/kWh)
+  nightStartHour: 22,
+  nightEndHour: 6,
+  lookaheadHours: 18,      // How many hours ahead to analyse
+  cheapHoursTarget: 6,     // Number of hours counted as "cheapest" in window
+  capLav: 0.5,             // Charger current cap when mode=lav  (fraction of circuit limit)
+  capMaks: 1.0,            // Charger current cap when mode=maks (no extra restriction)
+};
+
+module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, HOIAX_POWER_STEPS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS };
