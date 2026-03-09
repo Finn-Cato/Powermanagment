@@ -1,4 +1,8 @@
 {
+  "0.8.15": {
+    "en": "UI: Advanced Mode Active notice moved to Settings tab. Managed Chargers card moves to Smart → EV tab when Smart Price Control is enabled. EV tab now shows Charger Preferences above Managed Chargers. Active tab now highlighted with orange bottom border.",
+    "no": "UI: Avansert modus-varsel flyttet til Innstillinger-fanen. Administrerte ladere flyttes til Smart → EV-fanen når Smart Priskontroll er aktivert. EV-fanen viser nå Laderinnstillinger øverst. Aktiv fane markeres med oransje kant nederst."
+  },
   "0.8.11": {
     "en": "Fixed: Night schedule time steppers were hidden when switching to 'Use Homey night hours' — they are now always visible.",
     "no": "Fiks: Nattplan-tidsvelgerne ble skjult ved valg av 'Bruk Homey nattimer' — de er nå alltid synlige."
