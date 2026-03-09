@@ -79,7 +79,7 @@
     .tab-btn { background: none; border: none; border-bottom: 2.5px solid transparent; padding: 10px 4px 7px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; flex: 1 1 0; justify-content: center; min-width: 0; -webkit-tap-highlight-color: transparent; }
     .tab-btn .tab-icon { font-size: 18px; line-height: 1; }
     .tab-btn .tab-label { font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
-    .tab-btn.active { color: var(--brand); background: var(--brand-soft); border-bottom-color: var(--brand); font-weight: 700; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+    .tab-btn.active { color: var(--brand); background: var(--brand-soft); box-shadow: inset 0 -2px 0 var(--brand); font-weight: 700; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
     .tab-btn:hover:not(.active) { color: var(--text-primary); background: rgba(0,0,0,.03); }
     /* Device list */
     .dev-list { list-style: none; padding-left: 0; margin-left: 0; }
@@ -223,7 +223,7 @@
 
     <!-- Tab bar -->
     <div class="tab-bar">
-      <button class="tab-btn active" id="tb-overview" onclick="showTab('overview')"><span class="tab-icon">🏠</span><span class="tab-label">Overview</span></button>
+      <button class="tab-btn active" id="tb-overview" onclick="showTab('overview')"><span class="tab-icon">🏠</span><span class="tab-label">Home</span></button>
       <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')"><span class="tab-icon">📱</span><span class="tab-label">Devices</span></button>
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label">Heaters</span></button>
@@ -244,33 +244,6 @@
       <!-- ── Overview panel ── -->
       <div id="overview-panel-overview">
 
-      <div class="card">
-        <div class="row" style="margin-bottom:8px;">
-          <div class="label-group"><label style="font-size:16px;font-weight:600;">Power Guard</label></div>
-          <div class="control">
-            <label class="toggle" id="guard-toggle">
-              <input type="checkbox" id="s-enabled-toggle" onchange="updateEnabledSync(this.checked)">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-        <span id="st-enabled-big" style="display:none"></span>
-        <span id="st-profile-sub" style="display:none"></span>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.5">Monitors your home’s total power consumption and automatically turns devices off to keep usage below your grid connection limit. When power drops back down, devices are restored.</div>
-        <!-- Hidden sync element for s-enabled -->
-        <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
-      </div>
-
-      <div class="card">
-        <div class="row" style="margin-bottom:8px;">
-          <div class="label-group"><label style="font-size:16px;font-weight:600;">Smart Price Control</label></div>
-          <div class="control">
-            <label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label>
-          </div>
-        </div>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity — charging fast when power is cheap, slowing down when it’s expensive. Power Guard’s hard safety limit always takes priority.</div>
-      </div>
-
       <div id="active-mode-card" style="display:none">
       <div class="card" style="padding:10px 14px;">
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:8px;">ACTIVE MODE</div>
@@ -281,6 +254,37 @@
           <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">❄️ Holiday</button>
         </div>
       </div>
+      </div>
+
+      <div class="card">
+        <h2>Live Status</h2>
+        <div class="status-grid">
+          <div class="stat-box">
+            <div class="stat-label">Power right now</div>
+            <div class="stat-value" id="st-power">– W</div>
+            <div class="stat-sub">of <span id="st-limit">–</span> W limit</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Devices controlled</div>
+            <div class="stat-value" id="st-mitigation">–</div>
+          </div>
+        </div>
+        <div id="ev-section" style="display:none;margin-top:14px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">EV CHARGERS</div>
+          <div id="ev-grid" class="status-grid"></div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
+               onclick="(function(btn){var d=document.getElementById('log-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'\u25b6 RECENT ACTIVITY':'\u25bc RECENT ACTIVITY';})(this)">
+            &#9660; RECENT ACTIVITY</div>
+          <div id="log-container"><div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div></div>
+        </div>
+        <div style="margin-top:14px">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
+               onclick="(function(btn){var d=document.getElementById('scan-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'\u25b6 LAST MITIGATION SCAN':'\u25bc LAST MITIGATION SCAN';})(this)">
+            &#9660; LAST MITIGATION SCAN</div>
+          <div id="scan-container"><div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div></div>
+        </div>
       </div>
 
       <div class="card">
@@ -312,40 +316,46 @@
       <!-- ── Settings panel ── -->
       <div id="overview-panel-settings" style="display:none">
 
-      <div class="card">
-        <h2>Live Status</h2>
-        <div class="status-grid">
-          <div class="stat-box">
-            <div class="stat-label">Power right now</div>
-            <div class="stat-value" id="st-power">– W</div>
-            <div class="stat-sub">of <span id="st-limit">–</span> W limit</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">Devices controlled</div>
-            <div class="stat-value" id="st-mitigation">–</div>
-          </div>
-        </div>
-        <div id="ev-section" style="display:none;margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">EV CHARGERS</div>
-          <div id="ev-grid" class="status-grid"></div>
-        </div>
-        <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
-               onclick="(function(btn){var d=document.getElementById('log-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'▶ RECENT ACTIVITY':'▼ RECENT ACTIVITY';})(this)">
-            ▼ RECENT ACTIVITY</div>
-          <div id="log-container"><div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div></div>
-        </div>
-        <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
-               onclick="(function(btn){var d=document.getElementById('scan-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'▶ LAST MITIGATION SCAN':'▼ LAST MITIGATION SCAN';})(this)">
-            ▼ LAST MITIGATION SCAN</div>
-          <div id="scan-container"><div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div></div>
-        </div>
-      </div>
-
-      <!-- st-han / st-han-age kept hidden for JS compatibility (displayed on Overview tab) -->
+      <!-- st-han / st-han-age kept hidden for JS compatibility -->
       <span id="st-han" style="display:none"></span>
       <span id="st-han-age" style="display:none"></span>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:8px;">
+          <div class="label-group"><label style="font-size:16px;font-weight:600;">Power Guard</label></div>
+          <div class="control">
+            <label class="toggle" id="guard-toggle">
+              <input type="checkbox" id="s-enabled-toggle" onchange="updateEnabledSync(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        <span id="st-enabled-big" style="display:none"></span>
+        <span id="st-profile-sub" style="display:none"></span>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5">Monitors your home's total power consumption and automatically turns devices off to keep usage below your grid connection limit. When power drops back down, devices are restored.</div>
+        <!-- Hidden sync element for s-enabled -->
+        <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:8px;">
+          <div class="label-group"><label style="font-size:16px;font-weight:600;">Smart Price Control</label></div>
+          <div class="control">
+            <label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity — charging fast when power is cheap, slowing down when it's expensive. Power Guard's hard safety limit always takes priority.</div>
+      </div>
+
+      <div id="smart-price-advanced-notice" style="display:none;background:rgba(232,68,26,.1);border:1px solid rgba(232,68,26,.35);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <span style="font-size:20px;flex-shrink:0;">⚠️</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:3px;">Advanced Mode Active</div>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Smart Price Control enables an advanced interface for fine-tuning EV charger behaviour, device modes, and dynamic price schedules. Make sure you understand each setting before making changes.<br><br>The <b>🌡️ Heaters</b> tab has been replaced by the <b>🧠 Smart</b> tab, which gives you access to Price settings, Modes, and EV charger control.</div>
+          </div>
+        </div>
+      </div>
 
       <div class="card">
         <div class="row">
@@ -467,7 +477,7 @@
         <div id="han-diag-copy-msg" style="font-size:11px; margin-top:4px; display:none;"></div>
       </div>
 
-      <div class="card">
+      <div class="card" id="managed-chargers-card">
         <h2>Managed Chargers</h2>
         <!-- voltageSystem and mainCircuitA are now fully auto-detected from HAN and charger data -->
         <input type="hidden" id="s-voltageSystem" value="auto">
@@ -797,7 +807,7 @@
       <!-- ── EV Charger panel ── -->
       <div id="smart-panel-ev" style="display:none">
 
-      <div class="card">
+      <div class="card" style="padding:10px 14px;">
         <h2>EV Charger Preferences</h2>
         <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;">Set whether each EV charger is allowed or paused in each mode. Power Guard's hard power limit always takes priority.</p>
         <!-- Mode sub-tab bar -->
@@ -812,6 +822,8 @@
         <div id="ev-dev-away"    style="display:none"></div>
         <div id="ev-dev-holiday" style="display:none"></div>
       </div>
+
+      <div id="managed-chargers-smart-slot"></div>
 
       </div><!-- /#smart-panel-ev -->
 
@@ -3062,22 +3074,37 @@
   }
 
   function _updateHeaterTabVisibility(priceEnabled) {
-    var heaterBtn   = document.getElementById('tb-floorheater');
-    var smartBtn    = document.getElementById('tb-smart');
-    var modeCard    = document.getElementById('active-mode-card');
+    var heaterBtn        = document.getElementById('tb-floorheater');
+    var smartBtn         = document.getElementById('tb-smart');
+    var modeCard         = document.getElementById('active-mode-card');
+    var advNotice        = document.getElementById('smart-price-advanced-notice');
+    var managedChargers  = document.getElementById('managed-chargers-card');
+    var smartSlot        = document.getElementById('managed-chargers-smart-slot');
+    var systemPanel      = document.getElementById('overview-panel-system');
 
     if (priceEnabled) {
-      if (heaterBtn) heaterBtn.style.display = 'none';
-      if (smartBtn)  smartBtn.style.display  = '';
-      if (modeCard)  modeCard.style.display  = '';
+      if (heaterBtn)  heaterBtn.style.display  = 'none';
+      if (smartBtn)   smartBtn.style.display   = '';
+      if (modeCard)   modeCard.style.display   = '';
+      if (advNotice)  advNotice.style.display  = '';
+      // Move Managed Chargers card into Smart → EV panel
+      if (managedChargers && smartSlot && !smartSlot.contains(managedChargers)) {
+        smartSlot.appendChild(managedChargers);
+      }
       // If user is currently on Heaters tab, redirect to Overview
       if (document.getElementById('tab-floorheater').style.display !== 'none') {
         showTab('overview');
       }
     } else {
-      if (heaterBtn) heaterBtn.style.display = '';
-      if (smartBtn)  smartBtn.style.display  = 'none';
-      if (modeCard)  modeCard.style.display  = 'none';
+      if (heaterBtn)  heaterBtn.style.display  = '';
+      if (smartBtn)   smartBtn.style.display   = 'none';
+      if (modeCard)   modeCard.style.display   = 'none';
+      if (advNotice)  advNotice.style.display  = 'none';
+      // Move Managed Chargers card back into System panel (before save-row)
+      if (managedChargers && systemPanel && !systemPanel.contains(managedChargers)) {
+        var saveRow = systemPanel.querySelector('.save-row');
+        systemPanel.insertBefore(managedChargers, saveRow || null);
+      }
       // If user is currently on Smart tab, redirect to Overview
       if (document.getElementById('tab-smart').style.display !== 'none') {
         showTab('overview');
