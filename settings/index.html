@@ -329,7 +329,7 @@
             <span class="hint">How long the limit must be exceeded before turning off a device.</span>
           </div>
           <div class="control">
-            <input type="number" id="s-cooldownSeconds" min="5" max="300" step="5" value="30">
+            <input type="number" id="s-cooldownSeconds" min="1" max="300" step="1" value="30">
             <span style="font-size:12px;color:var(--text-muted)">s</span>
           </div>
         </div>
@@ -381,7 +381,7 @@
           <div class="row">
             <div class="label-group"><label>Missing data timeout</label><span class="hint">Force mitigation if no power reading for this many seconds. 0 = disabled.</span></div>
             <div class="control">
-              <input type="number" id="s-missingPowerTimeoutS" min="0" max="600" step="30" value="120">
+              <input type="number" id="s-missingPowerTimeoutS" min="0" max="600" step="1" value="120">
               <span style="font-size:12px;color:var(--text-muted)">s</span>
             </div>
           </div>
