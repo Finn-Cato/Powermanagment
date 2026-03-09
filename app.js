@@ -1888,6 +1888,7 @@ class PowerGuardApp extends Homey.App {
             caps.includes('charge_mode') ||
             caps.includes('charging_button') ||
             caps.includes('toggleChargingCapability') ||
+            caps.includes('evcharger_charging') ||
             caps.includes('max_power_3000') ||
             caps.includes('max_power');
 
@@ -2079,6 +2080,7 @@ class PowerGuardApp extends Homey.App {
           isCharging:     obj.onoff ? obj.onoff.value !== false
                         : obj.toggleChargingCapability ? obj.toggleChargingCapability.value !== false
                         : obj.charging_button ? obj.charging_button.value !== false
+                        : obj.evcharger_charging ? obj.evcharger_charging.value !== false
                         : false,
           chargerStatus:  obj.charger_status ? obj.charger_status.value
                         : obj.chargerStatusCapability ? obj.chargerStatusCapability.value
@@ -2152,6 +2154,17 @@ class PowerGuardApp extends Homey.App {
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_car_connected'] = carInst;
+        }
+
+        // Listen to evcharger_charging changes (FutureHome specific)
+        if (caps.includes('evcharger_charging')) {
+          const fhInst = device.makeCapabilityInstance('evcharger_charging', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].isCharging = value !== false;
+              this.log(`[EV] ${entry.name} evcharger_charging changed to: ${value}`);
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_evcharger_charging'] = fhInst;
         }
 
         // Listen to charging_button changes (Zaptec specific)
@@ -2443,6 +2456,9 @@ class PowerGuardApp extends Homey.App {
       } else if (brand === 'zaptec') {
         await this._setZaptecCurrent(entry.deviceId, targetCurrent).catch(() => {});
         success = true;
+      } else if (brand === 'futurehome') {
+        await this._setFutureHomeCurrent(entry.deviceId, targetCurrent).catch(() => {});
+        success = true;
       } else {
         this.log(`[EV] Unknown brand for "${entry.name}" (${entry.deviceId}) — cannot adjust current. Re-run device cache refresh.`);
       }
@@ -2601,6 +2617,7 @@ class PowerGuardApp extends Homey.App {
     // Capability-based detection (most reliable)
     if (caps.includes('toggleChargingCapability')) return 'enua';
     if (caps.includes('charging_button')) return 'zaptec';
+    if (caps.includes('evcharger_charging')) return 'futurehome';
     if (caps.some(c => ['dynamic_charger_current', 'dynamicChargerCurrent',
       'dynamicCircuitCurrentP1', 'target_charger_current'].includes(c))) return 'easee';
     // Fallback: use pre-computed brand flags stored in device cache.
@@ -2951,6 +2968,71 @@ class PowerGuardApp extends Homey.App {
       }
     }
     return false;
+  }
+
+  /**
+   * Set FutureHome EV charger state via evcharger_charging capability (on/off only).
+   * No dynamic current control available — pause sets evcharger_charging=false,
+   * resume sets evcharger_charging=true.
+   * @param {string} deviceId
+   * @param {number|null} currentA - null/0 to pause, any positive value to resume
+   * @returns {Promise<boolean>} true if successful
+   */
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 8b — EV CHARGER — FUTUREHOME                                      █
+  // ══════════════════════════════════════════════════════════════════
+  //  Homey app: no.futurehome (FutureHome hub / El-bil Lader)
+  //  Pause:   evcharger_charging = false
+  //  Resume:  evcharger_charging = true
+  //  Note:    No dynamic current capability — on/off control only.
+  //
+  //  ⚠️ ACTIVE
+  // ══════════════════════════════════════════════════════════════════
+
+  async _setFutureHomeCurrent(deviceId, currentA) {
+    if (!this._api) return false;
+
+    const pendingTs = this._pendingChargerCommands[deviceId];
+    if (pendingTs && (Date.now() - pendingTs) < 15000) {
+      this.log(`[FutureHome] Skipping ${deviceId}, command still pending (${Math.round((Date.now() - pendingTs) / 1000)}s ago)`);
+      return false;
+    }
+
+    try {
+      const device = await withTimeout(
+        this._api.devices.getDevice({ id: deviceId }),
+        10000, `getDevice(${deviceId})`
+      );
+      if (!device) return false;
+
+      this._pendingChargerCommands[deviceId] = Date.now();
+
+      const pause = currentA === null || currentA === 0;
+      const newVal = !pause;
+
+      await withTimeout(
+        device.setCapabilityValue({ capabilityId: 'evcharger_charging', value: newVal }),
+        10000, `futureHomePauseResume(${deviceId}, ${newVal})`
+      );
+
+      const action = pause ? 'paused' : 'resumed';
+      this._addLog(`FutureHome ${action}: ${device.name}`);
+      this._appLogEntry('charger', `FutureHome ${action}: ${device.name}`);
+      if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+      Object.assign(this._chargerState[deviceId], {
+        lastCommandA: pause ? 0 : currentA,
+        commandTime: Date.now(),
+        confirmed: false,
+        timedOut: false
+      });
+      delete this._pendingChargerCommands[deviceId];
+      return true;
+
+    } catch (err) {
+      delete this._pendingChargerCommands[deviceId];
+      this.error(`[FutureHome] Failed to set charger state for ${deviceId}:`, err);
+      return false;
+    }
   }
 
   /**
@@ -4000,6 +4082,7 @@ class PowerGuardApp extends Homey.App {
                             'available_installation_current', 'alarm_generic.car_connected',
                             'toggleChargingCapability', 'chargerStatusCapability',
                             'toggleCableLockCapability', 'changeLedIntensityCapability',
+                            'evcharger_charging', 'evcharger_charging_state',
                             'measure_current', 'measure_power', 'onoff', 'charger_status',
                             'measure_current.phase1', 'measure_current.phase2', 'measure_current.phase3',
                             'measure_current.offered', 'measure_voltage'];
@@ -4014,6 +4097,7 @@ class PowerGuardApp extends Homey.App {
       // Detect charger type
       const isZaptec = caps.includes('charging_button');
       const isEnua = caps.includes('toggleChargingCapability');
+      const isFutureHome = caps.includes('evcharger_charging');
       const isEasee = caps.includes('target_charger_current') || caps.includes('target_circuit_current') ||
                       caps.includes('dynamic_charger_current') || caps.includes('dynamicChargerCurrent');
 
@@ -4136,6 +4220,28 @@ class PowerGuardApp extends Homey.App {
         }
 
         results.success = !results.steps.some(s => s.ok === false);
+
+      } else if (isFutureHome) {
+        // ── FutureHome test path ──
+        results.steps.push({ step: 'Charger type', ok: true, detail: 'FutureHome El-bil Lader (evcharger_charging on/off control)' });
+
+        const chargingVal = obj.evcharger_charging ? obj.evcharger_charging.value : null;
+        results.steps.push({ step: 'evcharger_charging', ok: true, detail: `Current value: ${chargingVal}` });
+
+        const stateVal = obj.evcharger_charging_state ? obj.evcharger_charging_state.value : 'unknown';
+        results.steps.push({ step: 'evcharger_charging_state', ok: true, detail: `State: ${stateVal}` });
+
+        // Write-back test (write same value back — no actual change)
+        try {
+          const writeVal = chargingVal !== null ? chargingVal : true;
+          await device.setCapabilityValue({ capabilityId: 'evcharger_charging', value: writeVal });
+          results.steps.push({ step: 'Write test', ok: true, detail: `Wrote evcharger_charging = ${writeVal} (same as current — no change)` });
+          results.success = true;
+        } catch (err) {
+          results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write evcharger_charging: ${err.message}` });
+        }
+
+        results.steps.push({ step: 'Note', ok: true, detail: 'FutureHome supports pause/resume only — no dynamic current control available.' });
 
       } else if (isEasee) {
         // ── Easee test path ──
