@@ -287,22 +287,6 @@
         </div>
       </div>
 
-      <div class="card">
-        <h2>Power Meter</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Power meter device</label>
-            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
-          </div>
-          <div class="control">
-            <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
-              <option value="auto">Auto-detect</option>
-            </select>
-          </div>
-        </div>
-        <div id="meter-status" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
-      </div>
-
       <!-- Effekttariff (Capacity Tariff) Section -->
       <div class="card" id="effekt-section">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">⚡ EFFEKTTARIFF (TEST)</div>
@@ -453,12 +437,26 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2>Power Meter</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Power meter device</label>
+            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
+          </div>
+          <div class="control">
+            <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
+              <option value="auto">Auto-detect</option>
+            </select>
+          </div>
+        </div>
+        <div id="meter-status" style="font-size:12px;color:var(--text-muted);margin-top:6px"></div>
+      </div>
+
       <div class="save-row">
         <button class="btn-secondary" onclick="loadAll()">Discard</button>
         <button class="btn-primary"   onclick="saveAll()">Save settings</button>
       </div>
-
-
 
       </div><!-- /#overview-panel-settings -->
 
