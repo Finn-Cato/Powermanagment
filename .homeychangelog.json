@@ -163,5 +163,8 @@
   },
   "0.8.22": {
     "en": "Fix: EV charger test diagnostic no longer misidentifies Easee as FutureHome. Fix: charger no longer jumps to 16A after a pause — step-up cap now correctly applies when resuming from untracked state."
+  },
+  "0.8.23": {
+    "en": "Reverted step-up cap change. Only fix retained: test charger diagnostic correctly identifies Easee chargers (was showing FutureHome)."
   }
 }
