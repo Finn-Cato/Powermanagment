@@ -365,7 +365,68 @@ module.exports = {
     return { ok: true };
   },
 
-  // ─── Section 14 — Mode Engine ─────────────────────────────────────────────
+  // ─── Section 14 — EV Smart Charging (Logic variables) ────────────────────
+
+  /** Read car charging status + schedule settings from Homey Logic variables */
+  async getEvChargingStatus({ homey }) {
+    const api = homey.app._api;
+    if (!api) return { ok: false, error: 'HomeyAPI not ready' };
+
+    try {
+      const allVars = await api.logic.getVariables();
+      const vars = Object.values(allVars || {});
+
+      const get = (name) => {
+        const v = vars.find(v => v.name === name);
+        return v ? v.value : null;
+      };
+
+      return {
+        ok: true,
+        bil_tilkoblet:    get('bil_tilkoblet'),
+        bil_lader_na:     get('bil_lader_nå'),
+        burde_lade_bilen: get('burde_lade_bilen'),
+        lademodus:        get('lademodus'),
+        strompris:        get('strømpris'),
+        neste_billige_time: get('neste_billige_time'),
+        ladebehov_timer:  get('ladebehov_timer'),
+        ferdig_ladet_kl:  get('ferdig_ladet_kl'),
+      };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
+
+  /** Write ladebehov_timer and ferdig_ladet_kl to Homey Logic variables */
+  async setEvChargingSettings({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid body' };
+    const api = homey.app._api;
+    if (!api) return { ok: false, error: 'HomeyAPI not ready' };
+
+    try {
+      const allVars = await api.logic.getVariables();
+      const vars = Object.values(allVars || {});
+
+      const setVar = async (name, value) => {
+        const v = vars.find(v => v.name === name);
+        if (!v) return;
+        await api.logic.updateVariable({ id: v.id, variable: { value } });
+      };
+
+      if (body.ladebehov_timer !== undefined) {
+        await setVar('ladebehov_timer', Math.max(0, Math.round(Number(body.ladebehov_timer) || 0)));
+      }
+      if (body.ferdig_ladet_kl !== undefined) {
+        await setVar('ferdig_ladet_kl', String(body.ferdig_ladet_kl || ''));
+      }
+
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
+
+  // ─── Section 15 — Mode Engine ─────────────────────────────────────────────
 
   async getModesSettings({ homey }) {
     return homey.app.getModesSettings();
