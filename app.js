@@ -2528,16 +2528,14 @@ class PowerGuardApp extends Homey.App {
       if (now - (cState.lastAdjustTime || 0) < perChargerThrottle) continue;
 
       // Cap step-up to maxStepUpA per cycle to prevent oscillation jumps.
-      // Exception: when resuming from pause (currentTargetA=0/null), skip the gradual cap
-      // and jump to min(startCurrent, rawTarget). Stepping from 0→2→4A produces sub-minimum
-      // values that the charger ignores, causing it to default back to 16A.
+      // IMPORTANT: check null/0 BEFORE isIncrease — isIncrease is false when currentTargetA
+      // is null, which would bypass all caps and send rawTarget (e.g. 16A) directly.
       let targetCurrent = rawTarget;
-      if (isIncrease) {
-        const isPaused = currentTargetA === 0 || currentTargetA === null;
-        if (isPaused) {
+      if (rawTarget !== null) {
+        if (currentTargetA === null || currentTargetA === 0) {
           targetCurrent = Math.min(CHARGER_DEFAULTS.startCurrent, rawTarget);
           this.log(`[EV] Resume from pause: ${rawTarget}A → ${targetCurrent}A (capped to startCurrent=${CHARGER_DEFAULTS.startCurrent}A)`);
-        } else {
+        } else if (isIncrease) {
           targetCurrent = Math.min(rawTarget, currentTargetA + CHARGER_DEFAULTS.maxStepUpA);
           if (targetCurrent !== rawTarget) {
             this.log(`[EV] Anti-hunt step-up: capped ${rawTarget}A → ${targetCurrent}A (+${CHARGER_DEFAULTS.maxStepUpA}A max)`);
@@ -4230,12 +4228,12 @@ class PowerGuardApp extends Homey.App {
       }
       results.steps.push({ step: 'Capabilities', ok: true, detail: JSON.stringify(found) });
 
-      // Detect charger type
+      // Detect charger type — check Easee BEFORE FutureHome (Easee also has evcharger_charging)
       const isZaptec = caps.includes('charging_button');
       const isEnua = caps.includes('toggleChargingCapability');
-      const isFutureHome = caps.includes('evcharger_charging');
       const isEasee = caps.includes('target_charger_current') || caps.includes('target_circuit_current') ||
                       caps.includes('dynamic_charger_current') || caps.includes('dynamicChargerCurrent');
+      const isFutureHome = !isEasee && caps.includes('evcharger_charging');
 
       if (isZaptec) {
         // ── Zaptec test path ──

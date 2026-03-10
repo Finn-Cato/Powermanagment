@@ -160,5 +160,8 @@
   },
   "0.8.21": {
     "en": "Fix: Charging Schedule (hours needed / finish by time) now saves correctly even when Homey Logic variables are not set up. Values are stored in app settings and synced to Logic variables if they exist."
+  },
+  "0.8.22": {
+    "en": "Fix: EV charger test diagnostic no longer misidentifies Easee as FutureHome. Fix: charger no longer jumps to 16A after a pause — step-up cap now correctly applies when resuming from untracked state."
   }
 }
