@@ -1,4 +1,8 @@
 {
+  "0.8.16": {
+    "en": "Added FutureHome El-bil Lader support (pause/resume via evcharger_charging). Fixed advanced settings (Safety Buffer, Missing Data Timeout, Dynamic Restore Guard) not being saved or loaded correctly. Number inputs for timeouts now change by 1s per click for precise control. New EV Smart Charging panel in Smart → EV tab: live status from Homey Logic variables (bil_tilkoblet, bil_lader_nå, burde_lade_bilen, lademodus, strømpris) and charging schedule inputs (hours needed + finish by time) for HomeyScript v8.3 integration.",
+    "no": "Lagt til støtte for FutureHome El-bil Lader (pause/gjenopptak via evcharger_charging). Fikset at avanserte innstillinger (Sikkerhetsmargin, Manglende data-timeout, Dynamisk gjenopprettingsvakt) ikke ble lagret eller lastet korrekt. Tallinputt for tidsavbrudd endres nå med 1s per klikk for presis kontroll. Ny EV Smart Lading-panel i Smart → EV-fanen: sanntidsstatus fra Homey Logic-variabler (bil_tilkoblet, bil_lader_nå, burde_lade_bilen, lademodus, strømpris) og ladeplansinnstillinger (timer nødvendig + ferdig innen) for HomeyScript v8.3-integrasjon."
+  },
   "0.8.15": {
     "en": "UI: Advanced Mode Active notice moved to Settings tab. Managed Chargers card moves to Smart → EV tab when Smart Price Control is enabled. EV tab now shows Charger Preferences above Managed Chargers. Active tab now highlighted with orange bottom border.",
     "no": "UI: Avansert modus-varsel flyttet til Innstillinger-fanen. Administrerte ladere flyttes til Smart → EV-fanen når Smart Priskontroll er aktivert. EV-fanen viser nå Laderinnstillinger øverst. Aktiv fane markeres med oransje kant nederst."
