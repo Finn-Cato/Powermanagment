@@ -2,7 +2,7 @@
 // Auto-answers the interactive prompts in `homey app publish`
 const { spawn } = require('child_process');
 
-const CHANGELOG = `Bugfix`;
+const CHANGELOG = `EV charger anti-hunt fix: charger no longer oscillates up/down around the power limit. Increases are now rate-limited (max +2A per 60s), decreases remain fast (15s). Safety buffer increased from 200W to 400W to absorb household fluctuation.`;
 
 const proc = spawn('homey', ['app', 'publish'], {
   stdio: ['pipe', 'pipe', 'pipe'],
