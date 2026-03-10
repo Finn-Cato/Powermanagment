@@ -73,10 +73,12 @@ const CHARGER_DEFAULTS = {
   minCurrent: 6,               // Minimum charging current (Easee supports 6A)
   startCurrent: 11,            // Current when resuming from pause (ensures reliable start)
   maxCurrent: 32,              // Maximum charging current
-  toggleConfirmedMs: 15000,    // Throttle when last command was confirmed (15s)
+  toggleConfirmedMs: 15000,    // Throttle for decreases when confirmed (15s — fast response)
+  toggleIncreaseMs: 60000,     // Throttle for increases (60s — anti-hunt: slow ramp-up)
   toggleUnconfirmedMs: 45000,  // Throttle when last command was NOT confirmed (45s)
   toggleEmergencyMs: 5000,     // Throttle in emergency >500W over (5s)
   confirmationTimeoutMs: 20000,// How long to wait for offered-current confirmation (20s)
+  maxStepUpA: 2,               // Max amps to increase per cycle (prevents hunting jumps)
 };
 
 // Norwegian effekttariff (capacity tariff) — tier thresholds in kW

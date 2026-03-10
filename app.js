@@ -2361,7 +2361,7 @@ class PowerGuardApp extends Homey.App {
     }).length;
     const activeChargerCount = Math.max(1, chargingCount);
     const sharedNonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
-    const sharedAvailableW = limit - sharedNonChargerUsage - 200;
+    const sharedAvailableW = limit - sharedNonChargerUsage - 400;  // 400W buffer leaves room for household fluctuation
     const perChargerBudgetW = sharedAvailableW / activeChargerCount;
     const householdAloneExceedsLimit = sharedNonChargerUsage > (limit - 200);
     if (connectedEntries.length > 1) {
@@ -2403,18 +2403,31 @@ class PowerGuardApp extends Homey.App {
         }
       }
 
-      // Per-charger smart throttle based on confirmation state
-      // Confirmed commands → shorter wait (charger is responsive)
+      // Per-charger smart throttle based on confirmation state and direction
+      // Decreases use fast throttle (15s) — emergency response needed
+      // Increases use slow throttle (60s) — anti-hunt: prevents rapid ramp-up oscillation
       // Unconfirmed → longer wait (charger may be slow or unresponsive)
       // Emergency → minimal wait (immediate response needed)
       const cState = this._chargerState[entry.deviceId] || {};
       const isConfirmed = cState.confirmed === true;
+      const currentTargetA = (this._mitigatedDevices.find(m => m.deviceId === entry.deviceId) || {}).currentTargetA ?? null;
+      const rawTarget = this._calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, entry);
+      const isIncrease = rawTarget !== null && currentTargetA !== null && rawTarget > currentTargetA;
       const perChargerThrottle = isEmergency ? CHARGER_DEFAULTS.toggleEmergencyMs
+        : isIncrease ? CHARGER_DEFAULTS.toggleIncreaseMs
         : isConfirmed ? CHARGER_DEFAULTS.toggleConfirmedMs
         : CHARGER_DEFAULTS.toggleUnconfirmedMs;
       if (now - (cState.lastAdjustTime || 0) < perChargerThrottle) continue;
 
-      const targetCurrent = this._calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, entry);
+      // Cap step-up to maxStepUpA per cycle to prevent oscillation jumps
+      let targetCurrent = rawTarget;
+      if (isIncrease) {
+        targetCurrent = Math.min(rawTarget, currentTargetA + CHARGER_DEFAULTS.maxStepUpA);
+        if (targetCurrent !== rawTarget) {
+          this.log(`[EV] Anti-hunt step-up: capped ${rawTarget}A → ${targetCurrent}A (+${CHARGER_DEFAULTS.maxStepUpA}A max)`);
+        }
+      }
+
       const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
 
       // Skip if target hasn't changed meaningfully
