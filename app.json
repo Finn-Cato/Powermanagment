@@ -233,6 +233,14 @@
     "activateMode": {
       "method": "POST",
       "path": "/mode-activate"
+    },
+    "getEvChargingStatus": {
+      "method": "GET",
+      "path": "/ev-charging-status"
+    },
+    "setEvChargingSettings": {
+      "method": "POST",
+      "path": "/set-ev-charging-settings"
     }
   },
   "flow": {
