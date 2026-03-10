@@ -20,3 +20,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Reference/working files
+_reference/
+*.code-workspace

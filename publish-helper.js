@@ -2,7 +2,7 @@
 // Auto-answers the interactive prompts in `homey app publish`
 const { spawn } = require('child_process');
 
-const CHANGELOG = `UI: Settings and System moved into Overview tab as sub-tabs (Overview / Settings / System) — reduces main tab bar clutter. Smart tab and Heaters tab are now mutually exclusive: Smart tab visible only when Smart Price Control is ON, Heaters tab visible only when OFF. Active Mode card hidden on Overview when Smart Price Control is OFF. Thermostat temperature control fixed: dual-format setCapabilityValue handles homey-api version differences. _applyMode now accepts optional filterDeviceId — changing a single device pref only re-applies that device, preventing EV chargers from being triggered on every thermostat click. All controlFloorHeater errors now surfaced in Log tab.`;
+const CHANGELOG = `Added FutureHome El-bil Lader support (pause/resume via evcharger_charging). Fixed advanced settings (Safety Buffer, Missing Data Timeout, Dynamic Restore Guard) not being saved or loaded correctly. Number inputs for timeouts now change by 1s per click for precise control. New EV Smart Charging panel in Smart → EV tab: live status from Homey Logic variables (bil_tilkoblet, bil_lader_nå, burde_lade_bilen, lademodus, strømpris) and charging schedule inputs (hours needed + finish by time) for HomeyScript v8.3 integration.`;
 
 const proc = spawn('homey', ['app', 'publish'], {
   stdio: ['pipe', 'pipe', 'pipe'],
@@ -11,6 +11,7 @@ const proc = spawn('homey', ['app', 'publish'], {
 });
 
 let buf = '';
+let uncommittedAnswered = false;
 let versionAnswered = false;
 let changelogAnswered = false;
 
@@ -18,6 +19,11 @@ proc.stdout.on('data', (chunk) => {
   const text = chunk.toString();
   process.stdout.write(text);
   buf += text;
+
+  if (!uncommittedAnswered && buf.includes('uncommitted changes')) {
+    uncommittedAnswered = true;
+    setTimeout(() => { proc.stdin.write('y\n'); }, 200);
+  }
 
   if (!versionAnswered && (buf.includes('version number') || buf.includes('update your app'))) {
     versionAnswered = true;
