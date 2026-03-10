@@ -148,5 +148,11 @@
   },
   "0.8.17": {
     "en": "Bugfix"
+  },
+  "0.8.18": {
+    "en": "EV charger anti-hunt fix: charger no longer oscillates up/down around the power limit. Increases are now rate-limited (max +2A per 60s), decreases remain fast (15s). Safety buffer increased from 200W to 400W to absorb household fluctuation."
+  },
+  "0.8.19": {
+    "en": "Critical fix: Easee chargers were misidentified as FutureHome, causing full on/off cycling instead of smooth current control. Fixed brand detection so Easee always uses Ladegrense (current limit) not pause/resume. Added proactive load shedding: when EV needs power, lower-priority devices (e.g. water heater) are turned off automatically. Safety buffer increased to 1000W."
   }
 }
