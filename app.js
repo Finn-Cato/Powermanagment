@@ -1888,6 +1888,7 @@ class PowerGuardApp extends Homey.App {
             caps.includes('charge_mode') ||
             caps.includes('charging_button') ||
             caps.includes('toggleChargingCapability') ||
+            caps.includes('evcharger_charging') ||
             caps.includes('max_power_3000') ||
             caps.includes('max_power');
 
@@ -2079,6 +2080,7 @@ class PowerGuardApp extends Homey.App {
           isCharging:     obj.onoff ? obj.onoff.value !== false
                         : obj.toggleChargingCapability ? obj.toggleChargingCapability.value !== false
                         : obj.charging_button ? obj.charging_button.value !== false
+                        : obj.evcharger_charging ? obj.evcharger_charging.value !== false
                         : false,
           chargerStatus:  obj.charger_status ? obj.charger_status.value
                         : obj.chargerStatusCapability ? obj.chargerStatusCapability.value
@@ -2152,6 +2154,17 @@ class PowerGuardApp extends Homey.App {
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_car_connected'] = carInst;
+        }
+
+        // Listen to evcharger_charging changes (FutureHome specific)
+        if (caps.includes('evcharger_charging')) {
+          const fhInst = device.makeCapabilityInstance('evcharger_charging', (value) => {
+            if (this._evPowerData[entry.deviceId]) {
+              this._evPowerData[entry.deviceId].isCharging = value !== false;
+              this.log(`[EV] ${entry.name} evcharger_charging changed to: ${value}`);
+            }
+          });
+          this._evCapabilityInstances[entry.deviceId + '_evcharger_charging'] = fhInst;
         }
 
         // Listen to charging_button changes (Zaptec specific)
@@ -2443,6 +2456,9 @@ class PowerGuardApp extends Homey.App {
       } else if (brand === 'zaptec') {
         await this._setZaptecCurrent(entry.deviceId, targetCurrent).catch(() => {});
         success = true;
+      } else if (brand === 'futurehome') {
+        await this._setFutureHomeCurrent(entry.deviceId, targetCurrent).catch(() => {});
+        success = true;
       } else {
         this.log(`[EV] Unknown brand for "${entry.name}" (${entry.deviceId}) — cannot adjust current. Re-run device cache refresh.`);
       }
@@ -2601,6 +2617,7 @@ class PowerGuardApp extends Homey.App {
     // Capability-based detection (most reliable)
     if (caps.includes('toggleChargingCapability')) return 'enua';
     if (caps.includes('charging_button')) return 'zaptec';
+    if (caps.includes('evcharger_charging')) return 'futurehome';
     if (caps.some(c => ['dynamic_charger_current', 'dynamicChargerCurrent',
       'dynamicCircuitCurrentP1', 'target_charger_current'].includes(c))) return 'easee';
     // Fallback: use pre-computed brand flags stored in device cache.
@@ -2951,6 +2968,71 @@ class PowerGuardApp extends Homey.App {
       }
     }
     return false;
+  }
+
+  /**
+   * Set FutureHome EV charger state via evcharger_charging capability (on/off only).
+   * No dynamic current control available — pause sets evcharger_charging=false,
+   * resume sets evcharger_charging=true.
+   * @param {string} deviceId
+   * @param {number|null} currentA - null/0 to pause, any positive value to resume
+   * @returns {Promise<boolean>} true if successful
+   */
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 8b — EV CHARGER — FUTUREHOME                                      █
+  // ══════════════════════════════════════════════════════════════════
+  //  Homey app: no.futurehome (FutureHome hub / El-bil Lader)
+  //  Pause:   evcharger_charging = false
+  //  Resume:  evcharger_charging = true
+  //  Note:    No dynamic current capability — on/off control only.
+  //
+  //  ⚠️ ACTIVE
+  // ══════════════════════════════════════════════════════════════════
+
+  async _setFutureHomeCurrent(deviceId, currentA) {
+    if (!this._api) return false;
+
+    const pendingTs = this._pendingChargerCommands[deviceId];
+    if (pendingTs && (Date.now() - pendingTs) < 15000) {
+      this.log(`[FutureHome] Skipping ${deviceId}, command still pending (${Math.round((Date.now() - pendingTs) / 1000)}s ago)`);
+      return false;
+    }
+
+    try {
+      const device = await withTimeout(
+        this._api.devices.getDevice({ id: deviceId }),
+        10000, `getDevice(${deviceId})`
+      );
+      if (!device) return false;
+
+      this._pendingChargerCommands[deviceId] = Date.now();
+
+      const pause = currentA === null || currentA === 0;
+      const newVal = !pause;
+
+      await withTimeout(
+        device.setCapabilityValue({ capabilityId: 'evcharger_charging', value: newVal }),
+        10000, `futureHomePauseResume(${deviceId}, ${newVal})`
+      );
+
+      const action = pause ? 'paused' : 'resumed';
+      this._addLog(`FutureHome ${action}: ${device.name}`);
+      this._appLogEntry('charger', `FutureHome ${action}: ${device.name}`);
+      if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+      Object.assign(this._chargerState[deviceId], {
+        lastCommandA: pause ? 0 : currentA,
+        commandTime: Date.now(),
+        confirmed: false,
+        timedOut: false
+      });
+      delete this._pendingChargerCommands[deviceId];
+      return true;
+
+    } catch (err) {
+      delete this._pendingChargerCommands[deviceId];
+      this.error(`[FutureHome] Failed to set charger state for ${deviceId}:`, err);
+      return false;
+    }
   }
 
   /**
@@ -3506,7 +3588,7 @@ class PowerGuardApp extends Homey.App {
     // Control a floor heater using live HomeyAPI device (not cached data!)
     try {
       if (!this._api) {
-        this.log(`[FloorHeater] Control failed: HomeyAPI not available`);
+        this._appLogEntry('charger', `[FloorHeater] Control failed: HomeyAPI not available`);
         return { ok: false, error: 'HomeyAPI not available' };
       }
       
@@ -3514,15 +3596,24 @@ class PowerGuardApp extends Homey.App {
       const device = await this._api.devices.getDevice({ id: deviceId });
       
       if (!device) {
-        this.log(`[FloorHeater] Device not found via API: ${deviceId}`);
+        this._appLogEntry('charger', `[FloorHeater] Device not found: ${deviceId}`);
         return { ok: false, error: 'Device not found' };
       }
+
+      // Helper: try object-style first, fall back to string-style (handles homey-api version differences)
+      const setCap = async (capId, val) => {
+        try {
+          await device.setCapabilityValue({ capabilityId: capId, value: val });
+        } catch (e1) {
+          // Fallback to old string-style API
+          await device.setCapabilityValue(capId, val);
+        }
+      };
       
       // Use capabilities array (most reliable) and capabilitiesObj for values
       const caps = device.capabilities || [];
       const obj  = device.capabilitiesObj || {};
-      this.log(`[FloorHeater] Control: ${action} on "${device.name}" (value: ${value})`);
-      this.log(`[FloorHeater]   Available caps: ${caps.join(', ')}`);
+      this._appLogEntry('charger', `[FloorHeater] ${action} "${device.name}" val=${value} caps=${caps.join(',')}`);
       
       // Find correct target temperature capability
       let targetTempCap = null;
@@ -3532,9 +3623,9 @@ class PowerGuardApp extends Homey.App {
       
       if (action === 'on') {
         if (caps.includes('onoff')) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+          await setCap('onoff', true);
         } else if (caps.includes('toggleChargingCapability')) {
-          await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: true });
+          await setCap('toggleChargingCapability', true);
         } else {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
@@ -3546,18 +3637,18 @@ class PowerGuardApp extends Homey.App {
           this._persistMitigatedDevices();
           this.log(`[FloorHeater] ${device.name} cleared from mitigation list (manual ON override)`);
         }
-        this.log(`[FloorHeater] ${device.name} turned ON`);
+        this._appLogEntry('charger', `[FloorHeater] ${device.name} → ON`);
         return { ok: true, message: `${device.name} turned on` };
         
       } else if (action === 'off') {
         if (caps.includes('onoff')) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
+          await setCap('onoff', false);
         } else if (caps.includes('toggleChargingCapability')) {
-          await device.setCapabilityValue({ capabilityId: 'toggleChargingCapability', value: false });
+          await setCap('toggleChargingCapability', false);
         } else {
           return { ok: false, error: `${device.name} has no on/off capability` };
         }
-        this.log(`[FloorHeater] ${device.name} turned OFF`);
+        this._appLogEntry('charger', `[FloorHeater] ${device.name} → OFF`);
         return { ok: true, message: `${device.name} turned off` };
         
       } else if (action === 'setTarget') {
@@ -3566,7 +3657,7 @@ class PowerGuardApp extends Homey.App {
           return { ok: false, error: 'Invalid temperature value' };
         }
         if (!targetTempCap) {
-          this.log(`[FloorHeater] No target temp cap found. Available: ${caps.join(', ')}`);
+          this._appLogEntry('charger', `[FloorHeater] No temp cap on "${device.name}". Caps: ${caps.join(',')}`);
           return { ok: false, error: `${device.name} has no temperature control capability` };
         }
         // Switch to manual/heat mode first so thermostats with a cloud schedule
@@ -3574,12 +3665,12 @@ class PowerGuardApp extends Homey.App {
         if (caps.includes('thermostat_mode')) {
           const currentMode = obj.thermostat_mode ? obj.thermostat_mode.value : null;
           if (currentMode !== 'heat') {
-            this.log(`[FloorHeater] ${device.name} switching thermostat_mode → heat (was: ${currentMode})`);
-            await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: 'heat' });
+            this._appLogEntry('charger', `[FloorHeater] ${device.name} switching thermostat_mode → heat (was: ${currentMode})`);
+            await setCap('thermostat_mode', 'heat');
           }
         }
-        await device.setCapabilityValue({ capabilityId: targetTempCap, value: temp });
-        this.log(`[FloorHeater] ${device.name} set to ${temp}°C via ${targetTempCap}`);
+        await setCap(targetTempCap, temp);
+        this._appLogEntry('charger', `[FloorHeater] ${device.name} set to ${temp}°C via ${targetTempCap} ✓`);
         return { ok: true, message: `${device.name} set to ${temp}°C` };
         
       } else if (action === 'setHoiax') {
@@ -3590,8 +3681,8 @@ class PowerGuardApp extends Homey.App {
                           : null;
         if (value === 'off') {
           if (caps.includes('onoff')) {
-            await device.setCapabilityValue({ capabilityId: 'onoff', value: false });
-            this.log(`[FloorHeater] Høiax ${device.name} turned OFF`);
+            await setCap('onoff', false);
+            this._appLogEntry('charger', `[FloorHeater] Høiax ${device.name} → OFF`);
             return { ok: true, message: `${device.name} turned off` };
           }
           return { ok: false, error: `${device.name} has no onoff capability` };
@@ -3601,16 +3692,16 @@ class PowerGuardApp extends Homey.App {
         }
         // Ensure device is on before setting power level
         if (caps.includes('onoff') && obj.onoff && obj.onoff.value === false) {
-          await device.setCapabilityValue({ capabilityId: 'onoff', value: true });
+          await setCap('onoff', true);
         }
-        await device.setCapabilityValue({ capabilityId: maxPowerCap, value: value });
-        this.log(`[FloorHeater] Høiax ${device.name} set to ${value} via ${maxPowerCap}`);
+        await setCap(maxPowerCap, value);
+        this._appLogEntry('charger', `[FloorHeater] Høiax ${device.name} set to ${value} via ${maxPowerCap} ✓`);
         return { ok: true, message: `${device.name} set to ${value}` };
       } else {
         return { ok: false, error: `Unknown action: ${action}` };
       }
     } catch (err) {
-      this.log(`[FloorHeater] Control error: ${err.message}`);
+      this._appLogEntry('charger', `[FloorHeater] ✗ ${action} on ${deviceId}: ${err.message}`);
       return { ok: false, error: err.message };
     }
   }
@@ -3991,6 +4082,7 @@ class PowerGuardApp extends Homey.App {
                             'available_installation_current', 'alarm_generic.car_connected',
                             'toggleChargingCapability', 'chargerStatusCapability',
                             'toggleCableLockCapability', 'changeLedIntensityCapability',
+                            'evcharger_charging', 'evcharger_charging_state',
                             'measure_current', 'measure_power', 'onoff', 'charger_status',
                             'measure_current.phase1', 'measure_current.phase2', 'measure_current.phase3',
                             'measure_current.offered', 'measure_voltage'];
@@ -4005,6 +4097,7 @@ class PowerGuardApp extends Homey.App {
       // Detect charger type
       const isZaptec = caps.includes('charging_button');
       const isEnua = caps.includes('toggleChargingCapability');
+      const isFutureHome = caps.includes('evcharger_charging');
       const isEasee = caps.includes('target_charger_current') || caps.includes('target_circuit_current') ||
                       caps.includes('dynamic_charger_current') || caps.includes('dynamicChargerCurrent');
 
@@ -4128,6 +4221,28 @@ class PowerGuardApp extends Homey.App {
 
         results.success = !results.steps.some(s => s.ok === false);
 
+      } else if (isFutureHome) {
+        // ── FutureHome test path ──
+        results.steps.push({ step: 'Charger type', ok: true, detail: 'FutureHome El-bil Lader (evcharger_charging on/off control)' });
+
+        const chargingVal = obj.evcharger_charging ? obj.evcharger_charging.value : null;
+        results.steps.push({ step: 'evcharger_charging', ok: true, detail: `Current value: ${chargingVal}` });
+
+        const stateVal = obj.evcharger_charging_state ? obj.evcharger_charging_state.value : 'unknown';
+        results.steps.push({ step: 'evcharger_charging_state', ok: true, detail: `State: ${stateVal}` });
+
+        // Write-back test (write same value back — no actual change)
+        try {
+          const writeVal = chargingVal !== null ? chargingVal : true;
+          await device.setCapabilityValue({ capabilityId: 'evcharger_charging', value: writeVal });
+          results.steps.push({ step: 'Write test', ok: true, detail: `Wrote evcharger_charging = ${writeVal} (same as current — no change)` });
+          results.success = true;
+        } catch (err) {
+          results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write evcharger_charging: ${err.message}` });
+        }
+
+        results.steps.push({ step: 'Note', ok: true, detail: 'FutureHome supports pause/resume only — no dynamic current control available.' });
+
       } else if (isEasee) {
         // ── Easee test path ──
         const dynCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
@@ -4233,6 +4348,7 @@ class PowerGuardApp extends Homey.App {
         spotOre:    r2(currentEntry.spotOre),
         nextOre:    nextEntry ? r2(nextEntry.adjustedOre) : null,
         nightDiscount: currentEntry.nightDiscountApplied,
+        norgespris: currentEntry.norgesprisApplied ? (cfg.norgesprisFlatOre || 50) : 0,
         entries: lookahead.map(e => ({
           hour:  e.start.toISOString(),
           ore:   r2(e.adjustedOre),
@@ -4303,7 +4419,11 @@ class PowerGuardApp extends Homey.App {
         const localHour    = getLocalHour(start);
         const spotOre      = r.NOK_per_kWh * 100;
         const nightDiscount = isNight(localHour) ? (cfg.nightDiscountOre || 0) : 0;
-        return { start, end, localHour, spotOre, adjustedOre: spotOre - nightDiscount, nightDiscountApplied: nightDiscount > 0 };
+        // Norgespris: flat rate replaces spot — you always pay cfg.norgesprisFlatOre regardless of spot
+        const adjustedOre = cfg.norgesprisEnabled
+          ? (cfg.norgesprisFlatOre || 50)
+          : (spotOre - nightDiscount);
+        return { start, end, localHour, spotOre, nightDiscountApplied: nightDiscount > 0, norgesprisApplied: !!cfg.norgesprisEnabled, adjustedOre };
       })
       .filter(Boolean)
       .sort((a, b) => a.start - b.start);
@@ -4505,12 +4625,18 @@ class PowerGuardApp extends Homey.App {
     await this._applyMode(mode);
   }
 
-  async _applyMode(mode) {
+  async _applyMode(mode, filterDeviceId = null) {
     const prefs = this._modeSettings.devicePrefs || {};
     const priorityList = this.homey.settings.get('priorityList') || [];
     if (!this._api) return;
 
+    if (!filterDeviceId) {
+      this._appLogEntry('charger', `[Modes] Applying mode="${mode}" to ${priorityList.length} entries. Prefs keys: ${Object.keys(prefs).length}`);
+    }
+
     for (const entry of priorityList) {
+      // If called from a single-device pref change, only process that device
+      if (filterDeviceId && entry.deviceId !== filterDeviceId) continue;
       if (entry.enabled === false) continue;
       const devPrefs = prefs[entry.deviceId];
       if (!devPrefs) continue;
@@ -4559,10 +4685,19 @@ class PowerGuardApp extends Homey.App {
         {}, this._modeSettings.nightSchedule, body.nightSchedule
       );
     }
-    if (body.devicePrefs && typeof body.devicePrefs === 'object') {
+    const prefsChanged = body.devicePrefs && typeof body.devicePrefs === 'object';
+    if (prefsChanged) {
       this._modeSettings.devicePrefs = body.devicePrefs;
     }
     this.homey.settings.set('modeSettings', this._modeSettings);
+    // If device preferences changed, re-apply the active mode for the changed device only.
+    // Passing changedDeviceId avoids re-triggering ALL devices (e.g. EV chargers) on every click.
+    if (prefsChanged) {
+      const changedDeviceId = body.changedDeviceId || null;
+      await this._applyMode(this._modeSettings.activeMode, changedDeviceId).catch(err =>
+        this.error('[Modes] Error re-applying mode after pref save:', err.message)
+      );
+    }
   }
 
 }

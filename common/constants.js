@@ -126,6 +126,8 @@ const PRICE_DEFAULTS = {
   cheapHoursTarget: 6,     // Number of hours counted as "cheapest" in window
   capLav: 0.5,             // Charger current cap when mode=lav  (fraction of circuit limit)
   capMaks: 1.0,            // Charger current cap when mode=maks (no extra restriction)
+  norgesprisEnabled: false, // Apply Norwegian Norgespris flat-rate scheme
+  norgesprisFlatOre: 50,    // Fixed price you pay: 50 øre incl. VAT (40 in Nordland/Troms/Finnmark)
 };
 
 module.exports = { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, ACTIONS, HOIAX_POWER_STEPS, MITIGATION_LOG_MAX, CHARGER_DEFAULTS, EFFEKT_TIERS, PRICE_DEFAULTS, MODES, MODES_DEFAULTS };
