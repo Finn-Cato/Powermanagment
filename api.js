@@ -381,6 +381,10 @@ module.exports = {
         return v ? v.value : null;
       };
 
+      // For schedule fields: Logic variable is primary, app settings is fallback
+      const ladebehovTimer = get('ladebehov_timer') ?? homey.settings.get('ev_ladebehov_timer') ?? null;
+      const ferdigLadetKl  = get('ferdig_ladet_kl')  ?? homey.settings.get('ev_ferdig_ladet_kl')  ?? null;
+
       return {
         ok: true,
         bil_tilkoblet:    get('bil_tilkoblet'),
@@ -389,36 +393,39 @@ module.exports = {
         lademodus:        get('lademodus'),
         strompris:        get('strømpris'),
         neste_billige_time: get('neste_billige_time'),
-        ladebehov_timer:  get('ladebehov_timer'),
-        ferdig_ladet_kl:  get('ferdig_ladet_kl'),
+        ladebehov_timer:  ladebehovTimer,
+        ferdig_ladet_kl:  ferdigLadetKl,
       };
     } catch (err) {
       return { ok: false, error: err.message };
     }
   },
 
-  /** Write ladebehov_timer and ferdig_ladet_kl to Homey Logic variables */
+  /** Write ladebehov_timer and ferdig_ladet_kl — stored in app settings (primary) and Homey Logic variables (secondary, if they exist) */
   async setEvChargingSettings({ homey, body }) {
     if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid body' };
     const api = homey.app._api;
     if (!api) return { ok: false, error: 'HomeyAPI not ready' };
 
     try {
-      const allVars = await api.logic.getVariables();
-      const vars = Object.values(allVars || {});
+      const timer  = body.ladebehov_timer !== undefined ? Math.max(0, Math.round(Number(body.ladebehov_timer) || 0)) : undefined;
+      const ferdig = body.ferdig_ladet_kl  !== undefined ? String(body.ferdig_ladet_kl || '') : undefined;
 
-      const setVar = async (name, value) => {
-        const v = vars.find(v => v.name === name);
-        if (!v) return;
-        await api.logic.updateVariable({ id: v.id, variable: { value } });
-      };
+      // Primary: save to app settings so values persist regardless of Logic variable setup
+      if (timer  !== undefined) homey.settings.set('ev_ladebehov_timer',  timer);
+      if (ferdig !== undefined) homey.settings.set('ev_ferdig_ladet_kl',  ferdig);
 
-      if (body.ladebehov_timer !== undefined) {
-        await setVar('ladebehov_timer', Math.max(0, Math.round(Number(body.ladebehov_timer) || 0)));
-      }
-      if (body.ferdig_ladet_kl !== undefined) {
-        await setVar('ferdig_ladet_kl', String(body.ferdig_ladet_kl || ''));
-      }
+      // Secondary: also update Homey Logic variable if it exists (for HomeyScript integration)
+      try {
+        const allVars = await api.logic.getVariables();
+        const vars = Object.values(allVars || {});
+        const setVar = async (name, value) => {
+          const v = vars.find(v => v.name === name);
+          if (v) await api.logic.updateVariable({ id: v.id, variable: { value } });
+        };
+        if (timer  !== undefined) await setVar('ladebehov_timer', timer);
+        if (ferdig !== undefined) await setVar('ferdig_ladet_kl',  ferdig);
+      } catch (_) { /* Logic variables optional */ }
 
       return { ok: true };
     } catch (err) {

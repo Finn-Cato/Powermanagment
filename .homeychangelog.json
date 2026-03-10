@@ -157,5 +157,8 @@
   },
   "0.8.20": {
     "en": "UI: Moved Power Meter device selector from Overview tab to Settings tab, placed below Power Limit."
+  },
+  "0.8.21": {
+    "en": "Fix: Charging Schedule (hours needed / finish by time) now saves correctly even when Homey Logic variables are not set up. Values are stored in app settings and synced to Logic variables if they exist."
   }
 }
