@@ -361,7 +361,7 @@ module.exports = {
       // Aggregate across all tracked chargers
       const chargers       = Object.values(evData);
       const bilTilkoblet   = chargers.some(c => c.isConnected === true);
-      const bilLaderNa     = chargers.some(c => (c.powerW || 0) > 200);
+      const bilLaderNa     = chargers.some(c => c.isCharging === true || (c.powerW || 0) > 200);
       const chargeMode     = priceState ? priceState.chargeMode : null;
       const burdeLadeBilen = bilTilkoblet && chargeMode !== null && chargeMode !== 'av';
 
@@ -451,6 +451,21 @@ module.exports = {
       ok:           true,
       batteryState: homey.app._evBatteryState || {},
     };
+  },
+
+  /** Returns all Homey devices that expose a battery % capability — used to populate
+   *  the "Car device" selector in the Devices tab so PG can poll battery directly. */
+  async getCarDevices({ homey }) {
+    const BATTERY_CAPS = ['measure_battery', 'batterylevel', 'battery', 'ev_battery_level', 'battery_level'];
+    const cache = homey.settings.get('_deviceCache') || [];
+    const devices = cache
+      .filter(d => Array.isArray(d.capabilities) && BATTERY_CAPS.some(c => d.capabilities.includes(c)))
+      .map(d => ({
+        id:         d.id,
+        name:       d.name,
+        capability: BATTERY_CAPS.find(c => d.capabilities.includes(c)),
+      }));
+    return { ok: true, devices };
   },
 
   // ─── Section 15 — Mode Engine ─────────────────────────────────────────────

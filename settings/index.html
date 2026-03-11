@@ -1004,6 +1004,7 @@
   var _touchDragLi    = null;
   var _heaterFocusId  = null;
   var _heaterDirty    = {};  // deviceId → edited temp value
+  var _carDevices     = [];  // [{id, name, capability}] from /car-devices
 
   // ── Homey.api() wrappers (return Promises) ────────────────────────────────
   // Per official docs: Homey.api(method, path, body, callback)
@@ -1836,6 +1837,11 @@
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
         loadMeterDevices();  // Load meter device dropdown
         loadHanDiagnostic();  // Load HAN diagnostic info
+        // Load car devices for battery picker
+        hApi('GET', '/car-devices', null).then(function(res) {
+          _carDevices = (res && res.devices) ? res.devices : [];
+          renderAllDevices();  // Re-render so car device selects are populated
+        }).catch(function() { _carDevices = []; });
         dbg('Load complete: ' + availableDevices.length + ' devices');
       })
       .catch(function(err) {
@@ -2328,6 +2334,13 @@
     var capVal = (entry.batteryCapacityKwh  != null) ? entry.batteryCapacityKwh  : '';
     var tgtVal = (entry.targetChargePercent != null) ? entry.targetChargePercent : '';
 
+    var carSelOptions = '<option value="">— no car device —</option>';
+    for (var ci = 0; ci < _carDevices.length; ci++) {
+      var cd = _carDevices[ci];
+      var sel = (entry.carDeviceId === cd.id) ? ' selected' : '';
+      carSelOptions += '<option value="' + escHtml(cd.id) + '"' + sel + '>' + escHtml(cd.name) + '</option>';
+    }
+
     var batterySection = isEV
       ? '<div style="margin-top:5px;padding:5px 8px;background:rgba(0,122,255,0.07);border-radius:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;">' +
           '<span style="color:var(--brand);font-weight:600;font-size:11px;">🔋 Battery schedule</span>' +
@@ -2342,6 +2355,12 @@
               ' style="width:46px;margin-left:4px;" title="Target charge level in percent"' +
               ' onchange="updateEvTargetPercent(\'' + entry.deviceId + '\',this.value)">' +
             '<span style="color:var(--text-muted)">%</span>' +
+          '</label>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">Car' +
+            '<select style="margin-left:4px;font-size:11px;" title="Link a car device so Power Guard reads its battery automatically"' +
+              ' onchange="updateCarDevice(\'' + entry.deviceId + '\',this.value)">' +
+              carSelOptions +
+            '</select>' +
           '</label>' +
         '</div>'
       : '';
@@ -2449,6 +2468,13 @@
     if (!entry) return;
     var n = parseInt(val);
     entry.targetChargePercent = (val === '' || isNaN(n)) ? undefined : Math.min(100, Math.max(10, n));
+    savePriorityList();
+  }
+
+  function updateCarDevice(chargerId, carDeviceId) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === chargerId; })[0];
+    if (!entry) return;
+    entry.carDeviceId = carDeviceId || undefined;
     savePriorityList();
   }
 

@@ -249,6 +249,10 @@
     "getEvBatteryState": {
       "method": "GET",
       "path": "/ev-battery-state"
+    },
+    "getCarDevices": {
+      "method": "GET",
+      "path": "/car-devices"
     }
   },
   "flow": {

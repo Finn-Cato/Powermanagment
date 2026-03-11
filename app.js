@@ -2090,6 +2090,48 @@ class PowerGuardApp extends Homey.App {
     }
   }
 
+  /**
+   * Poll battery % from the linked car Homey device and feed it into reportEvBattery().
+   * @param {string} chargerId - deviceId of the EV charger in priorityList
+   */
+  async _pollCarBattery(chargerId) {
+    const entry = (this._settings.priorityList || []).find(
+      e => e.deviceId === chargerId && e.priceControlled
+    );
+    if (!entry || !entry.carDeviceId) return;
+    const BATTERY_CAPS = ['measure_battery', 'batterylevel', 'battery', 'ev_battery_level', 'battery_level'];
+    try {
+      const device = await withTimeout(
+        this._api.devices.getDevice({ id: entry.carDeviceId }),
+        8000, `pollCarBattery(${entry.carDeviceId})`
+      );
+      if (!device) return;
+      const obj = device.capabilitiesObj || {};
+      const cap = BATTERY_CAPS.find(c => obj[c] != null);
+      if (!cap) {
+        this.log(`[CarBattery] ${entry.name}: no battery capability found on linked car device`);
+        return;
+      }
+      const pct = obj[cap].value;
+      if (typeof pct !== 'number') return;
+      this.log(`[CarBattery] ${entry.name}: read ${Math.round(pct)}% from car device (${cap})`);
+      this.reportEvBattery(chargerId, Math.round(pct));
+    } catch (err) {
+      this.log(`[CarBattery] ${entry.name}: poll failed — ${err.message}`);
+    }
+  }
+
+  /** Poll battery % for all priceControlled chargers that have a linked car device */
+  async _pollAllCarBatteries() {
+    if (!this._api) return;
+    const priceChargers = (this._settings.priorityList || []).filter(
+      e => e.priceControlled && e.carDeviceId
+    );
+    for (const entry of priceChargers) {
+      await this._pollCarBattery(entry.deviceId);
+    }
+  }
+
   async _connectToEVChargers() {
     if (!this._api) return;
     // Tear down old instances
@@ -2177,10 +2219,15 @@ class PowerGuardApp extends Homey.App {
         if (caps.includes('charger_status')) {
           const csInst = device.makeCapabilityInstance('charger_status', (value) => {
             if (this._evPowerData[entry.deviceId]) {
+              const wasConnected = this._evPowerData[entry.deviceId].isConnected;
               this._evPowerData[entry.deviceId].chargerStatus = value;
               this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
               this.log(`[EV] ${entry.name} charger_status changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
               this._appLogEntry('charger', `${entry.name} status: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
+              // Car just connected — poll battery from linked car device
+              if (!wasConnected && this._evPowerData[entry.deviceId].isConnected) {
+                this._pollCarBattery(entry.deviceId).catch(() => {});
+              }
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_status'] = csInst;
@@ -2190,12 +2237,17 @@ class PowerGuardApp extends Homey.App {
         if (caps.includes('chargerStatusCapability')) {
           const enuaStatusInst = device.makeCapabilityInstance('chargerStatusCapability', (value) => {
             if (this._evPowerData[entry.deviceId]) {
+              const wasConnected = this._evPowerData[entry.deviceId].isConnected;
               this._evPowerData[entry.deviceId].chargerStatus = value;
               this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
               // Cross-link: also update isCharging from status
               this._evPowerData[entry.deviceId].isCharging = (value === 'Charging');
               this.log(`[EV] ${entry.name} chargerStatusCapability changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}, charging: ${this._evPowerData[entry.deviceId].isCharging}`);
               this._appLogEntry('charger', `${entry.name} Enua status: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}, charging: ${this._evPowerData[entry.deviceId].isCharging}`);
+              // Car just connected — poll battery from linked car device
+              if (!wasConnected && this._evPowerData[entry.deviceId].isConnected) {
+                this._pollCarBattery(entry.deviceId).catch(() => {});
+              }
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_enua_status'] = enuaStatusInst;
@@ -2849,18 +2901,23 @@ class PowerGuardApp extends Homey.App {
       if (brand === 'zaptec') {
         // Look for Zaptec current control actions
         const zaptecActions = allActions.filter(a => a.uri === 'homey:app:com.zaptec');
-        // Try exact match first, then fuzzy
-        let action = zaptecActions.find(a => a.id === 'installation_current_control');
-        if (!action) action = zaptecActions.find(a => /current|ampere|limit|strøm/i.test(a.id));
+        // Try known IDs first, then fuzzy match
+        let action = zaptecActions.find(a => a.id === 'set_installation_current')
+                  || zaptecActions.find(a => a.id === 'installation_current_control')
+                  || zaptecActions.find(a => /current|ampere|limit|strøm/i.test(a.id));
         if (!action) {
           // Try broader URI match
           const broader = allActions.filter(a => (a.uri || '').includes('zaptec'));
           action = broader.find(a => /current|ampere|limit|strøm/i.test(a.id));
         }
         if (action) {
+          // Detect arg names from action descriptor for better diagnostics
+          const argsArr = Array.isArray(action.args) ? action.args : [];
+          const argNames = argsArr.map(a => a.name || a.id || JSON.stringify(a)).join(', ') || 'n/a';
           const result = { uri: action.uri, actionId: action.id, argsStyle: 'zaptec3phase' };
           this._flowActionCache[brand] = result;
-          this.log(`[Zaptec] Discovered flow action: ${action.uri}/${action.id}`);
+          this.log(`[Zaptec] Discovered flow action: ${action.uri}/${action.id} | args: [${argNames}]`);
+          this.log(`[Zaptec] Full action descriptor: ${JSON.stringify(action)}`);
           return result;
         }
         this.log(`[Zaptec] No current control flow action found. Available Zaptec actions: ${zaptecActions.map(a => a.id).join(', ') || 'none'}`);
@@ -2937,9 +2994,13 @@ class PowerGuardApp extends Homey.App {
     // used in a Flow at least once. The action may still be callable.
     const flowAction = await this._discoverFlowAction('zaptec') ?? {
       uri: 'homey:app:com.zaptec',
-      actionId: 'installation_current_control',
+      actionId: 'set_installation_current',
       argsStyle: 'zaptec3phase'
     };
+
+    // Resolve charger phases from priority list (default 3 if unknown)
+    const _zaptecEntry = (this._settings.priorityList || []).find(e => e.deviceId === deviceId);
+    const _zaptecPhases = _zaptecEntry?.chargerPhases || 3;
 
     const maxRetries = 2;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -2952,17 +3013,22 @@ class PowerGuardApp extends Homey.App {
 
         this._pendingChargerCommands[deviceId] = Date.now();
 
-        // Helper to call the Zaptec flow action with the discovered ID
+        // Helper to call the Zaptec flow action with the discovered ID.
+        // For 1-phase chargers (TN), P2 and P3 must be 0 — sending same amps
+        // on all phases causes Zaptec to reject or misinterpret the command.
         const callZaptecFlow = async (amps) => {
           if (!flowAction) {
             this.log(`[Zaptec] No flow action discovered, skipping current control`);
             return;
           }
+          const p2 = _zaptecPhases >= 2 ? amps : 0;
+          const p3 = _zaptecPhases >= 3 ? amps : 0;
+          this.log(`[Zaptec] Calling flow ${flowAction.actionId} → P1=${amps}A P2=${p2}A P3=${p3}A (${_zaptecPhases}-phase)`);
           await withTimeout(
             this._api.flow.runFlowCardAction({
               uri: flowAction.uri,
               id: flowAction.actionId,
-              args: { device: { id: deviceId, name: device.name }, current1: amps, current2: amps, current3: amps }
+              args: { device: { id: deviceId, name: device.name }, current1: amps, current2: p2, current3: p3 }
             }),
             10000, `zaptecFlow(${deviceId}, ${amps}A)`
           );
@@ -4578,6 +4644,9 @@ class PowerGuardApp extends Homey.App {
       };
 
       this._appLogEntry('system', `[Price] Level=${finalLevel} (${r2(currentEntry.adjustedOre)}øre) Mode=${finalMode}`);
+
+      // Auto-update EV battery state from linked car devices (every 30 min price cycle)
+      this._pollAllCarBatteries().catch(err => this.error('[CarBattery] Poll error:', err));
     } catch (err) {
       this.error('[Price] Evaluation error:', err);
     }
