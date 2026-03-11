@@ -369,28 +369,42 @@ module.exports = {
 
   /** Read car charging status + schedule settings from Homey Logic variables */
   async getEvChargingStatus({ homey }) {
-    const api = homey.app._api;
-    if (!api) return { ok: false, error: 'HomeyAPI not ready' };
-
     try {
-      const allVars = await api.logic.getVariables();
-      const vars = Object.values(allVars || {});
+      const evData     = homey.app._evPowerData || {};
+      const priceData  = homey.app.getPriceData();
+      const priceState = priceData.state;
 
-      const get = (name) => {
-        const v = vars.find(v => v.name === name);
-        return v ? v.value : null;
-      };
+      const chargers       = Object.values(evData);
+      const bilTilkoblet   = chargers.some(c => c.isConnected === true);
+      const bilLaderNa     = chargers.some(c => (c.powerW || 0) > 200);
+      const chargeMode     = priceState ? priceState.chargeMode : null;
+      const burdeLadeBilen = bilTilkoblet && chargeMode !== null && chargeMode !== 'av';
+
+      let nesteBilligeTime = null;
+      if (priceState && Array.isArray(priceState.entries)) {
+        const isFlat = priceState.stats && priceState.stats.spread === 0;
+        if (isFlat) {
+          nesteBilligeTime = 'flat_rate';
+        } else {
+          const now = Date.now();
+          const cheap = priceState.entries.find(e => new Date(e.hour).getTime() > now && e.level === 'billig');
+          if (cheap) {
+            const d = new Date(cheap.hour);
+            nesteBilligeTime = d.getHours().toString().padStart(2, '0') + ':00';
+          }
+        }
+      }
 
       return {
         ok: true,
-        bil_tilkoblet:    get('bil_tilkoblet'),
-        bil_lader_na:     get('bil_lader_nå'),
-        burde_lade_bilen: get('burde_lade_bilen'),
-        lademodus:        get('lademodus'),
-        strompris:        get('strømpris'),
-        neste_billige_time: get('neste_billige_time'),
-        ladebehov_timer:  get('ladebehov_timer'),
-        ferdig_ladet_kl:  get('ferdig_ladet_kl'),
+        bil_tilkoblet:      bilTilkoblet,
+        bil_lader_na:       bilLaderNa,
+        burde_lade_bilen:   burdeLadeBilen,
+        lademodus:          chargeMode,
+        strompris:          priceState ? priceState.level : null,
+        neste_billige_time: nesteBilligeTime,
+        ladebehov_timer:    homey.settings.get('ev_ladebehov_timer') ?? null,
+        ferdig_ladet_kl:    homey.settings.get('ev_ferdig_ladet_kl') ?? null,
       };
     } catch (err) {
       return { ok: false, error: err.message };
