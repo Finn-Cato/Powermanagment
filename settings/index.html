@@ -975,6 +975,7 @@
   var _mitigatedDeviceIds = {};  // deviceId → true when Power Guard is controlling a device
   var _touchDragIdx   = null;
   var _touchTargetIdx = null;
+  var _peaksOpen      = false;  // persisted via Homey settings across sessions
   var _touchDragLi    = null;
   var _heaterFocusId  = null;
   var _heaterDirty    = {};  // deviceId → edited temp value
@@ -1256,24 +1257,53 @@
       html += '<div>Today peak: <b>' + effekt.todayPeakKW.toFixed(2) + ' kW</b></div>';
       html += '</div>';
 
-      // TOP3 days
-      if (effekt.top3 && effekt.top3.length) {
-        html += '<div style="border-top:1px solid var(--border-color);padding-top:6px;font-size:11px;color:var(--text-muted);margin-bottom:4px">Top 3 daily peaks this month:</div>';
-        html += '<div style="font-size:12px">';
-        effekt.top3.forEach(function(p, i) {
-          var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
-          html += '<div style="padding:2px 0">' + medal + ' ' + p.date + ' — <b>' + p.kw.toFixed(2) + ' kW</b></div>';
+      // All peaks — monthly calendar (medals embedded in top-3 cells)
+      if (effekt.allPeaks && effekt.allPeaks.length) {
+        var calParts = effekt.allPeaks[0].date.split('-');
+        var calYear  = parseInt(calParts[0]);
+        var calMonth = parseInt(calParts[1]) - 1;
+        var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        var firstDow    = new Date(calYear, calMonth, 1).getDay();
+        var startCol    = (firstDow + 6) % 7; // Monday-first
+        var peakMap = {};
+        effekt.allPeaks.forEach(function(p) { peakMap[parseInt(p.date.split('-')[2])] = p.kw; });
+        var top3Days = effekt.top3 ? effekt.top3.map(function(p) { return parseInt(p.date.split('-')[2]); }) : [];
+        var now2 = new Date(); var todayDay = (now2.getFullYear()===calYear && now2.getMonth()===calMonth) ? now2.getDate() : -1;
+        var maxKw = Math.max.apply(null, effekt.allPeaks.map(function(p){return p.kw;}));
+        var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var medals = ['🥇','🥈','🥉'];
+        html += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">Daily peaks this month (' + effekt.dailyPeakCount + ' days)</summary>';
+        html += '<div style="margin-top:6px">';
+        html += '<div style="font-size:10px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:4px">' + monthNames[calMonth] + ' ' + calYear + '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:9px;text-align:center">';
+        ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(function(d) {
+          html += '<div style="color:var(--text-muted);padding:2px 0;font-weight:600">' + d + '</div>';
         });
+        for (var e = 0; e < startCol; e++) html += '<div></div>';
+        for (var day = 1; day <= daysInMonth; day++) {
+          var kw = peakMap[day];
+          var rank = top3Days.indexOf(day);
+          var isToday = day === todayDay;
+          var bg, color, fw = '400', medal = '';
+          if      (rank === 0) { bg = 'rgba(255,200,0,0.30)';   color = '#9a6c00'; fw = '700'; medal = medals[0]; }
+          else if (rank === 1) { bg = 'rgba(160,200,220,0.35)'; color = '#2a6080'; fw = '700'; medal = medals[1]; }
+          else if (rank === 2) { bg = 'rgba(190,120,50,0.28)';  color = '#7a3d10'; fw = '700'; medal = medals[2]; }
+          else if (kw) { var intensity = kw / maxKw; bg = 'rgba(232,68,26,' + (0.05 + intensity * 0.15).toFixed(2) + ')'; color = 'var(--text-secondary)'; }
+          else { bg = 'transparent'; color = 'var(--text-muted)'; }
+          var border = isToday ? '1px solid var(--brand)' : '1px solid transparent';
+          html += '<div style="padding:2px 1px;border-radius:4px;background:' + bg + ';border:' + border + '">';
+          html += '<div style="color:' + (isToday ? 'var(--brand)' : 'var(--text-tertiary)') + ';font-size:9px;line-height:1.2">' + day + '</div>';
+          if (kw) {
+            html += '<div style="display:flex;align-items:center;justify-content:center;gap:1px;line-height:1.2">';
+            html += '<span style="color:' + color + ';font-weight:' + fw + ';font-size:9px">' + kw.toFixed(1) + 'kW</span>';
+            if (medal) html += '<span style="font-size:7px;line-height:1">' + medal + '</span>';
+            html += '</div>';
+          } else {
+            html += '<div style="height:11px"></div>';
+          }
+          html += '</div>';
+        }
         html += '</div>';
-      }
-
-      // All peaks (collapsed)
-      if (effekt.allPeaks && effekt.allPeaks.length > 3) {
-        html += '<details style="margin-top:6px;font-size:11px"><summary style="cursor:pointer;color:var(--text-muted)">All daily peaks (' + effekt.dailyPeakCount + ' days)</summary>';
-        html += '<div style="margin-top:4px">';
-        effekt.allPeaks.forEach(function(p) {
-          html += '<div style="padding:1px 0;color:var(--text-secondary)">' + p.date + ': ' + p.kw.toFixed(2) + ' kW</div>';
-        });
         html += '</div></details>';
       }
 
@@ -1281,7 +1311,16 @@
       html += '<div style="margin-top:8px;padding:6px 8px;background:var(--bg-body);border-radius:6px;font-size:11px;color:var(--text-muted)">';
       html += '🧪 <b>Test mode</b> — Display only. Not affecting limits or mitigation.';
       html += '</div>';
+      var peaksOpen = _peaksOpen || (effektEl.querySelector('details') && effektEl.querySelector('details').open);
       effektEl.innerHTML = html;
+      var det = effektEl.querySelector('details');
+      if (det) {
+        if (peaksOpen) det.open = true;
+        det.addEventListener('toggle', function() {
+          _peaksOpen = det.open;
+          _H.set('pg_peaks_open', det.open);
+        });
+      }
     }
   }
 
@@ -2517,6 +2556,7 @@
 
     Homey.ready();
     dbg('Homey.ready() called, api=' + (typeof Homey.api));
+    Homey.get('pg_peaks_open', function(val) { _peaksOpen = val === true; });
 
     // Setup event listeners
     var voltageSelect = document.getElementById('s-voltageSystem');

@@ -2354,7 +2354,7 @@ class PowerGuardApp extends Homey.App {
     }, 0);
 
     const nonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
-    const budget = limit - nonChargerUsage - 1000;
+    const budget = limit - nonChargerUsage;
     const minBudgetNeeded = CHARGER_DEFAULTS.minCurrent * 690; // 6A × 690W = 4140W
 
     const proactivelyShed = this._mitigatedDevices.filter(m => m.evProactive);
@@ -2469,7 +2469,7 @@ class PowerGuardApp extends Homey.App {
     }).length;
     const activeChargerCount = Math.max(1, chargingCount);
     const sharedNonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
-    const sharedAvailableW = limit - sharedNonChargerUsage - 1000;  // 1000W buffer (~1.4A on 3-phase) prevents hunting near the limit
+    const sharedAvailableW = limit - sharedNonChargerUsage;
     const perChargerBudgetW = sharedAvailableW / activeChargerCount;
     const householdAloneExceedsLimit = sharedNonChargerUsage > (limit - 200);
     if (connectedEntries.length > 1) {
