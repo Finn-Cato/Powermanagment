@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.25 (2026-03-11)
+- Car device picker: link a car Homey device to each EV charger — Power Guard reads battery % automatically on plug-in and every 30 min, no Flow required
+- Zaptec fix: corrected Flow action ID (`set_installation_current`) and fixed 1-phase (TN) chargers — P2 and P3 now correctly sent as 0A
+- Fixed "CAR CHARGING NOW" incorrectly showing No when car is charging — now checks charger status capability as well as power draw
+- Norgespris flat-rate fix: charger no longer stuck in paused mode when all prices are equal (spread = 0)
+- Smart Charging Status: "Next cheap hour" shows "All equal" instead of — when Norgespris flat rate is active
+- Last battery reports panel now always visible with placeholder text
+
 ## v0.8.14 (2026-03-08)
 - UI: Settings and System moved into Overview tab as sub-tabs (🏠 Overview / ⚙️ Settings / 📊 System) — reduces main tab bar clutter
 - Smart tab and Heaters tab are now mutually exclusive: Smart tab visible only when Smart Price Control is ON, Heaters tab visible only when OFF
