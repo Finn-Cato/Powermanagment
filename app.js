@@ -85,6 +85,7 @@ class PowerGuardApp extends Homey.App {
     this._hanRawLog = [];         // Ring buffer: last 20 raw readings {time, value, source}
     this._phaseCurrents = {};    // Latest per-phase amps from HAN: {capId: amps}
     this._evPowerData = {};
+    this._evBatteryState = {};    // Per-charger battery reports: {deviceId: {pct, hoursNeeded, updatedAt}}
     this._evCapabilityInstances = {};
     this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
     this._powerConsumptionLog = []; // In-memory log for debug
@@ -102,13 +103,13 @@ class PowerGuardApp extends Homey.App {
     this._appLog = [];          // Ring buffer: last 300 entries {time, category, message}
     this._appStartTime = Date.now();
 
-    // Price engine state (SECTION 10)
+    // Price engine state (SECTION 12)
     // Set _priceState = null to disable entirely, or remove _startPriceEngine() call below.
     this._priceState    = null;   // null = no data yet; populated by _fetchAndEvaluatePrices()
     this._priceSettings = Object.assign({}, PRICE_DEFAULTS);
     this._priceEngineInterval = null;
 
-    // Mode engine state (SECTION 11)
+    // Mode engine state (SECTION 13)
     this._modeSettings = JSON.parse(JSON.stringify(MODES_DEFAULTS));
     this._modeSchedulerInterval = null;
 
@@ -236,12 +237,12 @@ class PowerGuardApp extends Homey.App {
       this.error('EV charger connection error (non-fatal):', err);
     }
 
-    this._watchdogInterval  = setInterval(() => this._watchdog().catch(() => {}), 10000);
-    this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(() => {}), 60000);
-    this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(() => {}), 3000);
+    this._watchdogInterval  = setInterval(() => this._watchdog().catch(err => this.error('[Watchdog] Error:', err)), 10000);
+    this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(err => this.error('[Cache] Refresh error:', err)), 60000);
+    this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(err => this.error('[Queue] Save error:', err)), 3000);
 
     // Start spot price engine — non-fatal, charger control still works without it
-    // To remove price feature entirely: delete this block + SECTION 10 at bottom of file
+    // To remove price feature entirely: delete this block + SECTION 12 at bottom of file
     try {
       await this._startPriceEngine();
     } catch (err) {
@@ -734,8 +735,8 @@ class PowerGuardApp extends Homey.App {
     // that may not reliably fire capability change events through Homey's API.
     // Poll every 10s, and do an immediate first poll after 2s to get data quickly.
     if (this._hanPollInterval) clearInterval(this._hanPollInterval);
-    this._hanPollInterval = setInterval(() => this._pollHANPower().catch(() => {}), 10000);
-    setTimeout(() => this._pollHANPower().catch(() => {}), 2000);
+    this._hanPollInterval = setInterval(() => this._pollHANPower().catch(err => this.error('[HAN] Poll error:', err)), 10000);
+    setTimeout(() => this._pollHANPower().catch(err => this.error('[HAN] Initial poll error:', err)), 2000);
     this.log('HAN active polling started (10s interval, first poll in 2s)');
   }
 
@@ -1668,6 +1669,22 @@ class PowerGuardApp extends Homey.App {
 
     const actReset = this.homey.flow.getActionCard('reset_statistics');
     if (actReset) actReset.registerRunListener(() => this._resetStatistics());
+
+    const actEvBattery = this.homey.flow.getActionCard('report_ev_battery');
+    if (actEvBattery) {
+      actEvBattery.registerArgumentAutocompleteListener('charger', async (query) => {
+        const list = (this._settings.priorityList || []).filter(e => e.priceControlled);
+        return list
+          .filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase()))
+          .map(e => ({ id: e.deviceId, name: e.name }));
+      });
+      actEvBattery.registerRunListener(async (args) => {
+        const deviceId   = args.charger && args.charger.id;
+        const batteryPct = Number(args.battery_pct);
+        if (!deviceId || isNaN(batteryPct)) throw new Error('Invalid charger or battery level');
+        this.reportEvBattery(deviceId, batteryPct);
+      });
+    }
   }
 
   _fireTrigger(id, tokens) {
@@ -2023,6 +2040,56 @@ class PowerGuardApp extends Homey.App {
     return false;
   }
 
+  /**
+   * Called by the 'report_ev_battery' flow action (and POST /ev-battery-report).
+   * Stores battery state and re-calculates hours needed to reach the target charge level.
+   * Triggers an immediate price engine re-evaluation so deadline logic applies right away.
+   *
+   * @param {string} deviceId   - charger deviceId from priorityList
+   * @param {number} batteryPct - current battery level 0–100
+   */
+  reportEvBattery(deviceId, batteryPct) {
+    const entry = (this._settings.priorityList || []).find(
+      e => e.deviceId === deviceId && e.priceControlled
+    );
+    if (!entry) {
+      this.log(`[EV Battery] No priceControlled entry for ${deviceId}`);
+      return;
+    }
+
+    const capacityKwh = entry.batteryCapacityKwh;
+    const targetPct   = entry.targetChargePercent ?? 80;
+    const phases      = entry.chargerPhases       || 1;
+    const circuitA    = entry.circuitLimitA       || 16;
+    const chargerKw   = (circuitA * 230 * phases) / 1000;
+
+    let hoursNeeded = null;
+    if (typeof capacityKwh === 'number' && capacityKwh > 0) {
+      const pctNeeded = Math.max(0, targetPct - batteryPct);
+      hoursNeeded = Math.round((pctNeeded / 100) * capacityKwh / chargerKw * 10) / 10;
+    }
+
+    this._evBatteryState[deviceId] = {
+      pct:         batteryPct,
+      hoursNeeded: hoursNeeded,
+      updatedAt:   Date.now(),
+    };
+
+    this.log(`[EV Battery] ${entry.name}: ${batteryPct}% → needs ${hoursNeeded}h (${capacityKwh}kWh @ ${chargerKw.toFixed(1)}kW, target ${targetPct}%)`);
+    this._appLogEntry('charger', `EV battery report: ${entry.name} ${batteryPct}% → ${hoursNeeded !== null ? hoursNeeded + 'h needed' : 'capacity not configured'}`);
+
+    // Trigger price re-evaluation so deadline logic uses the new hoursNeeded.
+    // Cooldown: skip if prices were evaluated within the last 5 minutes — the next
+    // scheduled evaluation will pick up the updated battery state anyway, and making
+    // repeated HTTP requests to hvakosterstrommen.no on every Flow invocation is wasteful.
+    const timeSinceLastEval = this._priceState ? Date.now() - this._priceState.updatedAt : Infinity;
+    if (timeSinceLastEval > 5 * 60 * 1000) {
+      this._fetchAndEvaluatePrices().catch(err => this.error('[EV Battery] Price re-eval error:', err));
+    } else {
+      this.log(`[EV Battery] Skipping price re-eval — last eval was ${Math.round(timeSinceLastEval / 1000)}s ago`);
+    }
+  }
+
   async _connectToEVChargers() {
     if (!this._api) return;
     // Tear down old instances
@@ -2210,7 +2277,7 @@ class PowerGuardApp extends Homey.App {
 
     // Active polling fallback for charger data (some Easee firmware doesn't push events reliably)
     if (this._evPollInterval) clearInterval(this._evPollInterval);
-    this._evPollInterval = setInterval(() => this._pollEVChargerData().catch(() => {}), 5000);
+    this._evPollInterval = setInterval(() => this._pollEVChargerData().catch(err => this.error('[EV] Poll error:', err)), 5000);
     this.log('EV charger polling started (5s interval)');
   }
 
@@ -2370,7 +2437,7 @@ class PowerGuardApp extends Homey.App {
           10000, `proactiveRestore(${shed.deviceId})`
         ).catch(() => null);
         if (!device) continue;
-        const ok = await restoreDevice(device, shed).catch(() => false);
+        const ok = await restoreDevice(device, shed.action, shed.previousState).catch(() => false);
         if (ok) {
           this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== shed.deviceId);
           this._persistMitigatedDevices();
@@ -2581,13 +2648,13 @@ class PowerGuardApp extends Homey.App {
       if (brand === 'easee' || !brand) {
         success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
       } else if (brand === 'enua') {
-        await this._setEnuaCurrent(entry.deviceId, targetCurrent).catch(() => {});
+        await this._setEnuaCurrent(entry.deviceId, targetCurrent).catch(err => this.error('[EV] Enua current set error:', err));
         success = true;
       } else if (brand === 'zaptec') {
-        await this._setZaptecCurrent(entry.deviceId, targetCurrent).catch(() => {});
+        await this._setZaptecCurrent(entry.deviceId, targetCurrent).catch(err => this.error('[EV] Zaptec current set error:', err));
         success = true;
       } else if (brand === 'futurehome') {
-        await this._setFutureHomeCurrent(entry.deviceId, targetCurrent).catch(() => {});
+        await this._setFutureHomeCurrent(entry.deviceId, targetCurrent).catch(err => this.error('[EV] FutureHome current set error:', err));
         success = true;
       } else {
         this.log(`[EV] Unknown brand for "${entry.name}" (${entry.deviceId}) — cannot adjust current. Re-run device cache refresh.`);
@@ -4424,7 +4491,7 @@ class PowerGuardApp extends Homey.App {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // █ SECTION 10 — SPOT PRICE ENGINE                                           █
+  // █ SECTION 12 — SPOT PRICE ENGINE                                           █
   // ════════════════════════════════════════════════════════════════
   //  Fetches spot prices from hvakosterstrommen.no every 30 min.
   //  Evaluates current price level (billig/normal/dyr/ekstremt dyr) and
@@ -4435,7 +4502,7 @@ class PowerGuardApp extends Homey.App {
   //  If price control is disabled or data unavailable: cap = circuitLimitA (no effect).
   //
   //  TO REMOVE ENTIRELY:
-  //    1. Delete this SECTION 10 block
+  //    1. Delete this SECTION 12 block
   //    2. Delete the _startPriceEngine() call in onInit
   //    3. Delete the priceCap lines in _calculateOptimalChargerCurrent
   //    4. Remove PRICE_DEFAULTS from constants.js and its import here
@@ -4472,8 +4539,12 @@ class PowerGuardApp extends Homey.App {
       const finalLevel = this._priceApplyHysteresis(prev ? prev.level : null, suggested, currentEntry.adjustedOre, stats);
 
       const nextEntry    = entries.find(e => e.start.getTime() === currentEntry.end.getTime()) || null;
-      const rawMode      = this._priceSuggestChargeMode(currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
-      const finalMode    = this._priceApplyChargeModeHysteresis(prev ? prev.chargeMode : null, rawMode, currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
+      const rawMode        = this._priceSuggestChargeMode(currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
+      const deadlineForced = rawMode === 'maks' && this._deadlineForced === true;
+      this._deadlineForced = false;
+      const finalMode      = deadlineForced
+        ? 'maks'  // Bypass hysteresis — deadline is authoritative
+        : this._priceApplyChargeModeHysteresis(prev ? prev.chargeMode : null, rawMode, currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
 
       const r2 = v => Math.round(v * 100) / 100;
 
@@ -4488,7 +4559,10 @@ class PowerGuardApp extends Homey.App {
         entries: lookahead.map(e => ({
           hour:  e.start.toISOString(),
           ore:   r2(e.adjustedOre),
-          level: this._priceSuggestLevel(e.adjustedOre, stats),
+          // Use hysteresis-applied level for the current hour so chart bar matches the badge
+          level: e.start.getTime() === currentEntry.start.getTime()
+            ? finalLevel
+            : this._priceSuggestLevel(e.adjustedOre, stats),
         })),
         stats: {
           min:    r2(stats.min),
@@ -4597,22 +4671,81 @@ class PowerGuardApp extends Homey.App {
 
   _priceApplyHysteresis(prev, suggested, ore, stats) {
     if (!prev || prev === suggested) return suggested;
-    const margin = stats.spread <= 32 ? 6 : 4;
-    if (prev === 'billig'       && suggested === 'normal'      && ore <= stats.p25 + margin) return 'billig';
+    // Flat-rate pricing: spread is ~0, all price margins are meaningless — skip hysteresis.
+    if (stats.spread <= 8) return suggested;
+    const marginSoft = stats.spread <= 32 ? 6 : 4;  // for billig ↔ normal (less critical)
+    const marginHard = 1;                             // for normal ↔ dyr/ekstremt (must react fast)
+    if (prev === 'billig'       && suggested === 'normal'      && ore <= stats.p25 + marginSoft) return 'billig';
     if (prev === 'normal') {
-      if (suggested === 'billig'      && ore >  stats.p25 - margin) return 'normal';
-      if (suggested === 'dyr'         && ore <  stats.p75 + margin) return 'normal';
-      if (suggested === 'ekstremt dyr'&& ore <  stats.p90 + margin) return 'normal';
+      if (suggested === 'billig'      && ore >  stats.p25 - marginSoft) return 'normal';
+      if (suggested === 'dyr'         && ore <  stats.p75 + marginHard) return 'normal';
+      if (suggested === 'ekstremt dyr'&& ore <  stats.p90 + marginHard) return 'normal';
     }
     if (prev === 'dyr') {
-      if (suggested === 'normal'      && ore >= stats.p75 - margin) return 'dyr';
-      if (suggested === 'ekstremt dyr'&& ore <  stats.p90 + margin) return 'dyr';
+      if (suggested === 'normal'      && ore >= stats.p75 - marginHard) return 'dyr';
+      if (suggested === 'ekstremt dyr'&& ore <  stats.p90 + marginHard) return 'dyr';
     }
-    if (prev === 'ekstremt dyr' && suggested === 'dyr' && ore >= Math.max(stats.p90 - margin, stats.mean + 18 - margin)) return 'ekstremt dyr';
+    if (prev === 'ekstremt dyr' && suggested === 'dyr' && ore >= Math.max(stats.p90 - marginHard, stats.mean + 18 - marginHard)) return 'ekstremt dyr';
     return suggested;
   }
 
   _priceSuggestChargeMode(currentEntry, nextEntry, level, stats, lookahead, cfg) {
+    // ── Resolve hoursNeeded (used in both deadline and smart-skip logic) ───────
+    let hoursNeeded = null;
+    const priceChargers = (this._settings.priorityList || []).filter(e => e.priceControlled);
+    let maxHours = 0; let anyValid = false;
+    for (const e of priceChargers) {
+      const bst = this._evBatteryState[e.deviceId];
+      if (!bst || Date.now() - bst.updatedAt > 24 * 3_600_000) continue;
+      if (typeof bst.hoursNeeded === 'number') { anyValid = true; maxHours = Math.max(maxHours, bst.hoursNeeded); }
+    }
+    if (anyValid) hoursNeeded = maxHours;
+    if (hoursNeeded === null) {
+      const manual = this.homey.settings.get('ev_ladebehov_timer');
+      if (typeof manual === 'number' && manual > 0) hoursNeeded = manual;
+    }
+
+    // ── Deadline + smart-skip logic ───────────────────────────────────────────
+    const ferdigKl = this.homey.settings.get('ev_ferdig_ladet_kl'); // e.g. "07:00"
+    if (ferdigKl && typeof ferdigKl === 'string' && ferdigKl.includes(':')) {
+      const [hh, mm]   = ferdigKl.split(':').map(Number);
+      const now        = currentEntry.start;
+      const deadline   = new Date(now);
+      deadline.setHours(hh, mm || 0, 0, 0);
+      if (deadline <= now) deadline.setDate(deadline.getDate() + 1);
+
+      const hoursRemaining = (deadline - now) / 3_600_000;
+
+      if (hoursNeeded !== null && hoursNeeded > 0) {
+        // CRITICAL: deadline imminent — force max regardless of price
+        if (hoursRemaining <= hoursNeeded + 1) {
+          this.log(`[Price] Deadline forcing 'maks': ${hoursRemaining.toFixed(1)}h left, ${hoursNeeded.toFixed(1)}h needed`);
+          this._deadlineForced = true;
+          return 'maks';
+        }
+
+        // SMART SKIP: count cheap+normal hours remaining before deadline
+        // If there are enough, we can afford to skip this expensive hour
+        const cheapNormalCount = lookahead.filter(e => {
+          if (e.start < currentEntry.start || e.start >= deadline) return false;
+          const lvl = e.start.getTime() === currentEntry.start.getTime()
+            ? level  // use already-computed level for current hour
+            : this._priceSuggestLevel(e.adjustedOre, stats);
+          return lvl !== 'dyr' && lvl !== 'ekstremt dyr';
+        }).length;
+
+        this.log(`[Price] Smart skip: ${cheapNormalCount} cheap/normal hours before deadline, need ${hoursNeeded.toFixed(1)}`);
+
+        if (level === 'ekstremt dyr') return 'av'; // always skip extreme
+        if (level === 'dyr') {
+          return cheapNormalCount >= hoursNeeded
+            ? 'av'    // enough cheap hours ahead — skip this expensive one
+            : 'lav';  // not enough — charge slowly even though expensive
+        }
+      }
+    }
+
+    // ── Standard price logic (no deadline or no hoursNeeded) ─────────────────
     const ore       = currentEntry.adjustedOre;
     const nextOre   = nextEntry ? nextEntry.adjustedOre : ore;
     const cheapest  = [...lookahead].sort((a, b) => a.adjustedOre - b.adjustedOre).slice(0, cfg.cheapHoursTarget || 6);
@@ -4628,6 +4761,10 @@ class PowerGuardApp extends Homey.App {
   _priceApplyChargeModeHysteresis(prev, suggested, currentEntry, nextEntry, level, stats, lookahead, cfg) {
     if (!prev || prev === suggested) return suggested;
     if (level === 'ekstremt dyr') return 'av';
+    // Flat-rate pricing (Norgespris or near-zero spread): every hour costs the same.
+    // Hysteresis margins are based on price differences that don't exist here — skip it
+    // entirely so the charger can freely transition between modes (especially exit 'av').
+    if (stats.spread <= 8) return suggested;
     const ore        = currentEntry.adjustedOre;
     const nextOre    = nextEntry ? nextEntry.adjustedOre : ore;
     const cheapest   = [...lookahead].sort((a, b) => a.adjustedOre - b.adjustedOre).slice(0, cfg.cheapHoursTarget || 6);
@@ -4694,7 +4831,7 @@ class PowerGuardApp extends Homey.App {
   }
 
   // ════════════════════════════════════════════════════════════════
-  // █ SECTION 11 — MODE ENGINE  (Home / Night / Away / Holiday)               █
+  // █ SECTION 13 — MODE ENGINE  (Home / Night / Away / Holiday)               █
   // ════════════════════════════════════════════════════════════════
   //  _startModeScheduler() — loads saved settings, applies current mode, starts
   //      a 60-second tick that auto-switches Home↔Night based on schedule.
@@ -4719,7 +4856,7 @@ class PowerGuardApp extends Homey.App {
     }, 5000);
     // Check Night schedule every minute
     this._modeSchedulerInterval = setInterval(() => {
-      this._checkNightSchedule().catch(() => {});
+      this._checkNightSchedule().catch(err => this.error('[Modes] Night schedule error:', err));
     }, 60 * 1000);
     this.log(`[Modes] Scheduler started. Active mode: ${this._modeSettings.activeMode}`);
   }

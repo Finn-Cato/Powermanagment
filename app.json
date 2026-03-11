@@ -241,6 +241,14 @@
     "setEvChargingSettings": {
       "method": "POST",
       "path": "/set-ev-charging-settings"
+    },
+    "reportEvBattery": {
+      "method": "POST",
+      "path": "/ev-battery-report"
+    },
+    "getEvBatteryState": {
+      "method": "GET",
+      "path": "/ev-battery-state"
     }
   },
   "flow": {
@@ -564,6 +572,46 @@
           "en": "Reset statistics",
           "no": "Tilbakestill statistikk"
         }
+      },
+      {
+        "id": "report_ev_battery",
+        "title": {
+          "en": "Report EV battery level",
+          "no": "Rapporter elbil-batterinivå"
+        },
+        "titleFormatted": {
+          "en": "Report [[battery_pct]]% battery for [[charger]]",
+          "no": "Rapporter [[battery_pct]]% batteri for [[charger]]"
+        },
+        "args": [
+          {
+            "name": "charger",
+            "type": "autocomplete",
+            "title": {
+              "en": "Charger",
+              "no": "Lader"
+            },
+            "placeholder": {
+              "en": "Select charger…",
+              "no": "Velg lader…"
+            }
+          },
+          {
+            "name": "battery_pct",
+            "type": "number",
+            "title": {
+              "en": "Battery level (%)",
+              "no": "Batterinivå (%)"
+            },
+            "placeholder": {
+              "en": "e.g. 42",
+              "no": "f.eks. 42"
+            },
+            "min": 0,
+            "max": 100,
+            "step": 1
+          }
+        ]
       }
     ]
   }

@@ -808,7 +808,7 @@
       <!-- Smart Charging Status card -->
       <div class="card" style="padding:10px 14px;">
         <h2>Smart Charging Status</h2>
-        <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px 0;">Live status from Homey Logic variables (updated by the HomeyScript).</p>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px 0;">Live status from Power Guard — updated automatically.</p>
 
         <div class="status-grid" style="grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
           <div class="stat-box">
@@ -842,12 +842,37 @@
         </div>
 
         <h2 style="margin:14px 0 8px;">Charging Schedule</h2>
-        <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px 0;">Set how many hours the car needs and when it must be done. Written to Homey Logic variables for the HomeyScript to use.</p>
+
+        <div style="background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:1.6;">
+          <div style="font-weight:700;margin-bottom:6px;">⚡ How to set up automatic scheduling</div>
+          <ol style="margin:0;padding-left:18px;">
+            <li>In the <b>Devices tab</b> — find your charger and fill in <b>Battery size (kWh)</b> and <b>Charge to (%)</b>.</li>
+            <li>In <b>Homey Flows</b> — create a flow:<br>
+              <b>WHEN</b> your car app reports battery % changed<br>
+              <b>THEN</b> Power Guard → <i>"Report [battery %] battery for [charger]"</i><br>
+              <span style="color:var(--text-muted)">Drag the battery % tag from your car app (Audi, Nissan, Tesla, etc.) into the value field.</span>
+            </li>
+            <li>Set a <b>Finish charging by</b> time below and click <b>Save schedule</b>.</li>
+          </ol>
+          <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,122,255,0.2);">
+            <div style="font-weight:600;margin-bottom:4px;">How the smart charging logic works:</div>
+            <div style="color:var(--text-muted);">
+              Every hour, Power Guard counts the <b>cheap and normal hours remaining before your deadline</b> and compares them to the hours needed to charge your car.
+              <ul style="margin:6px 0 0 0;padding-left:16px;">
+                <li>If there are <b>enough cheap hours ahead</b> — charging pauses during expensive hours to save money.</li>
+                <li>If <b>not enough cheap hours remain</b> — charging continues at low speed even during expensive hours to avoid missing the deadline.</li>
+                <li>When fewer than <b>(hours needed + 1h buffer)</b> remain — charging switches to maximum regardless of price.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div id="ev-battery-state-panel" style="background:var(--bg-surface);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;">🔋 <b>Last battery reports:</b> <span style="color:var(--text-muted)">Loading…</span></div>
 
         <div class="row">
           <div class="label-group">
-            <label>Hours needed (ladebehov_timer)</label>
-            <span class="hint">0 = no scheduled charging, use price-based mode instead.</span>
+            <label>Hours needed (manual fallback)</label>
+            <span class="hint">Automatically calculated from battery % when reported via the Flow above. Set a fixed number here as a fallback if no Flow is configured.</span>
           </div>
           <div class="control">
             <input type="number" id="ev-ladebehov-timer" min="0" max="24" step="1" value="0">
@@ -856,8 +881,8 @@
         </div>
         <div class="row">
           <div class="label-group">
-            <label>Finish charging by (ferdig_ladet_kl)</label>
-            <span class="hint">Time in HH:MM format, e.g. 07:00. Leave empty to disable deadline.</span>
+            <label>Finish charging by</label>
+            <span class="hint">e.g. 07:00. Smart charging only activates when both a deadline and hours needed are set. Leave empty to use price-only mode.</span>
           </div>
           <div class="control">
             <input type="text" id="ev-ferdig-ladet-kl" placeholder="07:00" maxlength="5" style="width:80px;text-align:center;">
@@ -2295,29 +2320,59 @@
       li.style.borderWidth = '2px';
       li.style.background = 'rgba(255, 149, 0, 0.08)';
     }
+    var isEV = (entry.action === 'dynamic_current' || entry.action === 'charge_pause');
+
+    // Wrap controls in a flex row, battery section goes below — li becomes a column
+    if (isEV) li.style.cssText = (li.style.cssText || '') + ';flex-direction:column;align-items:stretch;';
+
+    var capVal = (entry.batteryCapacityKwh  != null) ? entry.batteryCapacityKwh  : '';
+    var tgtVal = (entry.targetChargePercent != null) ? entry.targetChargePercent : '';
+
+    var batterySection = isEV
+      ? '<div style="margin-top:5px;padding:5px 8px;background:rgba(0,122,255,0.07);border-radius:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;">' +
+          '<span style="color:var(--brand);font-weight:600;font-size:11px;">🔋 Battery schedule</span>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">Size' +
+            '<input type="number" min="1" max="200" step="1" placeholder="–" value="' + capVal + '"' +
+              ' style="width:52px;margin-left:4px;" title="Total usable battery capacity in kWh"' +
+              ' onchange="updateEvBatteryCapacity(\'' + entry.deviceId + '\',this.value)">' +
+            '<span style="color:var(--text-muted)">kWh</span>' +
+          '</label>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">Charge to' +
+            '<input type="number" min="10" max="100" step="5" placeholder="80" value="' + tgtVal + '"' +
+              ' style="width:46px;margin-left:4px;" title="Target charge level in percent"' +
+              ' onchange="updateEvTargetPercent(\'' + entry.deviceId + '\',this.value)">' +
+            '<span style="color:var(--text-muted)">%</span>' +
+          '</label>' +
+        '</div>'
+      : '';
+
     li.innerHTML =
-      '<span class="reorder-btns">' +
-        '<button onclick="pressButton(this); moveDevice(' + idx + ',-1)"' + (idx === 0 ? ' disabled' : '') + ' title="Move up">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24"><defs><linearGradient id="gu' + idx + '" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#1e40af"/><stop offset="40%" stop-color="#2563eb"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs><path d="M12 3L4 13h5v8h6v-8h5z" fill="url(#gu' + idx + ')" stroke="#1e3a8a" stroke-width="0.8" stroke-linejoin="round"/></svg>' +
-        '</button>' +
-        '<button onclick="pressButton(this); moveDevice(' + idx + ',1)"' + (idx === total - 1 ? ' disabled' : '') + ' title="Move down">' +
-          '<svg width="13" height="13" viewBox="0 0 24 24"><defs><linearGradient id="gd' + idx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="60%" stop-color="#2563eb"/><stop offset="100%" stop-color="#1e40af"/></linearGradient></defs><path d="M12 21L4 11h5V3h6v8h5z" fill="url(#gd' + idx + ')" stroke="#1e3a8a" stroke-width="0.8" stroke-linejoin="round"/></svg>' +
-        '</button>' +
-      '</span>' +
-      '<span class="priority-num">' + (idx + 1) + '.</span>' +
-      '<span class="dev-name" style="' + (isControlled ? 'color:#ff9500;font-weight:700;' : '') + '">' + escHtml(entry.name) + (isControlled ? ' <span style="font-size:10px;font-weight:600;background:#ff9500;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;">ACTIVE</span>' : '') + '</span>' +
-      '<select onchange="updateDeviceAction(\'' + entry.deviceId + '\',this.value)">' +
-        '<option value="onoff"'             + selOpt(entry.action,'onoff')             + '>Turn off</option>' +
-        '<option value="dim"'               + selOpt(entry.action,'dim')               + '>Dim</option>' +
-        '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>Lower thermostat</option>' +
-        '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging (Zaptec/Enua)</option>' +
-        '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee/Zaptec/Enua)</option>' +
-        '<option value="hoiax_power"'       + selOpt(entry.action,'hoiax_power')       + '>Stepped power (Høiax)</option>' +
-      '</select>' +
-      '<label class="toggle" title="Managed \u2014 toggle to remove">' +
-        '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
-        '<span class="slider"></span>' +
-      '</label>';
+      '<div style="display:flex;align-items:center;gap:2px;width:100%;">' +
+        '<span class="reorder-btns">' +
+          '<button onclick="pressButton(this); moveDevice(' + idx + ',-1)"' + (idx === 0 ? ' disabled' : '') + ' title="Move up">' +
+            '<svg width="13" height="13" viewBox="0 0 24 24"><defs><linearGradient id="gu' + idx + '" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#1e40af"/><stop offset="40%" stop-color="#2563eb"/><stop offset="100%" stop-color="#60a5fa"/></linearGradient></defs><path d="M12 3L4 13h5v8h6v-8h5z" fill="url(#gu' + idx + ')" stroke="#1e3a8a" stroke-width="0.8" stroke-linejoin="round"/></svg>' +
+          '</button>' +
+          '<button onclick="pressButton(this); moveDevice(' + idx + ',1)"' + (idx === total - 1 ? ' disabled' : '') + ' title="Move down">' +
+            '<svg width="13" height="13" viewBox="0 0 24 24"><defs><linearGradient id="gd' + idx + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="60%" stop-color="#2563eb"/><stop offset="100%" stop-color="#1e40af"/></linearGradient></defs><path d="M12 21L4 11h5V3h6v8h5z" fill="url(#gd' + idx + ')" stroke="#1e3a8a" stroke-width="0.8" stroke-linejoin="round"/></svg>' +
+          '</button>' +
+        '</span>' +
+        '<span class="priority-num">' + (idx + 1) + '.</span>' +
+        '<span class="dev-name" style="' + (isControlled ? 'color:#ff9500;font-weight:700;' : '') + '">' + escHtml(entry.name) + (isControlled ? ' <span style="font-size:10px;font-weight:600;background:#ff9500;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;">ACTIVE</span>' : '') + '</span>' +
+        '<select onchange="updateDeviceAction(\'' + entry.deviceId + '\',this.value)">' +
+          '<option value="onoff"'             + selOpt(entry.action,'onoff')             + '>Turn off</option>' +
+          '<option value="dim"'               + selOpt(entry.action,'dim')               + '>Dim</option>' +
+          '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>Lower thermostat</option>' +
+          '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging (Zaptec/Enua)</option>' +
+          '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee/Zaptec/Enua)</option>' +
+          '<option value="hoiax_power"'       + selOpt(entry.action,'hoiax_power')       + '>Stepped power (Høiax)</option>' +
+        '</select>' +
+        '<label class="toggle" title="Managed \u2014 toggle to remove">' +
+          '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
+          '<span class="slider"></span>' +
+        '</label>' +
+      '</div>' +
+      batterySection;
+
     return li;
   }
 
@@ -2379,6 +2434,22 @@
   function updateDeviceCircuitLimit(deviceId, val) {
     var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
     if (entry) { entry.circuitLimitA = parseInt(val) || 32; savePriorityList(); }
+  }
+
+  function updateEvBatteryCapacity(deviceId, val) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (!entry) return;
+    var n = parseFloat(val);
+    entry.batteryCapacityKwh = (val === '' || isNaN(n)) ? undefined : n;
+    savePriorityList();
+  }
+
+  function updateEvTargetPercent(deviceId, val) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (!entry) return;
+    var n = parseInt(val);
+    entry.targetChargePercent = (val === '' || isNaN(n)) ? undefined : Math.min(100, Math.max(10, n));
+    savePriorityList();
   }
 
   function reorderManaged(fromIdx, toIdx) {
@@ -3102,16 +3173,23 @@
     // Find next cheap / next expensive from entries
     var now = Date.now();
     var entries = state.entries || [];
+    var isFlat = state.stats && state.stats.spread === 0;
     var nextCheap = entries.find(function(e) { return e.level === 'billig' && new Date(e.hour).getTime() > now; });
     var nextExp   = entries.find(function(e) { return (e.level === 'dyr' || e.level === 'ekstremt dyr') && new Date(e.hour).getTime() > now; });
 
-    document.getElementById('price-next-cheap').textContent = nextCheap
-      ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
-      : (lvl === 'billig' ? 'Now' : '–');
+    // When Norgespris flat rate is active, spread=0 and all hours are identical —
+    // there are no cheap or expensive hours to point to.
+    document.getElementById('price-next-cheap').textContent = isFlat
+      ? 'All equal'
+      : (nextCheap
+        ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
+        : (lvl === 'billig' ? 'Now' : '–'));
 
-    document.getElementById('price-next-expensive').textContent = nextExp
-      ? new Date(nextExp.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
-      : (lvl === 'dyr' || lvl === 'ekstremt dyr' ? 'Now' : '–');
+    document.getElementById('price-next-expensive').textContent = isFlat
+      ? 'All equal'
+      : (nextExp
+        ? new Date(nextExp.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
+        : (lvl === 'dyr' || lvl === 'ekstremt dyr' ? 'Now' : '–'));
 
     // Bar chart
     var chartEl = document.getElementById('price-chart');
@@ -3261,12 +3339,13 @@
         lvlEl.textContent = lvl || '–';
         lvlEl.style.color = levelColors[lvl] || '';
 
-        document.getElementById('ev-neste-billig').textContent = data.neste_billige_time || '–';
+        document.getElementById('ev-neste-billig').textContent =
+          data.neste_billige_time === 'flat_rate' ? 'All equal' : (data.neste_billige_time || '–');
 
         // Mismatch warning
         var tilkoblet = ['ja','j','yes','y','true','1','on'].includes(String(data.bil_tilkoblet || '').trim().toLowerCase());
         var laderNa   = ['ja','j','yes','y','true','1','on'].includes(String(data.bil_lader_na || '').trim().toLowerCase());
-        var burde     = (data.burde_lade_bilen || '').trim().toLowerCase() === 'ja';
+        var burde     = ['ja','j','yes','y','true','1','on'].includes(String(data.burde_lade_bilen || '').trim().toLowerCase());
         var mismatch  = tilkoblet && (burde !== laderNa);
         document.getElementById('ev-mismatch-warn').style.display = mismatch ? 'block' : 'none';
 
@@ -3283,6 +3362,35 @@
       .catch(function() {
         document.getElementById('ev-bil-tilkoblet').textContent = '–';
       });
+
+    // Also load battery state
+    hApi('GET', '/ev-battery-state', null)
+      .then(function(data) {
+        var panel = document.getElementById('ev-battery-state-panel');
+        if (!panel || !data || !data.ok) return;
+        var state = data.batteryState || {};
+        var entries = Object.entries(state);
+        var now = Date.now();
+        var html = '<b>🔋 Last battery reports:</b><br>';
+        if (!entries.length) {
+          html += '<span style="color:var(--text-muted)">No reports yet — trigger your "Report EV battery" Flow to update.</span>';
+          panel.innerHTML = html;
+          panel.style.display = 'block';
+          return;
+        }
+        entries.forEach(function(kv) {
+          var deviceId = kv[0]; var bst = kv[1];
+          var entry = (priorityList || []).find(function(e) { return e.deviceId === deviceId; });
+          var name = entry ? entry.name : deviceId;
+          var age = Math.round((now - bst.updatedAt) / 60000);
+          var ageStr = age < 60 ? age + 'min ago' : Math.round(age/60) + 'h ago';
+          var hoursStr = bst.hoursNeeded !== null ? bst.hoursNeeded + 'h needed' : 'capacity not set';
+          html += '<span style="margin-right:12px;">' + escHtml(name) + ': <b>' + bst.pct + '%</b> → ' + hoursStr + ' <span style="color:var(--text-muted)">(' + ageStr + ')</span></span>';
+        });
+        panel.innerHTML = html;
+        panel.style.display = 'block';
+      })
+      .catch(function() {});
   }
 
   function saveEvChargingSettings() {

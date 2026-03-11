@@ -1,5 +1,33 @@
 'use strict';
 
+// ── Shared helper ─────────────────────────────────────────────────────────────
+// Returns a plain settings object from Homey persistent storage.
+// Used by both getSettings() and getAllData() to avoid duplication.
+function _readSettings(s) {
+  return {
+    enabled:              s.get('enabled')              ?? true,
+    profile:              s.get('profile')              ?? 'normal',
+    powerLimitW:          s.get('powerLimitW')          ?? 10000,
+    phase1LimitA:         s.get('phase1LimitA')         ?? 0,
+    phase2LimitA:         s.get('phase2LimitA')         ?? 0,
+    phase3LimitA:         s.get('phase3LimitA')         ?? 0,
+    smoothingWindow:      s.get('smoothingWindow')      ?? 5,
+    spikeMultiplier:      s.get('spikeMultiplier')      ?? 2.0,
+    hysteresisCount:      s.get('hysteresisCount')      ?? 3,
+    cooldownSeconds:      s.get('cooldownSeconds')      ?? 30,
+    errorMarginPercent:   s.get('errorMarginPercent')   ?? 0,
+    missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? 120,
+    dynamicRestoreGuard:  s.get('dynamicRestoreGuard')  ?? true,
+    voltageSystem:        s.get('voltageSystem')        ?? '230v-1phase',
+    phaseDistribution:    s.get('phaseDistribution')    ?? 'balanced',
+    mainCircuitA:         s.get('mainCircuitA')         ?? 25,
+    classFilters:         s.get('classFilters')         ?? {},
+    powerExcluded:        s.get('powerExcluded')        ?? {},
+    priorityList:         s.get('priorityList')         ?? [],
+    selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
+  };
+}
+
 module.exports = {
   async getStatus({ homey }) {
     return homey.app.getStatus();
@@ -57,29 +85,7 @@ module.exports = {
   },
 
   async getSettings({ homey }) {
-    const s = homey.settings;
-    return {
-      enabled:           s.get('enabled')           ?? true,
-      profile:           s.get('profile')           ?? 'normal',
-      powerLimitW:       s.get('powerLimitW')       ?? 10000,
-      phase1LimitA:      s.get('phase1LimitA')      ?? 0,
-      phase2LimitA:      s.get('phase2LimitA')      ?? 0,
-      phase3LimitA:      s.get('phase3LimitA')      ?? 0,
-      smoothingWindow:      s.get('smoothingWindow')      ?? 5,
-      spikeMultiplier:      s.get('spikeMultiplier')      ?? 2.0,
-      hysteresisCount:      s.get('hysteresisCount')      ?? 3,
-      cooldownSeconds:      s.get('cooldownSeconds')      ?? 30,
-      errorMarginPercent:   s.get('errorMarginPercent')   ?? 0,
-      missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? 120,
-      dynamicRestoreGuard:  s.get('dynamicRestoreGuard')  ?? true,
-      voltageSystem:        s.get('voltageSystem')        ?? '230v-1phase',
-      phaseDistribution:    s.get('phaseDistribution')    ?? 'balanced',
-      mainCircuitA:         s.get('mainCircuitA')         ?? 25,
-      classFilters:         s.get('classFilters')         ?? {},
-      powerExcluded:        s.get('powerExcluded')        ?? {},
-      priorityList:         s.get('priorityList')         ?? [],
-      selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
-    };
+    return _readSettings(homey.settings);
   },
 
   async getDevices({ homey }) {
@@ -87,32 +93,10 @@ module.exports = {
   },
 
   async getAllData({ homey }) {
-    const s = homey.settings;
     return {
-      settings: {
-        enabled:           s.get('enabled')           ?? true,
-        profile:           s.get('profile')           ?? 'normal',
-        powerLimitW:       s.get('powerLimitW')       ?? 10000,
-        phase1LimitA:      s.get('phase1LimitA')      ?? 0,
-        phase2LimitA:      s.get('phase2LimitA')      ?? 0,
-        phase3LimitA:      s.get('phase3LimitA')      ?? 0,
-        smoothingWindow:      s.get('smoothingWindow')      ?? 5,
-        spikeMultiplier:      s.get('spikeMultiplier')      ?? 2.0,
-        hysteresisCount:      s.get('hysteresisCount')      ?? 3,
-        cooldownSeconds:      s.get('cooldownSeconds')      ?? 30,
-        errorMarginPercent:   s.get('errorMarginPercent')   ?? 0,
-        missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? 120,
-        dynamicRestoreGuard:  s.get('dynamicRestoreGuard')  ?? true,
-        voltageSystem:        s.get('voltageSystem')        ?? '230v-1phase',
-        phaseDistribution:    s.get('phaseDistribution')    ?? 'balanced',
-        mainCircuitA:         s.get('mainCircuitA')         ?? 25,
-        classFilters:         s.get('classFilters')         ?? {},
-        powerExcluded:        s.get('powerExcluded')        ?? {},
-        priorityList:         s.get('priorityList')         ?? [],
-        selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
-      },
-      status:  homey.app.getStatus(),
-      devices: homey.app.getDevicesForSettings(),
+      settings: _readSettings(homey.settings),
+      status:   homey.app.getStatus(),
+      devices:  homey.app.getDevicesForSettings(),
     };
   },
 
@@ -365,36 +349,49 @@ module.exports = {
     return { ok: true };
   },
 
-  // ─── Section 14 — EV Smart Charging (Logic variables) ────────────────────
+  // ─── Section 14 — EV Smart Charging ──────────────────────────────────────
 
-  /** Read car charging status + schedule settings from Homey Logic variables */
+  /** Read car charging status + schedule settings from app state (no external Logic variables required) */
   async getEvChargingStatus({ homey }) {
-    const api = homey.app._api;
-    if (!api) return { ok: false, error: 'HomeyAPI not ready' };
-
     try {
-      const allVars = await api.logic.getVariables();
-      const vars = Object.values(allVars || {});
+      const evData     = homey.app._evPowerData || {};
+      const priceData  = homey.app.getPriceData();
+      const priceState = priceData.state;
 
-      const get = (name) => {
-        const v = vars.find(v => v.name === name);
-        return v ? v.value : null;
-      };
+      // Aggregate across all tracked chargers
+      const chargers       = Object.values(evData);
+      const bilTilkoblet   = chargers.some(c => c.isConnected === true);
+      const bilLaderNa     = chargers.some(c => (c.powerW || 0) > 200);
+      const chargeMode     = priceState ? priceState.chargeMode : null;
+      const burdeLadeBilen = bilTilkoblet && chargeMode !== null && chargeMode !== 'av';
 
-      // For schedule fields: Logic variable is primary, app settings is fallback
-      const ladebehovTimer = get('ladebehov_timer') ?? homey.settings.get('ev_ladebehov_timer') ?? null;
-      const ferdigLadetKl  = get('ferdig_ladet_kl')  ?? homey.settings.get('ev_ferdig_ladet_kl')  ?? null;
+      // Next cheap hour: first future entry with level 'billig' in the price lookahead.
+      // With Norgespris flat rate (spread=0) all hours cost the same — none are 'billig'.
+      let nesteBilligeTime = null;
+      if (priceState && Array.isArray(priceState.entries)) {
+        const isFlat = priceState.stats && priceState.stats.spread === 0;
+        if (isFlat) {
+          nesteBilligeTime = 'flat_rate';
+        } else {
+          const now = Date.now();
+          const cheap = priceState.entries.find(e => new Date(e.hour).getTime() > now && e.level === 'billig');
+          if (cheap) {
+            const d = new Date(cheap.hour);
+            nesteBilligeTime = d.getHours().toString().padStart(2, '0') + ':00';
+          }
+        }
+      }
 
       return {
         ok: true,
-        bil_tilkoblet:    get('bil_tilkoblet'),
-        bil_lader_na:     get('bil_lader_nå'),
-        burde_lade_bilen: get('burde_lade_bilen'),
-        lademodus:        get('lademodus'),
-        strompris:        get('strømpris'),
-        neste_billige_time: get('neste_billige_time'),
-        ladebehov_timer:  ladebehovTimer,
-        ferdig_ladet_kl:  ferdigLadetKl,
+        bil_tilkoblet:      bilTilkoblet,
+        bil_lader_na:       bilLaderNa,
+        burde_lade_bilen:   burdeLadeBilen,
+        lademodus:          chargeMode,
+        strompris:          priceState ? priceState.level : null,
+        neste_billige_time: nesteBilligeTime,
+        ladebehov_timer:    homey.settings.get('ev_ladebehov_timer') ?? null,
+        ferdig_ladet_kl:    homey.settings.get('ev_ferdig_ladet_kl') ?? null,
       };
     } catch (err) {
       return { ok: false, error: err.message };
@@ -431,6 +428,29 @@ module.exports = {
     } catch (err) {
       return { ok: false, error: err.message };
     }
+  },
+
+  /** POST /ev-battery-report — body: { deviceId, batteryPct } */
+  async reportEvBattery({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid body' };
+    const { deviceId, batteryPct } = body;
+    if (!deviceId || typeof batteryPct !== 'number' || batteryPct < 0 || batteryPct > 100) {
+      return { ok: false, error: 'deviceId (string) and batteryPct (0–100) required' };
+    }
+    try {
+      homey.app.reportEvBattery(deviceId, batteryPct);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
+
+  /** GET /ev-battery-state — returns stored battery state for all chargers */
+  async getEvBatteryState({ homey }) {
+    return {
+      ok:           true,
+      batteryState: homey.app._evBatteryState || {},
+    };
   },
 
   // ─── Section 15 — Mode Engine ─────────────────────────────────────────────
