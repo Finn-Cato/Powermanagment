@@ -3228,7 +3228,7 @@
         // Mismatch warning
         var tilkoblet = ['ja','j','yes','y','true','1','on'].includes(String(data.bil_tilkoblet || '').trim().toLowerCase());
         var laderNa   = ['ja','j','yes','y','true','1','on'].includes(String(data.bil_lader_na || '').trim().toLowerCase());
-        var burde     = (data.burde_lade_bilen || '').trim().toLowerCase() === 'ja';
+        var burde     = ['ja','j','yes','y','true','1','on'].includes(String(data.burde_lade_bilen || '').trim().toLowerCase());
         var mismatch  = tilkoblet && (burde !== laderNa);
         document.getElementById('ev-mismatch-warn').style.display = mismatch ? 'block' : 'none';
 
