@@ -2369,8 +2369,10 @@ class PowerGuardApp extends Homey.App {
    */
   async _pollEVChargerData() {
     if (!this._api) return;
+    // Include both dynamic_current AND charge_pause — Zaptec/Enua on charge_pause
+    // were previously excluded, leaving their powerW/isCharging stale after restart.
     const entries = (this._settings.priorityList || []).filter(e =>
-      e.action === 'dynamic_current' && e.enabled !== false
+      (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false
     );
     for (const entry of entries) {
       try {
@@ -2382,6 +2384,11 @@ class PowerGuardApp extends Homey.App {
         const obj = device.capabilitiesObj || {};
         const data = this._evPowerData[entry.deviceId];
         if (!data) continue;
+
+        // Snapshot previous state for change detection
+        const prevConnected = data.isConnected;
+        const prevCharging  = data.isCharging;
+        const prevPowerW    = data.powerW;
 
         // Update power
         if (obj.measure_power && obj.measure_power.value != null) {
@@ -2403,6 +2410,10 @@ class PowerGuardApp extends Homey.App {
           data.isCharging = obj.toggleChargingCapability.value !== false;
           data.isConnected = this._isCarConnected(entry.deviceId);
         }
+        // Update charging_button (Zaptec)
+        if (obj.charging_button && obj.charging_button.value != null) {
+          data.isCharging = obj.charging_button.value !== false;
+        }
         // Update onoff
         if (obj.onoff && obj.onoff.value != null) {
           data.isCharging = obj.onoff.value !== false;
@@ -2410,6 +2421,26 @@ class PowerGuardApp extends Homey.App {
         // Update offered current
         if (obj['measure_current.offered'] && obj['measure_current.offered'].value != null) {
           data.offeredCurrent = typeof obj['measure_current.offered'].value === 'number' ? obj['measure_current.offered'].value : null;
+        }
+        // Update alarm_generic.car_connected (Zaptec)
+        if (obj['alarm_generic.car_connected'] && obj['alarm_generic.car_connected'].value != null) {
+          data.carConnectedAlarm = obj['alarm_generic.car_connected'].value;
+          data.isConnected = this._isCarConnected(entry.deviceId);
+        }
+
+        // Stamp last confirmed charging time — used for grace window in status reporting
+        if (data.isCharging === true || (data.powerW || 0) > 200) {
+          data.lastChargingAt = Date.now();
+        }
+
+        // Log when connection or charging state changes
+        const connChanged    = data.isConnected !== prevConnected;
+        const chargingChanged = data.isCharging  !== prevCharging;
+        const powerJump      = Math.abs((data.powerW || 0) - (prevPowerW || 0)) > 500;
+        if (connChanged || chargingChanged || powerJump) {
+          const graceAgo = data.lastChargingAt ? Math.round((Date.now() - data.lastChargingAt) / 1000) + 's ago' : 'never';
+          this.log(`[EV Poll] ${entry.name}: connected=${data.isConnected} charging=${data.isCharging} power=${Math.round(data.powerW || 0)}W status=${data.chargerStatus ?? 'n/a'} lastCharging=${graceAgo}`);
+          this._appLogEntry('charger', `${entry.name} status update: connected=${data.isConnected} charging=${data.isCharging} power=${Math.round(data.powerW || 0)}W`);
         }
 
         // Auto-detect charger phases from power/current ratio when actively charging:

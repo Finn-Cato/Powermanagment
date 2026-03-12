@@ -354,26 +354,49 @@ module.exports = {
   /** Read car charging status + schedule settings from app state (no external Logic variables required) */
   async getEvChargingStatus({ homey }) {
     try {
-      const evData     = homey.app._evPowerData || {};
-      const priceData  = homey.app.getPriceData();
-      const priceState = priceData.state;
+      const evData      = homey.app._evPowerData || {};
+      const batteryState = homey.app._evBatteryState || {};
+      const priceData   = homey.app.getPriceData();
+      const priceState  = priceData.state;
+      const chargeMode  = priceState ? priceState.chargeMode : null;
+      const now         = Date.now();
 
-      // Aggregate across all tracked chargers
-      const chargers       = Object.values(evData);
-      const bilTilkoblet   = chargers.some(c => c.isConnected === true);
-      const bilLaderNa     = chargers.some(c => c.isCharging === true || (c.powerW || 0) > 200);
-      const chargeMode     = priceState ? priceState.chargeMode : null;
+      // 2-minute grace window: if charging was confirmed recently, don't flip to "not charging"
+      // during brief Easee transitions (current adjustments) or slow startup snapshots.
+      const GRACE_MS = 2 * 60 * 1000;
+
+      // Build per-charger status — one entry per tracked EV charger
+      const chargerStatuses = Object.entries(evData).map(([deviceId, c]) => {
+        const inGrace          = c.lastChargingAt && (now - c.lastChargingAt) < GRACE_MS;
+        const effectiveCharging = c.isCharging === true || (c.powerW || 0) > 200 || (c.isConnected && inGrace);
+        const bst              = batteryState[deviceId];
+        const batteryFull      = bst && typeof bst.pct === 'number' && bst.pct >= 100;
+        const shouldCharge     = c.isConnected && !batteryFull && chargeMode !== null && chargeMode !== 'av';
+        const mismatch         = c.isConnected && shouldCharge && !effectiveCharging;
+        return {
+          deviceId,
+          name:        c.name || deviceId,
+          connected:   c.isConnected === true,
+          charging:    effectiveCharging,
+          shouldCharge,
+          mismatch,
+          powerW:      Math.round(c.powerW || 0),
+          inGrace:     !!(c.isConnected && inGrace && !(c.isCharging === true || (c.powerW || 0) > 200)),
+        };
+      });
+
+      // Backwards-compatible aggregate fields (used by legacy code paths)
+      const bilTilkoblet   = chargerStatuses.some(c => c.connected);
+      const bilLaderNa     = chargerStatuses.some(c => c.charging);
       const burdeLadeBilen = bilTilkoblet && chargeMode !== null && chargeMode !== 'av';
 
-      // Next cheap hour: first future entry with level 'billig' in the price lookahead.
-      // With Norgespris flat rate (spread=0) all hours cost the same — none are 'billig'.
+      // Next cheap hour
       let nesteBilligeTime = null;
       if (priceState && Array.isArray(priceState.entries)) {
         const isFlat = priceState.stats && priceState.stats.spread === 0;
         if (isFlat) {
           nesteBilligeTime = 'flat_rate';
         } else {
-          const now = Date.now();
           const cheap = priceState.entries.find(e => new Date(e.hour).getTime() > now && e.level === 'billig');
           if (cheap) {
             const d = new Date(cheap.hour);
@@ -384,6 +407,7 @@ module.exports = {
 
       return {
         ok: true,
+        chargers:           chargerStatuses,
         bil_tilkoblet:      bilTilkoblet,
         bil_lader_na:       bilLaderNa,
         burde_lade_bilen:   burdeLadeBilen,

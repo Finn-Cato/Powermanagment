@@ -810,19 +810,8 @@
         <h2>Smart Charging Status</h2>
         <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px 0;">Live status from Power Guard — updated automatically.</p>
 
-        <div class="status-grid" style="grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
-          <div class="stat-box">
-            <div class="stat-label">Car connected</div>
-            <div class="stat-value" id="ev-bil-tilkoblet" style="font-size:15px">–</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">Car charging now</div>
-            <div class="stat-value" id="ev-bil-lader-na" style="font-size:15px">–</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-label">Should charge</div>
-            <div class="stat-value" id="ev-burde-lade" style="font-size:15px">–</div>
-          </div>
+        <!-- Global price/mode boxes -->
+        <div class="status-grid" style="grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
           <div class="stat-box">
             <div class="stat-label">Charge mode</div>
             <div class="stat-value" id="ev-lademodus" style="font-size:15px">–</div>
@@ -837,9 +826,18 @@
           </div>
         </div>
 
-        <div id="ev-mismatch-warn" style="display:none;background:#ff3b3020;border:1px solid #ff3b30;border-radius:8px;padding:8px 12px;font-size:12px;color:#ff3b30;margin-bottom:12px;">
-          ⚠️ Mismatch: car should charge but is not (or vice versa).
+        <!-- Per-charger status rows (rendered dynamically) -->
+        <div id="ev-charger-rows" style="margin-bottom:12px">
+          <div style="color:var(--text-muted);font-size:12px;padding:6px 0;">Loading charger status…</div>
         </div>
+
+        <!-- Hidden legacy elements kept for any code that still references them -->
+        <span id="ev-bil-tilkoblet" style="display:none"></span>
+        <span id="ev-bil-lader-na" style="display:none"></span>
+        <span id="ev-burde-lade" style="display:none"></span>
+        <span id="ev-mismatch-warn" style="display:none"></span>
+
+        <div id="ev-battery-state-panel" style="background:var(--bg-surface);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;">🔋 <b>Last battery reports:</b> <span style="color:var(--text-muted)">Loading…</span></div>
 
         <h2 style="margin:14px 0 8px;">Charging Schedule</h2>
 
@@ -866,8 +864,6 @@
             </div>
           </div>
         </div>
-
-        <div id="ev-battery-state-panel" style="background:var(--bg-surface);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;">🔋 <b>Last battery reports:</b> <span style="color:var(--text-muted)">Loading…</span></div>
 
         <div class="row">
           <div class="label-group">
@@ -3337,24 +3333,11 @@
           return;
         }
 
-        var yesNo = function(val) {
-          if (val === null || val === undefined) return '–';
-          var v = String(val).trim().toLowerCase();
-          if (['ja','j','yes','y','true','1','on'].includes(v)) return '✅ Yes';
-          if (['nei','n','no','false','0','off',''].includes(v)) return '❌ No';
-          return val;
-        };
-
-        var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
         var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
         var modeLabels  = { 'av': '⏸ Paused', 'lav': '🐢 Low', 'normal': '▶ Normal', 'maks': '⚡ Max' };
+        var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
 
-        document.getElementById('ev-bil-tilkoblet').textContent = yesNo(data.bil_tilkoblet);
-        document.getElementById('ev-bil-lader-na').textContent  = yesNo(data.bil_lader_na);
-
-        var burdeEl = document.getElementById('ev-burde-lade');
-        burdeEl.textContent = yesNo(data.burde_lade_bilen);
-
+        // Global boxes
         var modeEl = document.getElementById('ev-lademodus');
         var mode = data.lademodus || '';
         modeEl.textContent = modeLabels[mode] || mode || '–';
@@ -3368,12 +3351,33 @@
         document.getElementById('ev-neste-billig').textContent =
           data.neste_billige_time === 'flat_rate' ? 'All equal' : (data.neste_billige_time || '–');
 
-        // Mismatch warning
-        var tilkoblet = ['ja','j','yes','y','true','1','on'].includes(String(data.bil_tilkoblet || '').trim().toLowerCase());
-        var laderNa   = ['ja','j','yes','y','true','1','on'].includes(String(data.bil_lader_na || '').trim().toLowerCase());
-        var burde     = ['ja','j','yes','y','true','1','on'].includes(String(data.burde_lade_bilen || '').trim().toLowerCase());
-        var mismatch  = tilkoblet && (burde !== laderNa);
-        document.getElementById('ev-mismatch-warn').style.display = mismatch ? 'block' : 'none';
+        // Per-charger rows
+        var rowsEl = document.getElementById('ev-charger-rows');
+        if (rowsEl && Array.isArray(data.chargers) && data.chargers.length > 0) {
+          var html = '';
+          data.chargers.forEach(function(c) {
+            var connIcon    = c.connected   ? '✅' : '❌';
+            var chgIcon     = c.charging    ? '✅' : '❌';
+            var shouldIcon  = c.shouldCharge ? '✅' : '❌';
+            var graceNote   = c.inGrace ? ' <span style="font-size:10px;color:#ff9500;font-style:italic;">(grace)</span>' : '';
+            var borderColor = c.mismatch ? '#ff3b30' : (c.connected ? 'var(--border-color)' : 'var(--border-color)');
+            var bgColor     = c.mismatch ? 'rgba(255,59,48,0.06)' : 'transparent';
+            html += '<div style="border:1px solid ' + borderColor + ';border-radius:8px;padding:8px 10px;margin-bottom:8px;background:' + bgColor + ';">';
+            html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-primary);">⚡ ' + escHtml(c.name) + (c.powerW > 0 ? ' <span style="font-weight:400;color:var(--text-muted);">(' + c.powerW + 'W)</span>' : '') + '</div>';
+            html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Connected</div><div style="font-size:14px;">' + connIcon + ' ' + (c.connected ? 'Yes' : 'No') + '</div></div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Charging now</div><div style="font-size:14px;">' + chgIcon + ' ' + (c.charging ? 'Yes' : 'No') + graceNote + '</div></div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Should charge</div><div style="font-size:14px;">' + shouldIcon + ' ' + (c.shouldCharge ? 'Yes' : 'No') + '</div></div>';
+            html += '</div>';
+            if (c.mismatch) {
+              html += '<div style="margin-top:6px;font-size:11px;color:#ff3b30;">⚠️ Mismatch: should charge but is not (or vice versa).</div>';
+            }
+            html += '</div>';
+          });
+          rowsEl.innerHTML = html;
+        } else if (rowsEl) {
+          rowsEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px 0;">No EV chargers tracked — add a charger in the Devices tab.</div>';
+        }
 
         // Populate schedule inputs (don't overwrite if user is editing)
         var ladebehovEl = document.getElementById('ev-ladebehov-timer');
@@ -3386,7 +3390,8 @@
         }
       })
       .catch(function() {
-        document.getElementById('ev-bil-tilkoblet').textContent = '–';
+        var rowsEl = document.getElementById('ev-charger-rows');
+        if (rowsEl) rowsEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Could not load charger status.</div>';
       });
 
     // Also load battery state
@@ -3411,7 +3416,7 @@
           var age = Math.round((now - bst.updatedAt) / 60000);
           var ageStr = age < 60 ? age + 'min ago' : Math.round(age/60) + 'h ago';
           var hoursStr = bst.hoursNeeded !== null ? bst.hoursNeeded + 'h needed' : 'capacity not set';
-          html += '<span style="margin-right:12px;">' + escHtml(name) + ': <b>' + bst.pct + '%</b> → ' + hoursStr + ' <span style="color:var(--text-muted)">(' + ageStr + ')</span></span>';
+          html += '<div style="margin-top:2px;">' + escHtml(name) + ': <b>' + bst.pct + '%</b> → ' + hoursStr + ' <span style="color:var(--text-muted)">(' + ageStr + ')</span></div>';
         });
         panel.innerHTML = html;
         panel.style.display = 'block';
