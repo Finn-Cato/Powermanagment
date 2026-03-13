@@ -370,7 +370,7 @@ module.exports = {
         const inGrace          = c.lastChargingAt && (now - c.lastChargingAt) < GRACE_MS;
         const effectiveCharging = c.isCharging === true || (c.powerW || 0) > 200 || (c.isConnected && inGrace);
         const bst              = batteryState[deviceId];
-        const batteryFull      = bst && typeof bst.pct === 'number' && bst.pct >= 100;
+        const batteryFull      = bst && typeof bst.pct === 'number' && bst.pct >= 99;
         const shouldCharge     = c.isConnected && !batteryFull && chargeMode !== null && chargeMode !== 'av';
         const mismatch         = c.isConnected && shouldCharge && !effectiveCharging;
         return {
