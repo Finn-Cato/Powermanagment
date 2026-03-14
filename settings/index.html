@@ -867,8 +867,8 @@
 
         <div class="row">
           <div class="label-group">
-            <label>Hours needed (manual fallback)</label>
-            <span class="hint">How many hours are needed to charge the car. Auto-calculated when a car device is linked or battery % is reported via Flow. Set a fixed number here as a fallback.</span>
+            <label>Hours needed (if no car device linked)</label>
+            <span class="hint">How many hours are needed to charge the car. Auto-calculated when a car device is linked or battery % is reported via Flow. Set a fixed number here if neither is configured.</span>
           </div>
           <div class="control">
             <input type="number" id="ev-ladebehov-timer" min="0" max="24" step="1" value="0">
