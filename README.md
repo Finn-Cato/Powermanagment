@@ -71,6 +71,85 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 
 ---
 
+## EV Charger Setup & How Charging Hours Are Calculated
+
+### Step 1 — Add the Charger to the Priority List (Devices Tab)
+Find your EV charger in the Devices tab and enable it. Set the action to **Dynamic Current** (Easee / Zaptec / Enua) or **Pause EV Charging** (Zaptec / Enua without dynamic control).
+
+### Step 2 — Configure the Battery Schedule (Devices Tab)
+Once the charger is enabled, a blue **🔋 Battery schedule** row appears beneath it with three fields:
+
+| Field | What to enter | Example |
+|-------|---------------|---------|
+| **Size (kWh)** | Your car's usable battery capacity | `77` for a 77 kWh battery |
+| **Charge to (%)** | Target charge level | `80` (recommended for daily use) |
+| **Car** | Link a Homey car device | Select your car from the dropdown |
+
+If you link a car device, Power Guard reads the battery % automatically when you plug in and every 30 minutes — no Flow required. If no car device is available, you can trigger the **Report EV Battery** Flow action manually.
+
+### Step 3 — Set the Circuit Limit (System Tab)
+On the **System** tab under **Managed Chargers**, set the **circuit breaker limit (A)** for each charger. This is the physical maximum your charger's circuit can handle (e.g. `16A` or `32A`).
+
+### Step 4 — Set the Charging Deadline and Hours Needed (Smart Tab)
+On the **Smart** tab, set:
+
+| Field | What it does |
+|-------|--------------|
+| **Ready by (time)** | When the car must be fully charged, e.g. `07:00` |
+| **Hours needed (manual)** | Fallback if no car device is linked — enter how many hours you expect charging to take |
+
+---
+
+### How Power Guard Calculates Hours Needed
+
+When a battery report comes in (from a linked car device or a Flow action), Power Guard calculates:
+
+```
+kWh to charge = (target% - current%) / 100 × battery capacity (kWh)
+charger power  = circuit limit (A) × 230V × phases
+hours needed   = kWh to charge ÷ charger power (kW)
+```
+
+**Example:**
+- Battery: 40 kWh currently, target 80%, capacity 77 kWh
+- Charger: 16A circuit, 1-phase → 3.7 kW
+- kWh needed: (80 − 40) / 100 × 77 = 30.8 kWh
+- **Hours needed: 30.8 ÷ 3.7 = 8.3 hours**
+
+This result is used by the Smart Price engine to decide which hours to charge on.
+
+---
+
+### How the Smart Charging Engine Uses This
+
+Once it knows how many hours are needed and when the deadline is, Power Guard:
+
+1. **Counts cheap/normal price hours** remaining before the deadline
+2. **If enough cheap hours exist** — skips expensive hours (charges at minimum or off)
+3. **If not enough cheap hours** — charges at low speed even during expensive hours to guarantee the car is ready
+4. **Deadline imminent** (less than `hoursNeeded + 1h` remaining) — forces **Max** charging regardless of price
+
+**Charge modes used:**
+
+| Mode | What it means |
+|------|---------------|
+| **Max** | Full charger current (circuit limit) |
+| **Normal** | ~50–75% of circuit current |
+| **Low** | ~25% of circuit current (minimum viable) |
+| **Off** | Charger paused |
+
+---
+
+### What Happens Without a Deadline
+
+If no **Ready by** time is set, Power Guard falls back to standard price logic:
+- Charges at max during the cheapest hours of the day
+- Charges at normal during cheap/normal price periods
+- Slows down or pauses during expensive hours
+- Pre-charges if the next hour is predicted to be significantly more expensive
+
+---
+
 ## Supported Hardware
 
 | Type | Supported devices |
