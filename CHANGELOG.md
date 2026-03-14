@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.28 (2026-03-14)
+- Mode buttons: loading spinner (⏳) shown while API call is in progress — button disabled during request to prevent double-press
+- README: full rewrite with complete feature documentation, EV charger setup guide, and charging hours calculation explained
+- Docs: added step-by-step EV setup (battery size, target %, car device, circuit limit, deadline) and formula for hours-needed calculation
+
 ## v0.8.27 (2026-03-14)
 - HAN meter auto-detection: fixed wrong device being selected when multiple meter-like devices exist — now picks the one with highest current power reading (Frient Smart Reader preferred over Futurehome dongle reporting 0 W)
 - Active Mode buttons: fixed ❄️ Holiday button appearing taller than others — reduced font/padding, added non-breaking space to prevent emoji/text line-break
