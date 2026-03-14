@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.8.29 (2026-03-14)
+- Smart charging: replaced smart-skip logic with cheapest-hours rule — when a deadline is set, Power Guard picks the N cheapest hours before the deadline and charges only during those (Off during all other hours)
+- Hysteresis now bypassed when deadline rule is active — prevents hysteresis from overriding the Off decision back to Low during normal-price hours
+- Result: Charger Mode shows Off outside cheap window, Max during cheap window
+
 ## v0.8.28 (2026-03-14)
 - Mode buttons: loading spinner (⏳) shown while API call is in progress — button disabled during request to prevent double-press
 - README: full rewrite with complete feature documentation, EV charger setup guide, and charging hours calculation explained

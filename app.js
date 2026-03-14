@@ -4647,10 +4647,11 @@ class PowerGuardApp extends Homey.App {
 
       const nextEntry    = entries.find(e => e.start.getTime() === currentEntry.end.getTime()) || null;
       const rawMode        = this._priceSuggestChargeMode(currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
-      const deadlineForced = rawMode === 'maks' && this._deadlineForced === true;
+      const deadlineForced = this._deadlineForced === true;
       this._deadlineForced = false;
+      // Bypass hysteresis when deadline logic made the decision — cheapest-hours rule is authoritative
       const finalMode      = deadlineForced
-        ? 'maks'  // Bypass hysteresis — deadline is authoritative
+        ? rawMode
         : this._priceApplyChargeModeHysteresis(prev ? prev.chargeMode : null, rawMode, currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
 
       const r2 = v => Math.round(v * 100) / 100;
@@ -4834,24 +4835,22 @@ class PowerGuardApp extends Homey.App {
           return 'maks';
         }
 
-        // SMART SKIP: count cheap+normal hours remaining before deadline
-        // If there are enough, we can afford to skip this expensive hour
-        const cheapNormalCount = lookahead.filter(e => {
-          if (e.start < currentEntry.start || e.start >= deadline) return false;
-          const lvl = e.start.getTime() === currentEntry.start.getTime()
-            ? level  // use already-computed level for current hour
-            : this._priceSuggestLevel(e.adjustedOre, stats);
-          return lvl !== 'dyr' && lvl !== 'ekstremt dyr';
-        }).length;
+        // CHEAPEST-HOURS RULE: pick the N cheapest hours before the deadline.
+        // Charge only during those hours — off during everything else.
+        // Power Guard's hard power limit still applies on top via the dynamic current loop.
+        const hoursBeforeDeadline = lookahead.filter(e =>
+          e.start >= currentEntry.start && e.start < deadline
+        );
+        const cheapestN = [...hoursBeforeDeadline]
+          .sort((a, b) => a.adjustedOre - b.adjustedOre)
+          .slice(0, Math.ceil(hoursNeeded))
+          .map(e => e.start.getTime());
 
-        this.log(`[Price] Smart skip: ${cheapNormalCount} cheap/normal hours before deadline, need ${hoursNeeded.toFixed(1)}`);
+        const isInCheapestN = cheapestN.includes(currentEntry.start.getTime());
+        this.log(`[Price] Deadline mode: ${cheapestN.length} cheapest hours selected before ${ferdigKl}, current hour ${isInCheapestN ? 'IS' : 'is NOT'} in charging window`);
 
-        if (level === 'ekstremt dyr') return 'av'; // always skip extreme
-        if (level === 'dyr') {
-          return cheapNormalCount >= hoursNeeded
-            ? 'av'    // enough cheap hours ahead — skip this expensive one
-            : 'lav';  // not enough — charge slowly even though expensive
-        }
+        this._deadlineForced = true; // bypass hysteresis — deadline rule is authoritative
+        return isInCheapestN ? 'maks' : 'av';
       }
     }
 

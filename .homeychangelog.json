@@ -181,5 +181,9 @@
   "0.8.28": {
     "en": "Mode buttons now show a loading spinner and are disabled while the mode change is being applied — prevents accidental double-press. HAN meter auto-detection improved: when multiple meter-like devices exist, the one with the highest current power reading is selected (fixes Frient being skipped in favour of an unconfigured Futurehome dongle at 0 W). Active Mode button styling fixed — Holiday button no longer appears taller than others.",
     "no": "Modusknapper viser nå en lasteindikator og deaktiveres mens modus-endringen behandles — forhindrer utilsiktet dobbelttrykk. HAN-meterdeteksjon forbedret: når flere meter-lignende enheter finnes, velges den med høyest aktuell effektavlesning (fikser at Frient ble forbigått til fordel for en ukonfigurert Futurehome-dongle på 0 W). Modus-knapp-styling fikset — Ferie-knappen ser ikke lenger høyere ut enn de andre."
+  },
+  "0.8.29": {
+    "en": "Smart charging: replaced smart-skip logic with cheapest-hours rule — when a deadline and hours needed are set, Power Guard picks the N cheapest hours before the deadline and charges at max during those hours only (Off during all others). Hysteresis is now bypassed when the deadline rule is active, preventing it from overriding an Off decision back to Low during normal-price hours.",
+    "no": "Smart lading: erstattet smart-hopp-logikk med billigste-timer-regel — når frist og timer nødvendig er satt, velger Power Guard de N billigste timene før fristen og lader på maks kun i disse timene (Av i alle andre timer). Hysteresen omgås nå når deadline-regelen er aktiv, slik at den ikke kan overstyre en Av-beslutning tilbake til Lav i normale pristimer."
   }
 }
