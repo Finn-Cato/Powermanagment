@@ -3773,13 +3773,24 @@
   }
 
   function doActivateMode(mode) {
+    // ── Spinner: show loading state while API call is in progress ──
+    var btn = document.getElementById('mode-btn-' + mode);
+    var originalText = btn ? btn.textContent : null;
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+    // ── End spinner ──
+
     hApi('POST', '/mode-activate', { mode: mode })
       .then(function() {
         if (_modesData) _modesData.modeSettings.activeMode = mode;
         renderModesActive(mode);
         showToast();
       })
-      .catch(function(e) { console.error('doActivateMode error:', e); });
+      .catch(function(e) { console.error('doActivateMode error:', e); })
+      .finally(function() {
+        // ── Spinner: restore button after response ──
+        if (btn) { btn.textContent = originalText; btn.disabled = false; }
+        // ── End spinner ──
+      });
   }
 
 </script>
