@@ -855,11 +855,11 @@
           <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,122,255,0.2);">
             <div style="font-weight:600;margin-bottom:4px;">How the smart charging logic works:</div>
             <div style="color:var(--text-muted);">
-              Every hour, Power Guard counts the <b>cheap and normal hours remaining before your deadline</b> and compares them to the hours needed to charge your car.
+              Power Guard picks the <b>N cheapest hours before your deadline</b> and charges at maximum only during those hours. All other hours the charger is off.
               <ul style="margin:6px 0 0 0;padding-left:16px;">
-                <li>If there are <b>enough cheap hours ahead</b> — charging pauses during expensive hours to save money.</li>
-                <li>If <b>not enough cheap hours remain</b> — charging continues at low speed even during expensive hours to avoid missing the deadline.</li>
-                <li>When fewer than <b>(hours needed + 1h buffer)</b> remain — charging switches to maximum regardless of price.</li>
+                <li><b>Cheapest hours selected</b> — charger runs at maximum to fill the battery as fast as possible during the cheapest electricity.</li>
+                <li><b>All other hours</b> — charger is off, regardless of price level.</li>
+                <li>When fewer than <b>(hours needed + 1h buffer)</b> remain before the deadline — charging switches to maximum regardless of price to guarantee the car is ready.</li>
               </ul>
             </div>
           </div>
@@ -868,7 +868,7 @@
         <div class="row">
           <div class="label-group">
             <label>Hours needed (manual fallback)</label>
-            <span class="hint">Automatically calculated from battery % when reported via the Flow above. Set a fixed number here as a fallback if no Flow is configured.</span>
+            <span class="hint">How many hours are needed to charge the car. Auto-calculated when a car device is linked or battery % is reported via Flow. Set a fixed number here as a fallback.</span>
           </div>
           <div class="control">
             <input type="number" id="ev-ladebehov-timer" min="0" max="24" step="1" value="0">
@@ -878,7 +878,7 @@
         <div class="row">
           <div class="label-group">
             <label>Finish charging by</label>
-            <span class="hint">e.g. 07:00. Smart charging only activates when both a deadline and hours needed are set. Leave empty to use price-only mode.</span>
+            <span class="hint">e.g. 07:00. Power Guard picks the N cheapest hours before this time and charges at max only during those. Leave empty to use price-only mode.</span>
           </div>
           <div class="control">
             <input type="text" id="ev-ferdig-ladet-kl" placeholder="07:00" maxlength="5" style="width:80px;text-align:center;">

@@ -124,19 +124,17 @@ This result is used by the Smart Price engine to decide which hours to charge on
 
 Once it knows how many hours are needed and when the deadline is, Power Guard:
 
-1. **Counts cheap/normal price hours** remaining before the deadline
-2. **If enough cheap hours exist** — skips expensive hours (charges at minimum or off)
-3. **If not enough cheap hours** — charges at low speed even during expensive hours to guarantee the car is ready
-4. **Deadline imminent** (less than `hoursNeeded + 1h` remaining) — forces **Max** charging regardless of price
+1. **Picks the N cheapest hours** before the deadline (where N = hours needed, rounded up)
+2. **During those hours** — charges at **Max** (full circuit current)
+3. **All other hours** — charger is **Off**, regardless of price level
+4. **Deadline imminent** (less than `hoursNeeded + 1h` remaining) — forces **Max** charging regardless of price to guarantee the car is ready in time
 
 **Charge modes used:**
 
 | Mode | What it means |
 |------|---------------|
-| **Max** | Full charger current (circuit limit) |
-| **Normal** | ~50–75% of circuit current |
-| **Low** | ~25% of circuit current (minimum viable) |
-| **Off** | Charger paused |
+| **Max** | Full charger current (circuit limit) — used during cheapest hours and deadline forcing |
+| **Off** | Charger paused — used during all non-cheapest hours |
 
 ---
 
