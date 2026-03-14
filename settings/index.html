@@ -3431,6 +3431,7 @@
         var modeLabels  = { 'av': '⏸ Off', 'lav': '🐢 Slow charge', 'normal': '▶ Charging', 'maks': '⚡ Fast charge' };
         var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'price is moderate', 'normal': '', 'maks': 'cheap hour' };
         var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
+        var levelLabels = { 'billig': '🟢 Cheap', 'normal': '⚪ Normal', 'dyr': '🟠 Expensive', 'ekstremt dyr': '🔴 Extreme' };
 
         // Global boxes
         var modeEl = document.getElementById('ev-lademodus');
@@ -3442,7 +3443,7 @@
 
         var lvlEl = document.getElementById('ev-strompris');
         var lvl = data.strompris || '';
-        lvlEl.textContent = lvl || '–';
+        lvlEl.textContent = levelLabels[lvl] || lvl || '–';
         lvlEl.style.color = levelColors[lvl] || '';
 
         document.getElementById('ev-neste-billig').textContent =

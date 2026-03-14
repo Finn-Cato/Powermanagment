@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.8.32 (2026-03-14)
+- Fix: EV charger not pausing when price mode is Off — `_calculateOptimalChargerCurrent` now returns null immediately when price cap is 0, triggering a proper pause instead of setting 0A (which some charger brands ignored)
+- EV status: Price Level on EV tab now shows formatted label (🟢 Cheap / ⚪ Normal / 🟠 Expensive / 🔴 Extreme) matching the Price tab
+
 ## v0.8.31 (2026-03-14)
 - Help tab: added ❓ Help as a sub-tab under Home (after System) — covers getting started, EV setup, modes, supported hardware, and charger mode reference
 - Smart charging: all chargers now share one cheapest-hours window (largest hoursNeeded sets the window size); available current is split equally between chargers

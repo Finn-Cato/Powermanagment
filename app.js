@@ -2834,6 +2834,8 @@ class PowerGuardApp extends Homey.App {
     const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 6A minimum (Easee supports 6A)
     // Price cap: additive soft ceiling from price engine (full circuit limit when disabled/no data)
     const priceCap = this._getPriceCurrentCap(chargerEntry.deviceId, circuitLimitA);
+    // Mode 'av' → price engine wants charger fully off — return null to trigger proper pause
+    if (priceCap <= 0) return null;
     const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA, priceCap);
 
     const evData = this._evPowerData[chargerEntry.deviceId];
