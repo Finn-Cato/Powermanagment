@@ -640,30 +640,38 @@ class PowerGuardApp extends Homey.App {
 
     // Auto-detect if no manual selection or selected device not found
     if (!hanDevice) {
-      hanDevice = allDeviceList.find(d => {
+      const hanRegex = /\bhan\b/;
+      const candidates = allDeviceList.filter(d => {
         const hasPower = Array.isArray(d.capabilities) && d.capabilities.includes('measure_power');
         if (!hasPower) return false;
-        
+
         // Must be identifiable as a meter/HAN device, not just any device with power measurement
         const name = (d.name || '').toLowerCase();
         const driver = (d.driverId || '').toLowerCase();
         const deviceClass = (d.class || '').toLowerCase();
-        
+
         // Easee Equalizer: class 'other', driver 'equalizer', app 'no.easee'
         const isEaseeEqualizer = driver === 'equalizer' &&
           d.driver && d.driver.owner_uri === 'homey:app:no.easee';
 
-        // Use word-boundary regex for 'han' to avoid matching names like 'Hanna'
-        const hanRegex = /\bhan\b/;
-
-        const isMeterLike = deviceClass === 'meter' || isEaseeEqualizer ||
+        return deviceClass === 'meter' || isEaseeEqualizer ||
           name.includes('meter') || name.includes('frient') || hanRegex.test(name) ||
           name.includes('futurehome') || name.includes('tibber') || name.includes('easee') ||
           driver.includes('meter') || driver.includes('frient') || hanRegex.test(driver) ||
           driver.includes('futurehome') || driver.includes('tibber');
-        
-        return isMeterLike;
       });
+
+      if (candidates.length > 1) {
+        // If multiple candidates, prefer the one currently reporting the highest power
+        // This avoids picking a newly-added dongle that has not yet received P1 data
+        candidates.sort((a, b) => {
+          const aW = Number((a.capabilitiesObj?.measure_power?.value) ?? 0);
+          const bW = Number((b.capabilitiesObj?.measure_power?.value) ?? 0);
+          return bW - aW;
+        });
+        this.log(`[HAN] ${candidates.length} meter candidates — picking highest power: "${candidates[0].name}" (${Math.round(Number(candidates[0].capabilitiesObj?.measure_power?.value ?? 0))} W)`);
+      }
+      hanDevice = candidates[0] || null;
     }
 
     if (!hanDevice) {
@@ -2021,6 +2029,8 @@ class PowerGuardApp extends Homey.App {
       2, 'awaiting_start', 'AWAITING_START', 'AwaitingStart',
       3, 'charging', 'CHARGING', 'Charging',
       4, 'completed', 'COMPLETED', 'Completed',
+      // Easee: cable plugged in but not actively charging (paused by PG or awaiting car)
+      'Car connected', 'car_connected', 'CAR_CONNECTED', 'CarConnected',
       // Enua chargerStatusCapability values
       'Connected', 'connected', 'CONNECTED',
       'Paused', 'paused', 'PAUSED',
@@ -5019,7 +5029,11 @@ class PowerGuardApp extends Homey.App {
       try {
         const action = entry.action;
         if (action === 'target_temperature') {
-          await this.controlFloorHeater(entry.deviceId, 'setTarget', modePref.value);
+          if (modePref.value === 'off') {
+            await this.controlFloorHeater(entry.deviceId, 'off');
+          } else {
+            await this.controlFloorHeater(entry.deviceId, 'setTarget', modePref.value);
+          }
         } else if (action === 'hoiax_power') {
           await this.controlFloorHeater(entry.deviceId, 'setHoiax', modePref.value);
         } else if (action === 'onoff') {

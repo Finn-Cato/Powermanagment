@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.27 (2026-03-14)
+- HAN meter auto-detection: fixed wrong device being selected when multiple meter-like devices exist — now picks the one with highest current power reading (Frient Smart Reader preferred over Futurehome dongle reporting 0 W)
+- Active Mode buttons: fixed ❄️ Holiday button appearing taller than others — reduced font/padding, added non-breaking space to prevent emoji/text line-break
+- EV charger: added "Car connected" as a recognized connected status in `_isCarConnected()`
+- Thermostat mode: handle `target_temperature = 'off'` (some thermostats use string "off" instead of null)
+- API: `batteryFull` threshold raised to ≥ 99%, `displayCharging` separated from `effectiveCharging` for grace-period logic
+
 ## v0.8.25 (2026-03-11)
 - Car device picker: link a car Homey device to each EV charger — Power Guard reads battery % automatically on plug-in and every 30 min, no Flow required
 - Zaptec fix: corrected Flow action ID (`set_installation_current`) and fixed 1-phase (TN) chargers — P2 and P3 now correctly sent as 0A

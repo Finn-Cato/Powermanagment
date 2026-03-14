@@ -367,21 +367,24 @@ module.exports = {
 
       // Build per-charger status — one entry per tracked EV charger
       const chargerStatuses = Object.entries(evData).map(([deviceId, c]) => {
-        const inGrace          = c.lastChargingAt && (now - c.lastChargingAt) < GRACE_MS;
-        const effectiveCharging = c.isCharging === true || (c.powerW || 0) > 200 || (c.isConnected && inGrace);
-        const bst              = batteryState[deviceId];
-        const batteryFull      = bst && typeof bst.pct === 'number' && bst.pct >= 99;
-        const shouldCharge     = c.isConnected && !batteryFull && chargeMode !== null && chargeMode !== 'av';
-        const mismatch         = c.isConnected && shouldCharge && !effectiveCharging;
+        const inGrace           = c.lastChargingAt && (now - c.lastChargingAt) < GRACE_MS;
+        // Display: raw charger data only — no grace window
+        const displayCharging   = c.isCharging === true || (c.powerW || 0) > 200;
+        // Mismatch: use grace window to avoid flickering during Easee current adjustments
+        const effectiveCharging = displayCharging || (c.isConnected && inGrace);
+        const bst               = batteryState[deviceId];
+        const batteryFull       = bst && typeof bst.pct === 'number' && bst.pct >= 99;
+        const shouldCharge      = c.isConnected && !batteryFull && chargeMode !== null && chargeMode !== 'av';
+        const mismatch          = c.isConnected && shouldCharge && !effectiveCharging;
         return {
           deviceId,
           name:        c.name || deviceId,
           connected:   c.isConnected === true,
-          charging:    effectiveCharging,
+          charging:    displayCharging,
           shouldCharge,
           mismatch,
           powerW:      Math.round(c.powerW || 0),
-          inGrace:     !!(c.isConnected && inGrace && !(c.isCharging === true || (c.powerW || 0) > 200)),
+          inGrace:     !!(c.isConnected && inGrace && !displayCharging),
         };
       });
 

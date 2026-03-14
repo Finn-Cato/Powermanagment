@@ -248,10 +248,10 @@
       <div class="card" style="padding:10px 14px;">
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:8px;">ACTIVE MODE</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
-          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🏠 Home</button>
-          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🌙 Night</button>
-          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">🚗 Away</button>
-          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 8px;font-size:13px;">❄️ Holiday</button>
+          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">🏠&nbsp;Home</button>
+          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">🌙&nbsp;Night</button>
+          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">🚗&nbsp;Away</button>
+          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">❄️&nbsp;Holiday</button>
         </div>
       </div>
       </div>
@@ -3359,14 +3359,13 @@
             var connIcon    = c.connected   ? '✅' : '❌';
             var chgIcon     = c.charging    ? '✅' : '❌';
             var shouldIcon  = c.shouldCharge ? '✅' : '❌';
-            var graceNote   = c.inGrace ? ' <span style="font-size:10px;color:#ff9500;font-style:italic;">(grace)</span>' : '';
             var borderColor = c.mismatch ? '#ff3b30' : (c.connected ? 'var(--border-color)' : 'var(--border-color)');
             var bgColor     = c.mismatch ? 'rgba(255,59,48,0.06)' : 'transparent';
             html += '<div style="border:1px solid ' + borderColor + ';border-radius:8px;padding:8px 10px;margin-bottom:8px;background:' + bgColor + ';">';
             html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-primary);">⚡ ' + escHtml(c.name) + (c.powerW > 0 ? ' <span style="font-weight:400;color:var(--text-muted);">(' + c.powerW + 'W)</span>' : '') + '</div>';
             html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
             html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Connected</div><div style="font-size:14px;">' + connIcon + ' ' + (c.connected ? 'Yes' : 'No') + '</div></div>';
-            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Charging now</div><div style="font-size:14px;">' + chgIcon + ' ' + (c.charging ? 'Yes' : 'No') + graceNote + '</div></div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Charging now</div><div style="font-size:14px;">' + chgIcon + ' ' + (c.charging ? 'Yes' : 'No') + '</div></div>';
             html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Should charge</div><div style="font-size:14px;">' + shouldIcon + ' ' + (c.shouldCharge ? 'Yes' : 'No') + '</div></div>';
             html += '</div>';
             if (c.mismatch) {
@@ -3707,10 +3706,15 @@
     row += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
 
     if (action === 'target_temperature') {
-      var val = (modePref.value != null) ? modePref.value : 20;
-      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;">−</button>';
-      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;">' + val + '°C</span>';
-      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;">+</button>';
+      var v = modePref.value;
+      var isOff = v === 'off';
+      var val = (!isOff && v != null) ? v : 20;
+      var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.35;pointer-events:none;' : '') + '">−</button>';
+      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;' + (isOff ? 'opacity:.35;' : '') + '">' + val + '°C</span>';
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.35;pointer-events:none;' : '') + '">+</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 8px;font-size:11px;margin-left:4px;' + (isOff ? selStyle : '') + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:11px;' + (v == null ? selStyle : '') + '">—</button>';
     } else if (action === 'hoiax_power') {
       var v = modePref.value;
       var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
