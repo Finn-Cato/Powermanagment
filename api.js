@@ -374,13 +374,17 @@ module.exports = {
         const effectiveCharging = displayCharging || (c.isConnected && inGrace);
         const bst               = batteryState[deviceId];
         const batteryFull       = bst && typeof bst.pct === 'number' && bst.pct >= 99;
-        const shouldCharge      = c.isConnected && !batteryFull && chargeMode !== null && chargeMode !== 'av';
+        // Per-charger mode — fall back to global if not yet calculated
+        const chargerMode       = (priceState && priceState.chargeModes && priceState.chargeModes[deviceId])
+                                  || chargeMode;
+        const shouldCharge      = c.isConnected && !batteryFull && chargerMode !== null && chargerMode !== 'av';
         const mismatch          = c.isConnected && shouldCharge && !effectiveCharging;
         return {
           deviceId,
           name:        c.name || deviceId,
           connected:   c.isConnected === true,
           charging:    displayCharging,
+          chargeMode:  chargerMode,
           shouldCharge,
           mismatch,
           powerW:      Math.round(c.powerW || 0),

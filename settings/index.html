@@ -239,6 +239,7 @@
         <button id="otb-overview"  onclick="showOverviewSubTab('overview')"  class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;">🏠 Overview</button>
         <button id="otb-settings"  onclick="showOverviewSubTab('settings')"  class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">⚙️ Settings</button>
         <button id="otb-system"    onclick="showOverviewSubTab('system')"    class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">📊 System</button>
+        <button id="otb-help"      onclick="showOverviewSubTab('help')"      class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">❓ Help</button>
       </div>
 
       <!-- ── Overview panel ── -->
@@ -498,6 +499,95 @@
       </div>
 
       </div><!-- /#overview-panel-system -->
+
+      <!-- ── Help panel ── -->
+      <div id="overview-panel-help" style="display:none">
+
+        <div class="card">
+          <h2>Getting Started</h2>
+          <ol style="font-size:13px;color:var(--text-primary);line-height:1.8;margin:0;padding-left:18px;">
+            <li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li>
+            <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>bottom</b> are turned off first.</li>
+            <li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h2>Power Guard (Core)</h2>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the bottom of the priority list. When power drops back down, devices are automatically restored.</p>
+          <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
+            <li><b>Normal profile</b> — acts at 100% of your limit.</li>
+            <li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li>
+            <li><b>Phase limits</b> — set per-phase ampere limits (L1/L2/L3) in Advanced settings.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h2>Smart EV Charging</h2>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 10px;">Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:</p>
+          <ol style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
+            <li><b>Devices tab</b> — enable your EV charger and set action to <b>Dynamic Current</b>.</li>
+            <li><b>Devices tab</b> — fill in Battery size (kWh), Charge to (%), and link a <b>Car device</b> under the charger row.</li>
+            <li><b>📊 System tab</b> — set the circuit breaker limit (A) for the charger.</li>
+            <li><b>🧠 Smart → EV tab</b> — set <b>Ready by</b> (deadline). Hours needed is calculated automatically per charger from the linked car's battery.</li>
+          </ol>
+          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+            <b>How hours are calculated (per charger):</b><br>
+            kWh needed = (target% − current%) ÷ 100 × battery capacity<br>
+            Charger power = circuit limit (A) × 230 V × phases<br>
+            Hours needed = kWh needed ÷ charger power (kW)<br><br>
+            <b>Example:</b> 40% → 80%, 77 kWh battery, 16A 1-phase = (80−40)/100 × 77 ÷ 3.7 kW ≈ 8.3 hours
+          </div>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:10px 0 0;">When a deadline is set, Power Guard picks the <b>N cheapest hours</b> before the deadline (N = whichever car needs the most hours) and charges all chargers during those hours. All other hours all chargers are Off. If the deadline is imminent, it forces full charging regardless of price. With two chargers, the available current is split equally so both cars charge at the same time.</p>
+          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.8;">
+            <b>What the Charger Mode label means:</b><br>
+            <span style="color:#34c759;">⚡ Fast charge</span> <i>cheap hour</i> — this is one of the cheapest hours, charging at full speed<br>
+            <span style="color:#ff3b30;">⏸ Off</span> <i>waiting for cheap hour</i> — not a cheap hour, charger is paused to save money<br>
+            <span style="color:#ff9500;">🐢 Slow charge</span> <i>price is moderate</i> — no deadline set, price is mid-range, charging at reduced speed<br>
+            <span style="color:#8e8e93;">▶ Charging</span> — no deadline set, price is normal, charging without restriction
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Modes (Home / Night / Away / Holiday)</h2>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Find modes under <b>🧠 Smart → Modes</b> (when Smart Price Control is ON) or <b>🌡️ Heaters</b> tab (when OFF). Each mode lets you set per-device preferences:</p>
+          <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
+            <li><b>Switches</b> — On / Off</li>
+            <li><b>Thermostats</b> — target temperature</li>
+            <li><b>EV chargers</b> — Allow / Pause</li>
+            <li><b>Høiax water heaters</b> — High / Medium / Low / Off</li>
+          </ul>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:8px 0 0;">Set a <b>Night schedule</b> to automatically switch between Home and Night at chosen times. Power Guard never restores a device that is currently being throttled — safety always takes priority.</p>
+        </div>
+
+        <div class="card">
+          <h2>Supported Hardware</h2>
+          <table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <tr style="border-bottom:1px solid var(--border-light);">
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">EV Charger</td>
+              <td style="padding:6px 0;color:var(--text-muted);">Easee Home/Pro, Zaptec Go/Go2/Home/Pro, Enua Charge E</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-light);">
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">HAN Meter</td>
+              <td style="padding:6px 0;color:var(--text-muted);">Frient Smart Reader, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer — or any device with measure_power</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border-light);">
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">Thermostats</td>
+              <td style="padding:6px 0;color:var(--text-muted);">Any brand — auto-detected</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">Water Heater</td>
+              <td style="padding:6px 0;color:var(--text-muted);">Høiax Connected 300 / 200</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="card" style="text-align:center;">
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Found a bug or have a question?</div>
+          <div style="font-size:12px;color:var(--text-muted);">Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b></div>
+        </div>
+
+      </div><!-- /#overview-panel-help -->
 
     </div><!-- /#tab-overview -->
 
@@ -1040,7 +1130,7 @@
   }
 
   function showOverviewSubTab(name) {
-    ['overview','settings','system'].forEach(function(n) {
+    ['overview','settings','system','help'].forEach(function(n) {
       document.getElementById('overview-panel-' + n).style.display = n === name ? 'block' : 'none';
       var btn = document.getElementById('otb-' + n);
       btn.classList[n === name ? 'add' : 'remove']('active');
@@ -3170,7 +3260,8 @@
 
     var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
     var levelLabels = { 'billig': '🟢 Cheap', 'normal': '⚪ Normal', 'dyr': '🟠 Expensive', 'ekstremt dyr': '🔴 Extreme' };
-    var modeLabels  = { 'av': '⏸ Paused', 'lav': '🐢 Low', 'normal': '▶ Normal', 'maks': '⚡ Max' };
+    var modeLabels  = { 'av': '⏸ Off', 'lav': '🐢 Slow charge', 'normal': '▶ Charging', 'maks': '⚡ Fast charge' };
+    var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'price is moderate', 'normal': '', 'maks': 'cheap hour' };
     var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
 
     var lvl = state.level || 'normal';
@@ -3186,7 +3277,10 @@
     document.getElementById('price-ore-now').textContent = oreLabel;
 
     var mEl = document.getElementById('price-charge-badge');
-    mEl.textContent = modeLabels[mode] || mode;
+    var mHint = modeHints[mode] || '';
+    mEl.innerHTML = '<span style="color:' + (modeColors[mode]||'') + ';">' + (modeLabels[mode] || mode) + '</span>' +
+      (mHint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + mHint + '</div>' : '');
+    mEl.style.color = '';
     mEl.style.color = modeColors[mode] || '';
 
     document.getElementById('price-ore-next').textContent =
@@ -3334,14 +3428,17 @@
         }
 
         var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
-        var modeLabels  = { 'av': '⏸ Paused', 'lav': '🐢 Low', 'normal': '▶ Normal', 'maks': '⚡ Max' };
+        var modeLabels  = { 'av': '⏸ Off', 'lav': '🐢 Slow charge', 'normal': '▶ Charging', 'maks': '⚡ Fast charge' };
+        var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'price is moderate', 'normal': '', 'maks': 'cheap hour' };
         var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
 
         // Global boxes
         var modeEl = document.getElementById('ev-lademodus');
         var mode = data.lademodus || '';
-        modeEl.textContent = modeLabels[mode] || mode || '–';
-        modeEl.style.color = modeColors[mode] || '';
+        var hint = modeHints[mode] || '';
+        modeEl.innerHTML = '<span style="color:' + (modeColors[mode]||'') + ';">' + (modeLabels[mode] || mode || '–') + '</span>' +
+          (hint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + hint + '</div>' : '');
+        modeEl.style.color = '';
 
         var lvlEl = document.getElementById('ev-strompris');
         var lvl = data.strompris || '';
@@ -3361,12 +3458,17 @@
             var shouldIcon  = c.shouldCharge ? '✅' : '❌';
             var borderColor = c.mismatch ? '#ff3b30' : (c.connected ? 'var(--border-color)' : 'var(--border-color)');
             var bgColor     = c.mismatch ? 'rgba(255,59,48,0.06)' : 'transparent';
+            var cMode       = c.chargeMode || '';
+            var cModeLabel  = c.connected ? (modeLabels[cMode] || cMode || '–') : '–';
+            var cModeColor  = c.connected ? (modeColors[cMode] || '') : '';
+            var cModeHint   = c.connected ? (modeHints[cMode] || '') : '';
             html += '<div style="border:1px solid ' + borderColor + ';border-radius:8px;padding:8px 10px;margin-bottom:8px;background:' + bgColor + ';">';
             html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-primary);">⚡ ' + escHtml(c.name) + (c.powerW > 0 ? ' <span style="font-weight:400;color:var(--text-muted);">(' + c.powerW + 'W)</span>' : '') + '</div>';
-            html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
+            html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:6px;">';
             html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Connected</div><div style="font-size:14px;">' + connIcon + ' ' + (c.connected ? 'Yes' : 'No') + '</div></div>';
             html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Charging now</div><div style="font-size:14px;">' + chgIcon + ' ' + (c.charging ? 'Yes' : 'No') + '</div></div>';
             html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Should charge</div><div style="font-size:14px;">' + shouldIcon + ' ' + (c.shouldCharge ? 'Yes' : 'No') + '</div></div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Charger mode</div><div style="font-size:14px;color:' + cModeColor + ';">' + cModeLabel + '</div>' + (cModeHint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + cModeHint + '</div>' : '') + '</div>';
             html += '</div>';
             if (c.mismatch) {
               html += '<div style="margin-top:6px;font-size:11px;color:#ff3b30;">⚠️ Mismatch: should charge but is not (or vice versa).</div>';

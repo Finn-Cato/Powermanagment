@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.31 (2026-03-14)
+- Help tab: added ❓ Help as a sub-tab under Home (after System) — covers getting started, EV setup, modes, supported hardware, and charger mode reference
+- Smart charging: all chargers now share one cheapest-hours window (largest hoursNeeded sets the window size); available current is split equally between chargers
+- EV status: each charger card now shows its own Charger Mode — hidden (–) when car is not connected
+- Charger Mode labels rewritten: short coloured label + plain-language hint on second line (e.g. "⚡ Fast charge / cheap hour", "⏸ Off / waiting for cheap hour")
+- api.js: per-charger chargeMode now included in each charger status entry
+
 ## v0.8.30 (2026-03-14)
 - EV tab: updated smart charging explanation text to reflect cheapest-hours rule
 - EV tab: renamed "Hours needed (manual fallback)" to "Hours needed (if no car device linked)" for clarity

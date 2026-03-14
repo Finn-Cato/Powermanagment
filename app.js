@@ -2833,7 +2833,7 @@ class PowerGuardApp extends Homey.App {
     const circuitLimitA = chargerEntry.circuitLimitA || 32;
     const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 6A minimum (Easee supports 6A)
     // Price cap: additive soft ceiling from price engine (full circuit limit when disabled/no data)
-    const priceCap = this._getPriceCurrentCap(circuitLimitA);
+    const priceCap = this._getPriceCurrentCap(chargerEntry.deviceId, circuitLimitA);
     const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA, priceCap);
 
     const evData = this._evPowerData[chargerEntry.deviceId];
@@ -4645,20 +4645,27 @@ class PowerGuardApp extends Homey.App {
       const prev       = this._priceState;
       const finalLevel = this._priceApplyHysteresis(prev ? prev.level : null, suggested, currentEntry.adjustedOre, stats);
 
-      const nextEntry    = entries.find(e => e.start.getTime() === currentEntry.end.getTime()) || null;
+      const nextEntry = entries.find(e => e.start.getTime() === currentEntry.end.getTime()) || null;
+
+      // ── Shared charge mode — one window for all chargers, current split equally ─
       const rawMode        = this._priceSuggestChargeMode(currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
       const deadlineForced = this._deadlineForced === true;
       this._deadlineForced = false;
-      // Bypass hysteresis when deadline logic made the decision — cheapest-hours rule is authoritative
       const finalMode      = deadlineForced
         ? rawMode
         : this._priceApplyChargeModeHysteresis(prev ? prev.chargeMode : null, rawMode, currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
+
+      // Copy the shared mode into per-charger map (for UI display per charger)
+      const priceChargers = (this._settings.priorityList || []).filter(e => e.priceControlled);
+      const chargeModes = {};
+      for (const ce of priceChargers) chargeModes[ce.deviceId] = finalMode;
 
       const r2 = v => Math.round(v * 100) / 100;
 
       this._priceState = {
         level:      finalLevel,
-        chargeMode: finalMode,
+        chargeMode: finalMode,   // backward compat — first charger's mode (or global if no chargers)
+        chargeModes,             // per-charger: { deviceId: 'av' | 'lav' | 'normal' | 'maks' }
         currentOre: r2(currentEntry.adjustedOre),
         spotOre:    r2(currentEntry.spotOre),
         nextOre:    nextEntry ? r2(nextEntry.adjustedOre) : null,
@@ -4801,7 +4808,9 @@ class PowerGuardApp extends Homey.App {
   }
 
   _priceSuggestChargeMode(currentEntry, nextEntry, level, stats, lookahead, cfg) {
-    // ── Resolve hoursNeeded (used in both deadline and smart-skip logic) ───────
+    // ── Resolve hoursNeeded — largest across all chargers sets the shared window ─
+    // All chargers use the same cheapest-hours window; the dynamic current loop
+    // already splits available power equally between them.
     let hoursNeeded = null;
     const priceChargers = (this._settings.priorityList || []).filter(e => e.priceControlled);
     let maxHours = 0; let anyValid = false;
@@ -4908,9 +4917,10 @@ class PowerGuardApp extends Homey.App {
    * Additive layer on top of Power Guard's hard watt-limit.
    * Returns circuitLimitA (no restriction) when price control is off or data unavailable.
    */
-  _getPriceCurrentCap(circuitLimitA) {
+  _getPriceCurrentCap(deviceId, circuitLimitA) {
     if (!this._priceSettings.enabled || !this._priceState) return circuitLimitA;
-    const mode = this._priceState.chargeMode;
+    const mode = (deviceId && this._priceState.chargeModes && this._priceState.chargeModes[deviceId])
+      || this._priceState.chargeMode;
     const cfg  = this._priceSettings;
     if (mode === 'av')   return 0;  // Pause (→ _calculateOptimalChargerCurrent returns null)
     if (mode === 'lav')  return Math.max(CHARGER_DEFAULTS.minCurrent, Math.floor(circuitLimitA * (cfg.capLav  || 0.5)));
