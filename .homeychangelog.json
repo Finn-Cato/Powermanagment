@@ -185,5 +185,9 @@
   "0.8.29": {
     "en": "Smart charging: replaced smart-skip logic with cheapest-hours rule — when a deadline and hours needed are set, Power Guard picks the N cheapest hours before the deadline and charges at max during those hours only (Off during all others). Hysteresis is now bypassed when the deadline rule is active, preventing it from overriding an Off decision back to Low during normal-price hours.",
     "no": "Smart lading: erstattet smart-hopp-logikk med billigste-timer-regel — når frist og timer nødvendig er satt, velger Power Guard de N billigste timene før fristen og lader på maks kun i disse timene (Av i alle andre timer). Hysteresen omgås nå når deadline-regelen er aktiv, slik at den ikke kan overstyre en Av-beslutning tilbake til Lav i normale pristimer."
+  },
+  "0.8.30": {
+    "en": "EV tab: updated smart charging explanation to reflect cheapest-hours rule. Renamed \"Hours needed (manual fallback)\" to \"Hours needed (if no car device linked)\" for clarity. Updated Finish charging by hint text.",
+    "no": "EV-fanen: oppdatert forklaring av smart ladelogikk til å gjenspeile billigste-timer-regelen. Omdøpte \"Timer nødvendig (manuell reserve)\" til \"Timer nødvendig (hvis ingen bilenhet er koblet til)\" for klarhet. Oppdatert hjelpetekst for Ferdig ladet innen."
   }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.30 (2026-03-14)
+- EV tab: updated smart charging explanation text to reflect cheapest-hours rule
+- EV tab: renamed "Hours needed (manual fallback)" to "Hours needed (if no car device linked)" for clarity
+- EV tab: updated "Finish charging by" hint to explain the new cheapest-hours behaviour
+- README: updated smart charging section to match new logic
+
 ## v0.8.29 (2026-03-14)
 - Smart charging: replaced smart-skip logic with cheapest-hours rule — when a deadline is set, Power Guard picks the N cheapest hours before the deadline and charges only during those (Off during all other hours)
 - Hysteresis now bypassed when deadline rule is active — prevents hysteresis from overriding the Off decision back to Low during normal-price hours
