@@ -369,16 +369,6 @@
             <span style="font-size:12px;color:var(--text-muted)">W</span>
           </div>
         </div>
-        <div class="row">
-          <div class="label-group">
-            <label>Time before acting (s)</label>
-            <span class="hint">How long the limit must be exceeded before turning off a device.</span>
-          </div>
-          <div class="control">
-            <input type="number" id="s-cooldownSeconds" min="1" max="300" step="1" value="30">
-            <span style="font-size:12px;color:var(--text-muted)">s</span>
-          </div>
-        </div>
         <div class="advanced-toggle" onclick="toggleAdvanced()">
           <span id="adv-arrow">&#9654;</span> Advanced settings
         </div>
@@ -407,13 +397,6 @@
             <div class="control">
               <input type="range" id="s-spikeMultiplier" min="1.2" max="5.0" step="0.1" value="2.0">
               <span class="range-val" id="v-spikeMultiplier">2.0×</span>
-            </div>
-          </div>
-          <div class="row">
-            <div class="label-group"><label>Confirm before acting</label><span class="hint">High readings in a row before switching off.</span></div>
-            <div class="control">
-              <input type="range" id="s-hysteresisCount" min="1" max="10" step="1" value="3">
-              <span class="range-val" id="v-hysteresisCount">3</span>
             </div>
           </div>
           <div class="row">
