@@ -3667,23 +3667,27 @@
 
   function updateModeSubTabHighlight(mode) {
     var activeMode = _modesData && _modesData.modeSettings && _modesData.modeSettings.activeMode;
-    var labels = { home: '🏠 Home', night: '🌙 Night', away: '🚗 Away', holiday: '❄️ Holiday' };
     ['home','night','away','holiday'].forEach(function(m) {
       var b = document.getElementById('msub-' + m);
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      // Active mode: orange filled style, with ● indicator
-      // Selected (viewing) non-active: bold only
+      // Reset all overrides first
+      b.style.fontWeight   = '';
+      b.style.borderBottom = '';
+      b.style.background   = '';
+      b.style.color        = '';
+      b.style.borderColor  = '';
+      // Selected tab (currently viewing): underline
+      if (isSelected) {
+        b.style.fontWeight   = '700';
+        b.style.borderBottom = '2px solid var(--blue)';
+      }
+      // Active mode: orange fill + orange text/border (overlays selected if both)
       if (isActive) {
-        b.style.cssText = 'font-size:12px;padding:5px 12px;font-weight:700;background:rgba(255,149,0,0.18);border:2px solid var(--orange);color:var(--orange);';
-        b.textContent = labels[m] + ' ●';
-      } else if (isSelected) {
-        b.style.cssText = 'font-size:12px;padding:5px 12px;font-weight:700;';
-        b.textContent = labels[m];
-      } else {
-        b.style.cssText = 'font-size:12px;padding:5px 12px;';
-        b.textContent = labels[m];
+        b.style.background  = 'rgba(255,149,0,0.18)';
+        b.style.color       = 'var(--orange)';
+        b.style.borderColor = 'var(--orange)';
       }
     });
   }
