@@ -3593,8 +3593,7 @@
         _modesData = data;
         renderModesActive(data.modeSettings.activeMode);
         renderNightSchedule(data.modeSettings.nightSchedule || {});
-        renderModeDevices(_modesSubTab);
-        updateModeSubTabHighlight(_modesSubTab);
+        showModeSubTab(_modesSubTab);
       })
       .catch(function(err) { console.error('loadModesSettings error:', err); });
   }
