@@ -375,10 +375,11 @@ module.exports = {
         const displayCharging   = !batteryFull && (c.isCharging === true || (c.powerW || 0) > 200);
         // Mismatch: use grace window to avoid flickering during Easee current adjustments
         const effectiveCharging = displayCharging || (c.isConnected && inGrace);
-        // Per-charger mode — fall back to global if not yet calculated
-        const chargerMode       = (priceState && priceState.chargeModes && priceState.chargeModes[deviceId])
+        // Per-charger mode — fall back to global if not yet calculated. Hide when battery is full.
+        const rawChargerMode    = (priceState && priceState.chargeModes && priceState.chargeModes[deviceId])
                                   || chargeMode;
-        const shouldCharge      = c.isConnected && !batteryFull && chargerMode !== null && chargerMode !== 'av';
+        const chargerMode       = batteryFull ? null : rawChargerMode;
+        const shouldCharge      = c.isConnected && !batteryFull && rawChargerMode !== null && rawChargerMode !== 'av';
         const mismatch          = c.isConnected && shouldCharge && !effectiveCharging;
         return {
           deviceId,
