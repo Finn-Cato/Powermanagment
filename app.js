@@ -4720,6 +4720,15 @@ class PowerGuardApp extends Homey.App {
 
       const r2 = v => Math.round(v * 100) / 100;
 
+      // Suppress global chargeMode when all connected chargers have full batteries
+      const chargerIds = Object.keys(chargeModes);
+      if (chargerIds.length > 0 && chargerIds.every(id => {
+        const bst = this._evBatteryState[id];
+        return bst && typeof bst.pct === 'number' && bst.pct >= 99;
+      })) {
+        finalMode = null;
+      }
+
       this._priceState = {
         level:      finalLevel,
         chargeMode: finalMode,   // backward compat — first charger's mode (or global if no chargers)
