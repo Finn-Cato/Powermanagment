@@ -3672,13 +3672,10 @@
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      b.style.fontWeight          = isSelected ? '700' : '';
-      b.style.textDecoration      = '';
-      b.style.backgroundImage     = isSelected ? 'linear-gradient(#f1f5f9,#f1f5f9)' : '';
-      b.style.backgroundSize      = isSelected ? '80% 3px' : '';
-      b.style.backgroundPosition  = isSelected ? '50% 100%' : '';
-      b.style.backgroundRepeat    = 'no-repeat';
-      b.style.color               = isActive ? 'var(--orange)' : '';
+      b.style.fontWeight   = isSelected ? '700' : '';
+      b.style.borderBottom = isSelected ? '2px solid rgba(255,255,255,0.8)' : '';
+      b.style.backgroundImage = '';
+      b.style.color        = isActive ? 'var(--orange)' : '';
     });
   }
 
