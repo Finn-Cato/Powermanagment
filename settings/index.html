@@ -3364,7 +3364,7 @@
 
     if (priceEnabled) {
       if (heaterBtn)  heaterBtn.style.display  = 'none';
-      if (powerBtn)   powerBtn.style.display   = '';
+      if (powerBtn)   powerBtn.style.display   = 'none';
       if (smartBtn)   smartBtn.style.display   = '';
       if (modeCard)   modeCard.style.display   = '';
       if (advNotice)  advNotice.style.display  = '';
@@ -3372,8 +3372,10 @@
       if (managedChargers && smartSlot && !smartSlot.contains(managedChargers)) {
         smartSlot.appendChild(managedChargers);
       }
-      // If user is currently on Heaters tab, redirect to Overview
-      if (document.getElementById('tab-floorheater').style.display !== 'none') {
+      // If user is currently on Heaters or Power tab, redirect to Overview
+      var curTab = document.getElementById('tab-floorheater');
+      var curPow = document.getElementById('tab-consumption');
+      if ((curTab && curTab.style.display !== 'none') || (curPow && curPow.style.display !== 'none')) {
         showTab('overview');
       }
     } else {
