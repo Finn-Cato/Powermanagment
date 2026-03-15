@@ -74,11 +74,11 @@ const CHARGER_DEFAULTS = {
   startCurrent: 11,            // Current when resuming from pause (ensures reliable start)
   maxCurrent: 32,              // Maximum charging current
   toggleConfirmedMs: 15000,    // Throttle for decreases when confirmed (15s — fast response)
-  toggleIncreaseMs: 120000,    // Throttle for increases (120s — anti-hunt: slow ramp-up)
+  toggleIncreaseMs: 50000,     // Throttle for increases (50s — ramp completes within 240s cooldown)
   toggleUnconfirmedMs: 45000,  // Throttle when last command was NOT confirmed (45s)
   toggleEmergencyMs: 5000,     // Throttle in emergency >500W over (5s)
   confirmationTimeoutMs: 20000,// How long to wait for offered-current confirmation (20s)
-  maxStepUpA: 2,               // Max amps to increase per cycle (prevents hunting jumps)
+  maxStepUpW: 1380,            // Max watts to increase per cycle: 1-phase=6A/step, 3-phase=2A/step
 };
 
 // Norwegian effekttariff (capacity tariff) — tier thresholds in kW

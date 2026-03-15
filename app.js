@@ -196,7 +196,7 @@ class PowerGuardApp extends Homey.App {
         this._cleanStaleMitigatedEntries();
       }
       // When power limit or profile changes, immediately re-evaluate chargers
-      if (['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA', 'errorMarginPercent'].includes(key)) {
+      if (['powerLimitW', 'profile', 'enabled', 'phase1LimitA', 'phase2LimitA', 'phase3LimitA'].includes(key)) {
         this.log(`[Settings] ${key} changed, forcing charger re-evaluation`);
         this._appLogEntry('system', `Settings changed: ${key}`);
         this._forceChargerRecheck().catch(err => this.error('Force re-check error:', err));
@@ -2508,7 +2508,7 @@ class PowerGuardApp extends Homey.App {
    * Called on every HAN reading — bypasses the main mitigation cooldown.
    * Per-charger smart throttle: 15s when confirmed, 45s when unconfirmed, 5s on emergency.
    * Key behaviors:
-   *  - Keeps charger at minimum 7A instead of pausing (keeps car charging)
+   *  - Keeps charger at minimum 6A instead of pausing (keeps car charging)
    *  - Only pauses charger in true emergency (household alone exceeds limit)
    *  - Start threshold prevents restarting paused charger until enough headroom (11A startCurrent)
    *  - Confirmation tracking: reads measure_current.offered to verify commands took effect
@@ -2909,8 +2909,8 @@ class PowerGuardApp extends Homey.App {
     }
 
     if (perChargerBudgetW <= 0) {
-      // No headroom at all → pause the charger rather than keeping it at 7A
-      // (7A still draws ~1600-4800W which would keep us over the limit)
+      // No headroom at all → pause the charger rather than keeping it at 6A
+      // (6A still draws ~1380-4140W which would keep us over the limit)
       this.log(`EV calc: budget=${Math.round(perChargerBudgetW)}W ≤ 0 → PAUSE`);
       return null;
     }
