@@ -3672,10 +3672,14 @@
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      b.style.fontWeight  = isSelected ? '700' : '';
-      b.style.boxShadow   = isSelected ? 'inset 0 -3px 0 #ffffff' : '';
-      b.style.background  = '';
-      b.style.color       = isActive ? 'var(--orange)' : '';
+      b.style.fontWeight              = isSelected ? '700' : '';
+      b.style.textDecoration          = isSelected ? 'underline' : '';
+      b.style.textDecorationColor     = isSelected ? '#ffffff' : '';
+      b.style.textDecorationThickness = isSelected ? '3px' : '';
+      b.style.textUnderlineOffset     = isSelected ? '4px' : '';
+      b.style.boxShadow               = '';
+      b.style.background              = '';
+      b.style.color                   = isActive ? 'var(--orange)' : '';
     });
   }
 
