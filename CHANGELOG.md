@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.34 (2026-03-16)
+- Fix: Charger Mode in Price tab now shows — when no car is connected or all connected cars are fully charged (was incorrectly showing Fast charge)
+- Fix: chargeMode suppression now checks all entries with a linked car device, not just priceControlled entries — covers setups where chargers are managed without priceControlled flag
+- Fix: disconnected cars (not plugged into charger) are now treated as "done" and no longer block the — display when other cars are full
+- Fix: finalMode declared as let instead of const — previous const declaration silently crashed the price evaluation on every cycle, breaking Charger Mode display and Norgespris toggle
+- Fix: Norgespris toggle now saves and reflects correctly after the price evaluation crash was resolved
+- Fix: opening the Smart tab now triggers an immediate price re-evaluation so the display is always fresh
+- Modes tab: thermostat rows now have explicit On / Off / — buttons plus a separate +/− stepper
+- Modes tab: On button restores the last remembered temperature when turning a thermostat back on
+- Modes tab: device commands (on/off/setTarget) only fire when editing the currently active mode — switching to another mode tab no longer controls physical devices
+- Modes tab: water heater (onoff action) now shows live watt usage in Device Preferences
+- Modes tab: active mode tab has orange text; selected (viewed) tab has an orange underline
+- Smart tab: Power tab is now hidden when Smart Price Control is on
+
 ## v0.8.33 (2026-03-15)
 - Fix: voltageSystem fallback corrected from '230v-1phase' to 'auto' — customers who had the old manual value stored were stuck on wrong voltage after migration
 - Fix: settings page no longer reloads the old stored voltageSystem value, so saving always writes 'auto' and self-heals misconfigured installs
