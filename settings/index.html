@@ -3855,13 +3855,51 @@
     var nv  = Math.round((cur + delta) * 2) / 2;
     nv = Math.max(5, Math.min(30, nv));
     _setModePref(deviceId, mode, nv);
-    // Re-render so On/Off highlight and stepper opacity both update
+    // Re-render and also immediately set temperature on the device
     renderModeDevices(mode);
+    if (_H) {
+      hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'on', value: null })
+        .then(function() {
+          hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: nv })
+            .then(function(d) { if (d.ok) showToast(d.message || 'Temperature set'); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
+            .catch(function() {});
+        })
+        .catch(function() {});
+    }
   }
 
   function modesSetOnOff(deviceId, mode, value) {
     _setModePref(deviceId, mode, value);
     renderModeDevices(mode);
+    // Also immediately control the physical device (same as Heater tab toggle)
+    if (!_H) return;
+    if (value === 'off') {
+      hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'off', value: null })
+        .then(function(d) { if (d.ok) showToast(d.message || 'Turned off'); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
+        .catch(function() {});
+    } else if (typeof value === 'number') {
+      hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'on', value: null })
+        .then(function(d) {
+          if (d.ok) {
+            hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: value })
+              .then(function(d2) { if (d2.ok) showToast(d2.message || 'Temperature set'); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
+              .catch(function() {});
+          }
+        })
+        .catch(function() {});
+    } else if (value === 'on') {
+      hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'on', value: null })
+        .then(function(d) { if (d.ok) showToast(d.message || 'Turned on'); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
+        .catch(function() {});
+    }
+  }
+
+  function _refreshModeLiveTempFor(deviceId, mode) {
+    hApi('GET', '/floorHeaters').then(function(heaters) {
+      if (!Array.isArray(heaters)) return;
+      heaters.forEach(function(h) { _liveTemps[h.deviceId] = h; });
+      renderModeDevices(mode);
+    }).catch(function() {});
   }
 
   function _setModePref(deviceId, mode, value) {
