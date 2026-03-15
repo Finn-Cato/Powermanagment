@@ -1,4 +1,8 @@
 {
+  "0.8.33": {
+    "en": "Fix: voltage system now always auto-detected — customers with old manual setting are self-healed on update. EV Charger Preferences now shows detected phase count per charger (1-phase / 3-phase). Slow charge hint corrected to 'no deadline set' instead of misleading 'price is moderate'. Removed redundant EV Charger virtual device driver. Fixed: priority list wording now consistently says top of list is turned off first.",
+    "no": "Fiks: spenningssystem oppdages nå alltid automatisk — kunder med gammel manuell innstilling blir automatisk korrigert ved oppdatering. EV-laderinnstillinger viser nå oppdaget faseantall per lader (1-fase / 3-fase). Hint for Saktlading rettet til 'ingen frist satt' i stedet for misvisende 'prisen er moderat'. Fjernet overflødig virtuell EV-laderenhet. Fiks: prioritetslisten sier nå konsekvent at toppen av listen slås av først."
+  },
   "0.8.32": {
     "en": "Fixed: EV charger not pausing when price mode is Off — the current calculator now correctly returns a pause command when the price cap is zero, instead of sending 0A which some charger brands (Easee) ignored. EV status: Price Level label on EV tab now matches the Price tab format (Cheap / Normal / Expensive / Extreme).",
     "no": "Fiks: EV-lader satte seg ikke på pause når prismodus var Av — strømkalkulatoren returnerer nå korrekt pause-kommando når pristak er null, i stedet for å sende 0A som noen ladermerker (Easee) ignorerte. EV-status: Prisnivå-etikett på EV-fanen viser nå samme format som Pris-fanen (Billig / Normal / Dyrt / Ekstremt)."

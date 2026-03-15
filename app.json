@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.8.32",
+  "version": "0.8.33",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -50,37 +50,6 @@
     "homey:manager:api"
   ],
   "drivers": [
-    {
-      "id": "ev-charger",
-      "name": {
-        "en": "EV Charger",
-        "no": "Elbillader"
-      },
-      "class": "other",
-      "connectivity": [],
-      "capabilities": [
-        "onoff",
-        "measure_power"
-      ],
-      "images": {
-        "small": "/drivers/ev-charger/assets/small.png",
-        "large": "/drivers/ev-charger/assets/large.png",
-        "xlarge": "/drivers/ev-charger/assets/xlarge.png"
-      },
-      "pair": [
-        {
-          "id": "list_devices",
-          "template": "list_devices",
-          "navigation": {
-            "next": "add_devices"
-          }
-        },
-        {
-          "id": "add_devices",
-          "template": "add_devices"
-        }
-      ]
-    },
     {
       "id": "power-guard",
       "name": {

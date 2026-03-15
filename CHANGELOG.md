@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.33 (2026-03-15)
+- Fix: voltageSystem fallback corrected from '230v-1phase' to 'auto' — customers who had the old manual value stored were stuck on wrong voltage after migration
+- Fix: settings page no longer reloads the old stored voltageSystem value, so saving always writes 'auto' and self-heals misconfigured installs
+- EV Charger Preferences: each charger now shows its detected phase count (· 1-phase (230V) / · 3-phase (400V)) under the charger name
+- Charger Mode hint for Slow charge changed from "price is moderate" to "no deadline set" — accurately reflects why the charger slow-charges during expensive hours
+- Removed redundant EV Charger virtual device driver (was a proxy device users could pair, now unnecessary as the app controls chargers directly)
+- Priority list: fixed inconsistent wording — "top of the list" is turned off first (was incorrectly stated as "bottom" in Help tab and README)
+
 ## v0.8.32 (2026-03-14)
 - Fix: EV charger not pausing when price mode is Off — `_calculateOptimalChargerCurrent` now returns null immediately when price cap is 0, triggering a proper pause instead of setting 0A (which some charger brands ignored)
 - EV status: Price Level on EV tab now shows formatted label (🟢 Cheap / ⚪ Normal / 🟠 Expensive / 🔴 Extreme) matching the Price tab

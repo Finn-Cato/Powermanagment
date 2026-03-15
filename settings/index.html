@@ -507,14 +507,14 @@
           <h2>Getting Started</h2>
           <ol style="font-size:13px;color:var(--text-primary);line-height:1.8;margin:0;padding-left:18px;">
             <li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li>
-            <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>bottom</b> are turned off first.</li>
+            <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>top</b> are turned off first.</li>
             <li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>
           </ol>
         </div>
 
         <div class="card">
           <h2>Power Guard (Core)</h2>
-          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the bottom of the priority list. When power drops back down, devices are automatically restored.</p>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.</p>
           <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
             <li><b>Normal profile</b> — acts at 100% of your limit.</li>
             <li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li>
@@ -543,7 +543,7 @@
             <b>What the Charger Mode label means:</b><br>
             <span style="color:#34c759;">⚡ Fast charge</span> <i>cheap hour</i> — this is one of the cheapest hours, charging at full speed<br>
             <span style="color:#ff3b30;">⏸ Off</span> <i>waiting for cheap hour</i> — not a cheap hour, charger is paused to save money<br>
-            <span style="color:#ff9500;">🐢 Slow charge</span> <i>price is moderate</i> — no deadline set, price is mid-range, charging at reduced speed<br>
+            <span style="color:#ff9500;">🐢 Slow charge</span> <i>no deadline set</i> — no deadline configured, charging at reduced speed regardless of price<br>
             <span style="color:#8e8e93;">▶ Charging</span> — no deadline set, price is normal, charging without restriction
           </div>
         </div>
@@ -1455,7 +1455,7 @@
     document.getElementById('s-enabled').checked = s.enabled !== false;
     document.getElementById('s-enabled-toggle').checked = s.enabled !== false;
     document.getElementById('s-profile').value   = s.profile || 'normal';
-    document.getElementById('s-voltageSystem').value = s.voltageSystem || 'auto';
+    // s-voltageSystem always stays 'auto' — voltage detection is fully automatic, never load old stored value
     _updateVoltageDetectedBadge();
     setNum('s-powerLimitW',     s.powerLimitW,    10000);
     setNum('s-cooldownSeconds', s.cooldownSeconds, 30);
@@ -3261,7 +3261,7 @@
     var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
     var levelLabels = { 'billig': '🟢 Cheap', 'normal': '⚪ Normal', 'dyr': '🟠 Expensive', 'ekstremt dyr': '🔴 Extreme' };
     var modeLabels  = { 'av': '⏸ Off', 'lav': '🐢 Slow charge', 'normal': '▶ Charging', 'maks': '⚡ Fast charge' };
-    var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'price is moderate', 'normal': '', 'maks': 'cheap hour' };
+    var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'no deadline set', 'normal': '', 'maks': 'cheap hour' };
     var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
 
     var lvl = state.level || 'normal';
@@ -3429,7 +3429,7 @@
 
         var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
         var modeLabels  = { 'av': '⏸ Off', 'lav': '🐢 Slow charge', 'normal': '▶ Charging', 'maks': '⚡ Fast charge' };
-        var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'price is moderate', 'normal': '', 'maks': 'cheap hour' };
+        var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'no deadline set', 'normal': '', 'maks': 'cheap hour' };
         var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
         var levelLabels = { 'billig': '🟢 Cheap', 'normal': '⚪ Normal', 'dyr': '🟠 Expensive', 'ekstremt dyr': '🔴 Extreme' };
 
@@ -3805,7 +3805,13 @@
 
     var row = '<div class="heater-row' + (drawing ? ' is-on' : '') + '" style="justify-content:space-between;">';
     row += '<div><div style="font-size:13px;font-weight:600;">' + escHtml(entry.name) + modeLabel + mitigLabel + '</div>';
-    row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + (lt && !liveTempStr ? pwrLabel : '') + '</div>' + liveTempStr + '</div>';
+    var phaseInfo = '';
+    if (action === 'charge_pause' || action === 'dynamic_current') {
+      var ph = entry.detectedPhases || entry.chargerPhases;
+      if (ph === 1) phaseInfo = ' <span style="font-size:10px;color:var(--text-muted);"> · 1-phase (230V)</span>';
+      else if (ph === 3) phaseInfo = ' <span style="font-size:10px;color:var(--text-muted);"> · 3-phase (400V)</span>';
+    }
+    row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + phaseInfo + (lt && !liveTempStr ? pwrLabel : '') + '</div>' + liveTempStr + '</div>';
     row += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
 
     if (action === 'target_temperature') {

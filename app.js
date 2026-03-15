@@ -1763,7 +1763,7 @@ class PowerGuardApp extends Homey.App {
         spikeMultiplier: s.get('spikeMultiplier') ?? 2.0,
         hysteresisCount: s.get('hysteresisCount') ?? 3,
         cooldownSeconds: s.get('cooldownSeconds') ?? 30,
-        voltageSystem: s.get('voltageSystem') ?? '230v-1phase',
+        voltageSystem: s.get('voltageSystem') ?? 'auto',
         mainCircuitA: s.get('mainCircuitA') ?? 25,
         selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
       },
@@ -5070,9 +5070,14 @@ class PowerGuardApp extends Homey.App {
 
   getModesSettings() {
     const priorityList = this.homey.settings.get('priorityList') || [];
+    // Enrich each entry with runtime-detected charger phases (auto-detected from live W/A ratio)
+    const enriched = priorityList.map(e => {
+      const detected = this._evPowerData?.[e.deviceId]?.detectedPhases;
+      return detected ? { ...e, detectedPhases: detected } : e;
+    });
     return {
       modeSettings: this._modeSettings,
-      priorityList,
+      priorityList: enriched,
     };
   }
 

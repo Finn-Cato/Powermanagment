@@ -165,7 +165,7 @@ If no **Ready by** time is set, Power Guard falls back to standard price logic:
 Go to **Overview → Settings** and enter your grid connection limit in watts (e.g. `10 000 W`).
 
 ### 2. Enable Devices
-Go to the **Devices** tab, toggle on the devices you want Power Guard to control, and drag them into priority order. Devices at the **bottom** are turned off first.
+Go to the **Devices** tab, toggle on the devices you want Power Guard to control, and drag them into priority order. Devices at the **top** are turned off first.
 
 ### 3. Configure EV Chargers (optional)
 Set the action to **Dynamic Current** on the Devices tab. Then open the **System** tab to set the circuit breaker limit per charger and link a car device for battery tracking.
