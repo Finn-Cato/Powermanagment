@@ -4723,12 +4723,18 @@ class PowerGuardApp extends Homey.App {
       // Suppress global chargeMode when no charger has a car that is connected AND not full.
       // Disconnected chargers are treated as "done" (car not present = nothing to charge).
       const chargerIds = Object.keys(chargeModes);
+      for (const id of chargerIds) {
+        const evData = this._evPowerData[id];
+        const bst    = this._evBatteryState[id];
+        this.log(`[ChargeMode suppress] id=${id} isConnected=${evData?.isConnected} pct=${bst?.pct}`);
+      }
       if (chargerIds.length > 0 && chargerIds.every(id => {
         const evData = this._evPowerData[id];
         if (!evData || !evData.isConnected) return true; // not connected → not charging, skip
         const bst = this._evBatteryState[id];
         return bst && typeof bst.pct === 'number' && bst.pct >= 99; // connected but full
       })) {
+        this.log('[ChargeMode suppress] all done → finalMode = null');
         finalMode = null;
       }
 

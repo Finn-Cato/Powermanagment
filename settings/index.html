@@ -1131,7 +1131,7 @@
       var btn = document.getElementById('stb-' + n);
       btn.classList[n === name ? 'add' : 'remove']('active');
     });
-    if (name === 'price') { loadPriceData(); }
+    if (name === 'price') { triggerPriceRefresh(); }
     else if (name === 'modes') { if (_modesData) showModeSubTab(_modesSubTab); loadModesSettings(); }
     else if (name === 'ev') { loadEvDevices(); loadEvChargingStatus(); }
   }
