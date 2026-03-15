@@ -1131,7 +1131,7 @@
       var btn = document.getElementById('stb-' + n);
       btn.classList[n === name ? 'add' : 'remove']('active');
     });
-    if (name === 'price') { triggerPriceRefresh(); }
+    if (name === 'price') { loadPriceData(); }
     else if (name === 'modes') { if (_modesData) showModeSubTab(_modesSubTab); loadModesSettings(); }
     else if (name === 'ev') { loadEvDevices(); loadEvChargingStatus(); }
   }
@@ -1163,6 +1163,7 @@
       loadAppLog();
     } else if (name === 'smart') {
       showSmartSubTab('price');
+      triggerPriceRefresh();
     } else if (name === 'overview') {
       showOverviewSubTab('overview');
     } else {
