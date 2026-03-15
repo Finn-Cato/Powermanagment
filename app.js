@@ -237,6 +237,9 @@ class PowerGuardApp extends Homey.App {
       this.error('EV charger connection error (non-fatal):', err);
     }
 
+    // Populate battery state immediately on startup so the UI shows data right away
+    setTimeout(() => this._pollAllCarBatteries().catch(err => this.error('[CarBattery] Startup poll error:', err)), 5000);
+
     this._watchdogInterval  = setInterval(() => this._watchdog().catch(err => this.error('[Watchdog] Error:', err)), 10000);
     this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(err => this.error('[Cache] Refresh error:', err)), 60000);
     this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(err => this.error('[Queue] Save error:', err)), 3000);
@@ -1707,7 +1710,7 @@ class PowerGuardApp extends Homey.App {
     const actEvBattery = this.homey.flow.getActionCard('report_ev_battery');
     if (actEvBattery) {
       actEvBattery.registerArgumentAutocompleteListener('charger', async (query) => {
-        const list = (this._settings.priorityList || []).filter(e => e.priceControlled);
+        const list = (this._settings.priorityList || []).filter(e => e.batteryCapacityKwh || e.carDeviceId);
         return list
           .filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase()))
           .map(e => ({ id: e.deviceId, name: e.name }));
@@ -2086,10 +2089,10 @@ class PowerGuardApp extends Homey.App {
    */
   reportEvBattery(deviceId, batteryPct) {
     const entry = (this._settings.priorityList || []).find(
-      e => e.deviceId === deviceId && e.priceControlled
+      e => e.deviceId === deviceId && (e.batteryCapacityKwh || e.carDeviceId)
     );
     if (!entry) {
-      this.log(`[EV Battery] No priceControlled entry for ${deviceId}`);
+      this.log(`[EV Battery] No battery-configured entry for ${deviceId}`);
       return;
     }
 
@@ -2132,9 +2135,9 @@ class PowerGuardApp extends Homey.App {
    */
   async _pollCarBattery(chargerId) {
     const entry = (this._settings.priorityList || []).find(
-      e => e.deviceId === chargerId && e.priceControlled
+      e => e.deviceId === chargerId && e.carDeviceId
     );
-    if (!entry || !entry.carDeviceId) return;
+    if (!entry) return;
     const BATTERY_CAPS = ['measure_battery', 'batterylevel', 'battery', 'ev_battery_level', 'battery_level'];
     try {
       const device = await withTimeout(
@@ -2157,11 +2160,11 @@ class PowerGuardApp extends Homey.App {
     }
   }
 
-  /** Poll battery % for all priceControlled chargers that have a linked car device */
+  /** Poll battery % for all chargers that have a linked car device */
   async _pollAllCarBatteries() {
     if (!this._api) return;
     const priceChargers = (this._settings.priorityList || []).filter(
-      e => e.priceControlled && e.carDeviceId
+      e => e.carDeviceId
     );
     for (const entry of priceChargers) {
       await this._pollCarBattery(entry.deviceId);
@@ -4866,7 +4869,7 @@ class PowerGuardApp extends Homey.App {
     // All chargers use the same cheapest-hours window; the dynamic current loop
     // already splits available power equally between them.
     let hoursNeeded = null;
-    const priceChargers = (this._settings.priorityList || []).filter(e => e.priceControlled);
+    const priceChargers = (this._settings.priorityList || []).filter(e => e.batteryCapacityKwh || e.carDeviceId);
     let maxHours = 0; let anyValid = false;
     for (const e of priceChargers) {
       const bst = this._evBatteryState[e.deviceId];
