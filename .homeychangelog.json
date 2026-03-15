@@ -201,5 +201,8 @@
   "0.8.30": {
     "en": "EV tab: updated smart charging explanation to reflect cheapest-hours rule. Renamed \"Hours needed (manual fallback)\" to \"Hours needed (if no car device linked)\" for clarity. Updated Finish charging by hint text.",
     "no": "EV-fanen: oppdatert forklaring av smart ladelogikk til å gjenspeile billigste-timer-regelen. Omdøpte \"Timer nødvendig (manuell reserve)\" til \"Timer nødvendig (hvis ingen bilenhet er koblet til)\" for klarhet. Oppdatert hjelpetekst for Ferdig ladet innen."
+  },
+  "0.8.34": {
+    "en": "Bug fixes: Charger Mode now shows — when no connected car needs charging (was incorrectly showing Fast charge). Fixed price evaluation crash caused by const declaration (finalMode). Norgespris toggle now works correctly. Opening the Smart tab triggers a fresh price refresh. Modes tab thermostats have On/Off/— buttons with temperature memory."
   }
 }
