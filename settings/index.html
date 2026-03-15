@@ -3667,15 +3667,19 @@
 
   function updateModeSubTabHighlight(mode) {
     var activeMode = _modesData && _modesData.modeSettings && _modesData.modeSettings.activeMode;
+    var labels = { home: '🏠 Home', night: '🌙 Night', away: '🚗 Away', holiday: '❄️ Holiday' };
     ['home','night','away','holiday'].forEach(function(m) {
       var b = document.getElementById('msub-' + m);
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      b.style.fontWeight   = isSelected ? '700' : '';
-      b.style.borderBottom = isSelected ? '2px solid rgba(255,255,255,0.8)' : '';
+      var textColor  = isActive ? 'color:var(--orange);' : '';
+      var underline  = isSelected ? 'border-bottom:2px solid rgba(255,255,255,0.85);padding-bottom:1px;' : '';
+      b.style.fontWeight      = isSelected ? '700' : '';
+      b.style.color           = isActive ? 'var(--orange)' : '';
+      b.style.borderBottom    = '';
       b.style.backgroundImage = '';
-      b.style.color        = isActive ? 'var(--orange)' : '';
+      b.innerHTML = '<span style="' + textColor + underline + '">' + labels[m] + '</span>';
     });
   }
 
