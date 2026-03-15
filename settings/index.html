@@ -3364,7 +3364,7 @@
 
     if (priceEnabled) {
       if (heaterBtn)  heaterBtn.style.display  = 'none';
-      if (powerBtn)   powerBtn.style.display   = 'none';
+      if (powerBtn)   powerBtn.style.display   = '';
       if (smartBtn)   smartBtn.style.display   = '';
       if (modeCard)   modeCard.style.display   = '';
       if (advNotice)  advNotice.style.display  = '';
@@ -3372,9 +3372,8 @@
       if (managedChargers && smartSlot && !smartSlot.contains(managedChargers)) {
         smartSlot.appendChild(managedChargers);
       }
-      // If user is currently on Heaters or Power tab, redirect to Overview
-      if (document.getElementById('tab-floorheater').style.display !== 'none' ||
-          document.getElementById('tab-consumption').style.display !== 'none') {
+      // If user is currently on Heaters tab, redirect to Overview
+      if (document.getElementById('tab-floorheater').style.display !== 'none') {
         showTab('overview');
       }
     } else {
@@ -3801,13 +3800,23 @@
     if (action === 'target_temperature') {
       var v = modePref.value;
       var isOff = v === 'off';
-      var val = (!isOff && v != null) ? v : 20;
-      var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
-      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.45;' : '') + '">−</button>';
-      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;' + (isOff ? 'opacity:.45;' : '') + '">' + val + '°C</span>';
-      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.45;' : '') + '">+</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 8px;font-size:11px;margin-left:4px;' + (isOff ? selStyle : '') + '">Off</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:11px;' + (v == null ? selStyle : '') + '">—</button>';
+      var isOn  = v != null && v !== 'off';
+      var val = isOn ? v : 20;
+      var selOn  = 'background:rgba(52,199,89,.18);border-color:#34c759;color:#34c759;font-weight:700;';
+      var selOff = 'background:rgba(255,59,48,.15);border-color:#ff3b30;color:#ff3b30;font-weight:700;';
+      var selDash= 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
+      // On/Off/— group
+      row += '<div style="display:flex;gap:4px;align-items:center;">';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',' + val + ')" style="padding:3px 10px;font-size:12px;' + (isOn ? selOn : '') + '">On</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (isOff ? selOff : '') + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:12px;' + (v == null ? selDash : '') + '">—</button>';
+      row += '</div>';
+      // Temperature stepper (dimmed when Off/—, always clickable — clicking also sets On)
+      row += '<div style="display:flex;align-items:center;gap:2px;margin-left:6px;' + (!isOn ? 'opacity:.4;' : '') + '">';
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;">−</button>';
+      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:44px;text-align:center;font-size:13px;font-weight:600;">' + val + '°C</span>';
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;">+</button>';
+      row += '</div>';
     } else if (action === 'hoiax_power') {
       var v = modePref.value;
       var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
@@ -3846,10 +3855,8 @@
     var nv  = Math.round((cur + delta) * 2) / 2;
     nv = Math.max(5, Math.min(30, nv));
     _setModePref(deviceId, mode, nv);
-    // Update value display without full re-render
-    var safeId = deviceId.replace(/[^a-z0-9]/gi, '_');
-    var el = document.getElementById('mtv-' + safeId + '-' + mode);
-    if (el) el.textContent = nv + '°C';
+    // Re-render so On/Off highlight and stepper opacity both update
+    renderModeDevices(mode);
   }
 
   function modesSetOnOff(deviceId, mode, value) {
