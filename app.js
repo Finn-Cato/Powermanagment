@@ -4709,7 +4709,7 @@ class PowerGuardApp extends Homey.App {
       const rawMode        = this._priceSuggestChargeMode(currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
       const deadlineForced = this._deadlineForced === true;
       this._deadlineForced = false;
-      const finalMode      = deadlineForced
+      let finalMode        = deadlineForced
         ? rawMode
         : this._priceApplyChargeModeHysteresis(prev ? prev.chargeMode : null, rawMode, currentEntry, nextEntry, finalLevel, stats, lookahead, cfg);
 
@@ -4723,16 +4723,14 @@ class PowerGuardApp extends Homey.App {
       // Suppress global chargeMode when no connected car needs charging.
       // Use all entries with a linked car device (carDeviceId), not just priceControlled ones.
       const carEntries = (this._settings.priorityList || []).filter(e => e.carDeviceId);
-      this.log(`[ChargeMode suppress] carEntries=${carEntries.length} finalMode=${finalMode}`);
-      const suppressResult = carEntries.length > 0 && carEntries.every(e => {
+      if (carEntries.length > 0 && carEntries.every(e => {
         const evData = this._evPowerData[e.deviceId];
-        const bst    = this._evBatteryState[e.deviceId];
-        const done   = !evData || !evData.isConnected || (bst && typeof bst.pct === 'number' && bst.pct >= 99);
-        this.log(`[ChargeMode suppress] ${e.name||e.deviceId} isConnected=${evData?.isConnected} pct=${bst?.pct} done=${done}`);
-        return done;
-      });
-      if (suppressResult) finalMode = null;
-      this.log(`[ChargeMode suppress] suppressResult=${suppressResult} → finalMode=${finalMode}`);
+        if (!evData || !evData.isConnected) return true; // not connected → nothing to charge
+        const bst = this._evBatteryState[e.deviceId];
+        return bst && typeof bst.pct === 'number' && bst.pct >= 99; // connected but full
+      })) {
+        finalMode = null;
+      }
 
       this._priceState = {
         level:      finalLevel,
