@@ -3803,9 +3803,9 @@
       var isOff = v === 'off';
       var val = (!isOff && v != null) ? v : 20;
       var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
-      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.35;pointer-events:none;' : '') + '">−</button>';
-      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;' + (isOff ? 'opacity:.35;' : '') + '">' + val + '°C</span>';
-      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.35;pointer-events:none;' : '') + '">+</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.45;' : '') + '">−</button>';
+      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:48px;text-align:center;font-size:13px;font-weight:600;' + (isOff ? 'opacity:.45;' : '') + '">' + val + '°C</span>';
+      row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;' + (isOff ? 'opacity:.45;' : '') + '">+</button>';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 8px;font-size:11px;margin-left:4px;' + (isOff ? selStyle : '') + '">Off</button>';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:11px;' + (v == null ? selStyle : '') + '">—</button>';
     } else if (action === 'hoiax_power') {
@@ -3841,7 +3841,8 @@
   function modeTempStep(deviceId, mode, delta) {
     if (!_modesData) return;
     var devPrefs = (_modesData.modeSettings.devicePrefs || {})[deviceId] || {};
-    var cur = (devPrefs[mode] && devPrefs[mode].value != null) ? devPrefs[mode].value : 20;
+    var stored = devPrefs[mode] && devPrefs[mode].value;
+    var cur = (stored != null && stored !== 'off') ? stored : 20;
     var nv  = Math.round((cur + delta) * 2) / 2;
     nv = Math.max(5, Math.min(30, nv));
     _setModePref(deviceId, mode, nv);
