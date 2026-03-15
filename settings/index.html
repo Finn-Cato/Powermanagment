@@ -3801,14 +3801,14 @@
       var v = modePref.value;
       var isOff = v === 'off';
       var isOn  = v != null && v !== 'off';
-      var val = isOn ? v : 20;
+      var val = isOn ? v : (modePref.lastTemp != null ? modePref.lastTemp : 20);
       var selOn  = 'background:rgba(52,199,89,.18);border-color:#34c759;color:#34c759;font-weight:700;';
       var selOff = 'background:rgba(255,59,48,.15);border-color:#ff3b30;color:#ff3b30;font-weight:700;';
       var selDash= 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
       // On/Off/— group
       row += '<div style="display:flex;gap:4px;align-items:center;">';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',' + val + ')" style="padding:3px 10px;font-size:12px;' + (isOn ? selOn : '') + '">On</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (isOff ? selOff : '') + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\',' + val + ')" style="padding:3px 10px;font-size:12px;' + (isOff ? selOff : '') + '">Off</button>';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:12px;' + (v == null ? selDash : '') + '">—</button>';
       row += '</div>';
       // Temperature stepper (dimmed when Off/—, always clickable — clicking also sets On)
@@ -3868,8 +3868,8 @@
     }
   }
 
-  function modesSetOnOff(deviceId, mode, value) {
-    _setModePref(deviceId, mode, value);
+  function modesSetOnOff(deviceId, mode, value, lastTemp) {
+    _setModePref(deviceId, mode, value, lastTemp);
     renderModeDevices(mode);
     // Also immediately control the physical device (same as Heater tab toggle)
     if (!_H) return;
@@ -3902,11 +3902,18 @@
     }).catch(function() {});
   }
 
-  function _setModePref(deviceId, mode, value) {
+  function _setModePref(deviceId, mode, value, lastTemp) {
     if (!_modesData) return;
     if (!_modesData.modeSettings.devicePrefs) _modesData.modeSettings.devicePrefs = {};
     if (!_modesData.modeSettings.devicePrefs[deviceId]) _modesData.modeSettings.devicePrefs[deviceId] = {};
-    _modesData.modeSettings.devicePrefs[deviceId][mode] = { value: value };
+    var prev = _modesData.modeSettings.devicePrefs[deviceId][mode] || {};
+    var entry = { value: value };
+    // When turning off: store the temperature we came from so On can restore it
+    if (value === 'off') {
+      entry.lastTemp = (typeof lastTemp === 'number') ? lastTemp : (typeof prev.value === 'number' ? prev.value : (prev.lastTemp || null));
+    }
+    // When setting a temperature: clear lastTemp (it's now the live value)
+    _modesData.modeSettings.devicePrefs[deviceId][mode] = entry;
     hApi('POST', '/modes', { devicePrefs: _modesData.modeSettings.devicePrefs, changedDeviceId: deviceId })
       .catch(function(e) { console.error('_setModePref error:', e); });
   }
