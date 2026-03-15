@@ -3729,13 +3729,14 @@ class PowerGuardApp extends Homey.App {
     const allDevices = this.homey.settings.get('_deviceCache') || [];
     const floorHeaters = [];
 
-    // Always include devices from the priority list with target_temperature action,
+    // Always include devices from the priority list (any controllable action),
     // regardless of device name or class — so any device managed by PowerGuard shows up.
-    const managedThermostatIds = new Set(
+    const managedDeviceIds = new Set(
       (this._settings.priorityList || [])
-        .filter(e => e.action === 'target_temperature' && e.enabled !== false)
+        .filter(e => e.action !== 'charge_pause' && e.action !== 'dynamic_current' && e.enabled !== false)
         .map(e => e.deviceId)
     );
+    const managedThermostatIds = managedDeviceIds; // kept for compat below
     
     this.log(`[FloorHeater] ==== START FLOOR HEATER CHECK ====`);
     this.log(`[FloorHeater] Total devices in cache: ${allDevices.length}`);
@@ -3748,16 +3749,16 @@ class PowerGuardApp extends Homey.App {
       const cls = (cached.class || '').toLowerCase();
       
       // Identify thermostats / heaters (works for all brands: Futurehome, Z-Wave, Zigbee, etc.)
-      // Also always include any device in the priority list with target_temperature action.
-      const isFloorHeater = cls === 'thermostat' || 
+      // Also always include any device managed by PowerGuard (onoff, dim, target_temperature).
+      const isFloorHeater = cls === 'thermostat' ||
                             cls === 'heater' ||
-                            name.includes('floor') || 
-                            name.includes('varme') || 
+                            name.includes('floor') ||
+                            name.includes('varme') ||
                             name.includes('heating') ||
                             name.includes('gulv') ||
                             name.includes('termostat') ||
                             name.includes('thermostat') ||
-                            managedThermostatIds.has(cached.id);
+                            managedDeviceIds.has(cached.id);
       
       if (!isFloorHeater) continue;
       
