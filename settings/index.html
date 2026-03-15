@@ -545,7 +545,9 @@
             <b>Phase detection &amp; current stepping:</b><br>
             Power Guard auto-detects whether your charger is 1-phase or 3-phase from the live power/current ratio — no manual setup needed. When ramping up, the step size is calculated in watts (not amps) so the power impact per step is equal regardless of phase type: a 1-phase charger steps 6A at a time, a 3-phase charger steps 2A — both equal roughly 1400W per step.<br><br>
             <b>Anti-oscillation:</b><br>
-            When multiple chargers are ramping up, only one steps at a time so the HAN meter can confirm each increase before the next. If the EV charging budget is tight, Power Guard proactively reduces heating devices before the charger needs to pause — preventing the charger and thermostats from repeatedly cycling against each other.
+            When multiple chargers are ramping up, only one steps at a time so the HAN meter can confirm each increase before the next. If the EV charging budget is tight, Power Guard proactively reduces heating devices before the charger needs to pause — preventing the charger and thermostats from repeatedly cycling against each other.<br><br>
+            <b>Phase-aware proactive shedding:</b><br>
+            The threshold for shedding heating devices is calculated from your charger's actual phase type — a 1-phase charger only needs 1380W minimum (6A × 230V), while a 3-phase charger needs 4140W (6A × 690V). This means heating devices on 1-phase setups are not shed unnecessarily early.
           </div>
           <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.8;">
             <b>What the Charger Mode label means:</b><br>

@@ -29,7 +29,7 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 - **Resume threshold** — resumes from pause at 11A (not 6A) to ensure a reliable charger restart
 - **Phase-aware current stepping** — step size is calculated in watts (equal impact per step regardless of phase): 1-phase = 6A/step, 3-phase = 2A/step — ramp always completes before other devices are restored
 - **Anti-oscillation** — one charger ramps per cycle so HAN can confirm each step before the next; decreases apply to all chargers immediately in emergencies
-- **Proactive load coordination** — when EV budget is tight, heating devices are shed before the charger needs to pause, preventing charger and thermostats from repeatedly cycling against each other
+- **Proactive load coordination** — when EV budget is tight, heating devices are shed before the charger needs to pause, preventing charger and thermostats from repeatedly cycling against each other; the shed threshold is phase-aware (1-phase charger = 1380W minimum, 3-phase = 4140W) so heating devices are not shed unnecessarily on 1-phase setups
 - **Grace window** — 2-minute grace period after confirmed charging before flagging a mismatch
 - **Confirmation tracking** — verifies commands by reading `measure_current.offered`, with per-charger reliability scoring
 - **Retry with backoff** — retries failed commands up to 2 times with increasing delays

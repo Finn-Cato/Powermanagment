@@ -1534,13 +1534,39 @@ class PowerGuardApp extends Homey.App {
       // Headroom guard: refuse to restore if projected power (current + device's stored draw)
       // would push us over the limit. This prevents the charger+water-heater oscillation where
       // the heater turns off → charger ramps up → heater turns back on → over limit → repeat.
+      //
+      // Fix B: account for EV charger settling windows.
+      // HAN meter readings lag up to 10 s behind reality. If a charger just received a ramp-up
+      // command (commandTime < 20 s ago), its actual draw may already be higher than smoothedPower
+      // shows. We compute a settlingDelta — sum of (expected − measured) for settling chargers —
+      // and add it to smoothedPower before the headroom check so we don't restore a thermostat
+      // while the charger is still mid-ramp.
       if (smoothedPower != null && toRestore.action !== 'dynamic_current') {
         const devicePowerW = toRestore.previousState && toRestore.previousState.measurePower;
         if (devicePowerW && devicePowerW > 50) {
           const limit = this._getEffectiveLimit();
-          const projected = smoothedPower + devicePowerW;
+
+          // Compute extra power that settling chargers have commanded but HAN hasn't measured yet.
+          let settlingDelta = 0;
+          const now = Date.now();
+          const settlingChargers = (this._settings.priorityList || []).filter(e =>
+            e.enabled !== false && e.action === 'dynamic_current' && this._isCarConnected(e.deviceId)
+          );
+          for (const ce of settlingChargers) {
+            const cState = this._chargerState[ce.deviceId];
+            if (!cState?.commandTime || (now - cState.commandTime) >= 20000 || cState.lastCommandA == null) continue;
+            const evData = this._evPowerData[ce.deviceId];
+            const phases = evData?.detectedPhases || ce.chargerPhases || 3;
+            const voltage = phases * 230;
+            const measuredPw = evData?.powerW || 0;
+            const expectedPw = cState.lastCommandA * voltage;
+            if (expectedPw > measuredPw) settlingDelta += (expectedPw - measuredPw);
+          }
+
+          const effectivePower = smoothedPower + settlingDelta;
+          const projected = effectivePower + devicePowerW;
           if (projected > limit * 0.95) {
-            this.log(`[Restore] Headroom guard: projected ${Math.round(projected)}W (current ${Math.round(smoothedPower)}W + device ${Math.round(devicePowerW)}W) vs limit ${Math.round(limit)}W — skipping restore`);
+            this.log(`[Restore] Headroom guard: projected ${Math.round(projected)}W (effective ${Math.round(effectivePower)}W [measured ${Math.round(smoothedPower)}W + settling ${Math.round(settlingDelta)}W] + device ${Math.round(devicePowerW)}W) vs limit ${Math.round(limit)}W — skipping restore`);
             return;
           }
         }
@@ -2515,13 +2541,25 @@ class PowerGuardApp extends Homey.App {
 
     const nonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
     const budget = limit - nonChargerUsage;
-    const minBudgetNeeded = CHARGER_DEFAULTS.minCurrent * 690; // 6A × 690W = 4140W
+
+    // Phase-aware minimum budget: sum of minCurrent × voltage per connected charger.
+    // A 1-phase charger needs only 6A × 230W = 1380W; a 3-phase needs 6A × 690W = 4140W.
+    // Using a hardcoded 690W here would cause 1-phase users to shed heating devices 3× too early.
+    const minBudgetNeeded = connectedChargers.reduce((sum, e) => {
+      const evData = this._evPowerData[e.deviceId];
+      const phases = evData?.detectedPhases || e.chargerPhases || 3;
+      return sum + CHARGER_DEFAULTS.minCurrent * (phases * 230);
+    }, 0);
 
     const proactivelyShed = this._mitigatedDevices.filter(m => m.evProactive);
 
     // ── Restore phase ──────────────────────────────────────────────────────────
     // Car disconnected OR budget now sufficient without the shed device → restore
-    const budgetSufficient = budget >= minBudgetNeeded;
+    // Hysteresis: restore only when budget is 2000W above the shed threshold.
+    // This gap (~1 typical thermostat) prevents the flip-flop where restoring a device
+    // immediately drops budget below shed threshold and triggers another shed cycle.
+    const restoreBudgetNeeded = minBudgetNeeded + 2000;
+    const budgetSufficient = budget >= restoreBudgetNeeded;
     if (!connectedChargers.length || budgetSufficient) {
       for (const shed of [...proactivelyShed]) {
         if (now - shed.mitigatedAt < 120000) continue; // Min 2 min before restoring
@@ -2687,10 +2725,18 @@ class PowerGuardApp extends Homey.App {
         : CHARGER_DEFAULTS.toggleUnconfirmedMs;
       if (now - (cState.lastAdjustTime || 0) < perChargerThrottle) continue;
 
-      // Cap step-up to maxStepUpA per cycle to prevent oscillation jumps.
+      // Cap step-up per cycle to prevent oscillation jumps.
+      // Step size is phase-aware: maxStepUpW converted to amps using detected phase voltage,
+      // so the watt impact per step is equal regardless of whether the charger is 1- or 3-phase:
+      //   1-phase (230V): floor(1380/230) = 6A/step  (~1380W)
+      //   3-phase (690V): floor(1380/690) = 2A/step  (~1380W)
       // Exception: when resuming from pause (currentTargetA=0/null), skip the gradual cap
       // and jump to min(startCurrent, rawTarget). Stepping from 0→2→4A produces sub-minimum
       // values that the charger ignores, causing it to default back to 16A.
+      const evDataStep = this._evPowerData[entry.deviceId];
+      const phasesStep = evDataStep?.detectedPhases || entry.chargerPhases || 3;
+      const wattsPerAmp = phasesStep * 230;
+      const maxStepUpA = Math.max(1, Math.floor(CHARGER_DEFAULTS.maxStepUpW / wattsPerAmp));
       let targetCurrent = rawTarget;
       if (isIncrease) {
         const isPaused = currentTargetA === 0 || currentTargetA === null;
@@ -2698,9 +2744,9 @@ class PowerGuardApp extends Homey.App {
           targetCurrent = Math.min(CHARGER_DEFAULTS.startCurrent, rawTarget);
           this.log(`[EV] Resume from pause: ${rawTarget}A → ${targetCurrent}A (capped to startCurrent=${CHARGER_DEFAULTS.startCurrent}A)`);
         } else {
-          targetCurrent = Math.min(rawTarget, currentTargetA + CHARGER_DEFAULTS.maxStepUpA);
+          targetCurrent = Math.min(rawTarget, currentTargetA + maxStepUpA);
           if (targetCurrent !== rawTarget) {
-            this.log(`[EV] Anti-hunt step-up: capped ${rawTarget}A → ${targetCurrent}A (+${CHARGER_DEFAULTS.maxStepUpA}A max)`);
+            this.log(`[EV] Anti-hunt step-up: capped ${rawTarget}A → ${targetCurrent}A (+${maxStepUpA}A max, ${phasesStep}-phase ~${maxStepUpA * wattsPerAmp}W)`);
           }
         }
       }
@@ -2816,6 +2862,12 @@ class PowerGuardApp extends Homey.App {
           }
         }
       }
+
+      // One charger per cycle for increases — step one charger at a time so HAN can confirm
+      // the new power before the next charger ramps up. Stacking multiple ramp-ups in one
+      // cycle doubles/triples the unconfirmed watt increase before the meter catches up.
+      // Decreases fall through the full loop for immediate emergency response on all chargers.
+      if (isIncrease) break;
     }
   }
 
@@ -3164,7 +3216,7 @@ class PowerGuardApp extends Homey.App {
   //           args: { device, current: <amps> }  — verify arg name in full diagnostic log
   //  Status:  chargerStatusCapability — values: Charging, Connected, Paused,
   //           ScheduledCharging, WaitingForSchedule, Disconnected
-  //  Min current: CHARGER_DEFAULTS.minCurrent (7A)
+  //  Min current: CHARGER_DEFAULTS.minCurrent (6A)
   //
   //  ⚠️ ACTIVE — flow action arg name (‘current’) needs runtime verification
   // ══════════════════════════════════════════════════════════════════
