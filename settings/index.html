@@ -3666,11 +3666,16 @@
   }
 
   function updateModeSubTabHighlight(mode) {
+    var activeMode = _modesData && _modesData.modeSettings && _modesData.modeSettings.activeMode;
     ['home','night','away','holiday'].forEach(function(m) {
       var b = document.getElementById('msub-' + m);
       if (!b) return;
-      b.style.fontWeight  = m === mode ? '700' : '';
-      b.style.borderColor = m === mode ? 'var(--orange)' : '';
+      var isSelected = m === mode;
+      var isActive   = m === activeMode;
+      b.style.fontWeight   = isSelected ? '700' : '';
+      b.style.borderColor  = isActive   ? 'var(--orange)' : (isSelected ? 'var(--blue)' : '');
+      b.style.background   = isActive   ? 'rgba(255,149,0,0.10)' : '';
+      b.title = isActive ? 'Active mode' : '';
     });
   }
 
@@ -3855,9 +3860,10 @@
     var nv  = Math.round((cur + delta) * 2) / 2;
     nv = Math.max(5, Math.min(30, nv));
     _setModePref(deviceId, mode, nv);
-    // Re-render and also immediately set temperature on the device
+    // Re-render and immediately set temperature only if this is the active mode
     renderModeDevices(mode);
-    if (_H) {
+    var activeMode = _modesData.modeSettings && _modesData.modeSettings.activeMode;
+    if (_H && mode === activeMode) {
       hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'on', value: null })
         .then(function() {
           hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: nv })
@@ -3871,8 +3877,9 @@
   function modesSetOnOff(deviceId, mode, value, lastTemp) {
     _setModePref(deviceId, mode, value, lastTemp);
     renderModeDevices(mode);
-    // Also immediately control the physical device (same as Heater tab toggle)
-    if (!_H) return;
+    // Only immediately control the physical device when editing the currently active mode
+    var activeMode = _modesData && _modesData.modeSettings && _modesData.modeSettings.activeMode;
+    if (!_H || mode !== activeMode) return;
     if (value === 'off') {
       hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'off', value: null })
         .then(function(d) { if (d.ok) showToast(d.message || 'Turned off'); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
@@ -3929,6 +3936,7 @@
       .then(function() {
         if (_modesData) _modesData.modeSettings.activeMode = mode;
         renderModesActive(mode);
+        updateModeSubTabHighlight(_modesSubTab);
         showToast();
       })
       .catch(function(e) { console.error('doActivateMode error:', e); })
