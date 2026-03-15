@@ -1132,7 +1132,7 @@
       btn.classList[n === name ? 'add' : 'remove']('active');
     });
     if (name === 'price') { loadPriceData(); }
-    else if (name === 'modes') { loadModesSettings(); }
+    else if (name === 'modes') { if (_modesData) showModeSubTab(_modesSubTab); loadModesSettings(); }
     else if (name === 'ev') { loadEvDevices(); loadEvChargingStatus(); }
   }
 
