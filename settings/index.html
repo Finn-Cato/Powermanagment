@@ -3667,15 +3667,24 @@
 
   function updateModeSubTabHighlight(mode) {
     var activeMode = _modesData && _modesData.modeSettings && _modesData.modeSettings.activeMode;
+    var labels = { home: '🏠 Home', night: '🌙 Night', away: '🚗 Away', holiday: '❄️ Holiday' };
     ['home','night','away','holiday'].forEach(function(m) {
       var b = document.getElementById('msub-' + m);
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      b.style.fontWeight   = isSelected ? '700' : '';
-      b.style.borderColor  = isActive   ? 'var(--orange)' : (isSelected ? 'var(--blue)' : '');
-      b.style.background   = isActive   ? 'rgba(255,149,0,0.10)' : '';
-      b.title = isActive ? 'Active mode' : '';
+      // Active mode: orange filled style, with ● indicator
+      // Selected (viewing) non-active: bold only
+      if (isActive) {
+        b.style.cssText = 'font-size:12px;padding:5px 12px;font-weight:700;background:rgba(255,149,0,0.18);border:2px solid var(--orange);color:var(--orange);';
+        b.textContent = labels[m] + ' ●';
+      } else if (isSelected) {
+        b.style.cssText = 'font-size:12px;padding:5px 12px;font-weight:700;';
+        b.textContent = labels[m];
+      } else {
+        b.style.cssText = 'font-size:12px;padding:5px 12px;';
+        b.textContent = labels[m];
+      }
     });
   }
 
