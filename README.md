@@ -25,12 +25,15 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 - **Auto phase detection** — detects 1-phase vs 3-phase from live power/current ratio, no manual config needed
 - **Car device picker** — link a Homey car device to each charger; battery % is read automatically on plug-in and every 30 min
 - **Smart Charging Status panel** — shows car connected, charging now, charge mode, next cheap hour
-- **Minimum current** — keeps charger at 7A minimum to avoid stopping the session unnecessarily
-- **Start threshold** — requires headroom before restarting a paused charger, prevents rapid on/off cycling
+- **Minimum current** — keeps charger at 6A minimum to avoid stopping the session unnecessarily
+- **Resume threshold** — resumes from pause at 11A (not 6A) to ensure a reliable charger restart
+- **Phase-aware current stepping** — step size is calculated in watts (equal impact per step regardless of phase): 1-phase = 6A/step, 3-phase = 2A/step — ramp always completes before other devices are restored
+- **Anti-oscillation** — one charger ramps per cycle so HAN can confirm each step before the next; decreases apply to all chargers immediately in emergencies
+- **Proactive load coordination** — when EV budget is tight, heating devices are shed before the charger needs to pause, preventing charger and thermostats from repeatedly cycling against each other
 - **Grace window** — 2-minute grace period after confirmed charging before flagging a mismatch
 - **Confirmation tracking** — verifies commands by reading `measure_current.offered`, with per-charger reliability scoring
 - **Retry with backoff** — retries failed commands up to 2 times with increasing delays
-- Supports **Easee**, **Zaptec** (Go / Go2 / Home / Pro), and **Enua Charge E**
+- Supports **Easee**, **Zaptec** (Go / Go2 / Home / Pro), **Enua Charge E**, and **Futurehome**
 
 ### Mode Engine (Home / Night / Away / Holiday)
 - Four modes switchable manually from the settings page — no Flow required
@@ -152,7 +155,7 @@ If no **Ready by** time is set, Power Guard falls back to standard price logic:
 
 | Type | Supported devices |
 |------|-------------------|
-| **EV Charger** | Easee Home, Easee Pro, Zaptec Go / Go2 / Home / Pro, Enua Charge E |
+| **EV Charger** | Easee Home, Easee Pro, Zaptec Go / Go2 / Home / Pro, Enua Charge E, Futurehome |
 | **HAN Meter** | Frient Smart Reader, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer — or any device with `measure_power` |
 | **Thermostats** | Any brand — auto-detects capabilities |
 | **Water Heaters** | Høiax Connected 300 / 200 |
@@ -221,7 +224,7 @@ On the **Overview → Settings** sub-tab, make sure **Guard active** is turned o
 | Dim | Reduces to 10% brightness |
 | Lower Thermostat | Lowers target temperature by 3°C |
 | Charge Pause | Pauses EV charging (Zaptec / Enua) |
-| Dynamic Current | Adjusts charger current limit (Easee / Zaptec / Enua, 7–32 A) |
+| Dynamic Current | Adjusts charger current limit (Easee / Zaptec / Enua / Futurehome, 6–32 A) |
 | Stepped Power (Høiax) | Steps water heater down one level per cycle (3000 W → 1750 W → 1250 W → off) |
 
 ---
