@@ -3672,23 +3672,11 @@
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      // Reset all overrides first
-      b.style.fontWeight   = '';
-      b.style.borderBottom = '';
+      b.style.fontWeight   = isSelected ? '700' : '';
+      b.style.borderBottom = isSelected ? '2px solid var(--blue)' : '';
       b.style.background   = '';
-      b.style.color        = '';
       b.style.borderColor  = '';
-      // Selected tab (currently viewing): underline
-      if (isSelected) {
-        b.style.fontWeight   = '700';
-        b.style.borderBottom = '2px solid var(--blue)';
-      }
-      // Active mode: orange fill + orange text/border (overlays selected if both)
-      if (isActive) {
-        b.style.background  = 'rgba(255,149,0,0.18)';
-        b.style.color       = 'var(--orange)';
-        b.style.borderColor = 'var(--orange)';
-      }
+      b.style.color        = isActive ? 'var(--orange)' : '';
     });
   }
 
