@@ -3246,7 +3246,7 @@
     var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
 
     var lvl = state.level || 'normal';
-    var mode = state.chargeMode || 'normal';
+    var mode = state.chargeMode != null ? state.chargeMode : null;
 
     var lblEl = document.getElementById('price-level-badge');
     lblEl.textContent  = levelLabels[lvl] || lvl;
@@ -3258,11 +3258,15 @@
     document.getElementById('price-ore-now').textContent = oreLabel;
 
     var mEl = document.getElementById('price-charge-badge');
-    var mHint = modeHints[mode] || '';
-    mEl.innerHTML = '<span style="color:' + (modeColors[mode]||'') + ';">' + (modeLabels[mode] || mode) + '</span>' +
-      (mHint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + mHint + '</div>' : '');
-    mEl.style.color = '';
-    mEl.style.color = modeColors[mode] || '';
+    if (mode === null) {
+      mEl.innerHTML = '<span style="color:var(--text-muted);">—</span>';
+      mEl.style.color = '';
+    } else {
+      var mHint = modeHints[mode] || '';
+      mEl.innerHTML = '<span style="color:' + (modeColors[mode]||'') + ';">' + (modeLabels[mode] || mode) + '</span>' +
+        (mHint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + mHint + '</div>' : '');
+      mEl.style.color = modeColors[mode] || '';
+    }
 
     document.getElementById('price-ore-next').textContent =
       state.nextOre != null ? 'Next hour: ' + state.nextOre + ' øre' : '';
