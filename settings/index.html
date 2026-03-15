@@ -3672,14 +3672,13 @@
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      b.style.fontWeight              = isSelected ? '700' : '';
-      b.style.textDecoration          = isSelected ? 'underline' : '';
-      b.style.textDecorationColor     = isSelected ? '#ffffff' : '';
-      b.style.textDecorationThickness = isSelected ? '3px' : '';
-      b.style.textUnderlineOffset     = isSelected ? '4px' : '';
-      b.style.boxShadow               = '';
-      b.style.background              = '';
-      b.style.color                   = isActive ? 'var(--orange)' : '';
+      b.style.fontWeight          = isSelected ? '700' : '';
+      b.style.textDecoration      = '';
+      b.style.backgroundImage     = isSelected ? 'linear-gradient(#f1f5f9,#f1f5f9)' : '';
+      b.style.backgroundSize      = isSelected ? '80% 3px' : '';
+      b.style.backgroundPosition  = isSelected ? '50% 100%' : '';
+      b.style.backgroundRepeat    = 'no-repeat';
+      b.style.color               = isActive ? 'var(--orange)' : '';
     });
   }
 
