@@ -3672,11 +3672,10 @@
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      b.style.fontWeight   = isSelected ? '700' : '';
-      b.style.borderBottom = isSelected ? '2px solid rgba(255,255,255,0.6)' : '';
-      b.style.background   = '';
-      b.style.borderColor  = '';
-      b.style.color        = isActive ? 'var(--orange)' : '';
+      b.style.fontWeight  = isSelected ? '700' : '';
+      b.style.boxShadow   = isSelected ? 'inset 0 -2px 0 rgba(255,255,255,0.7)' : '';
+      b.style.background  = '';
+      b.style.color       = isActive ? 'var(--orange)' : '';
     });
   }
 
