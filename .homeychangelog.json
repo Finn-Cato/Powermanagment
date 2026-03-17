@@ -208,5 +208,9 @@
   },
   "0.8.34": {
     "en": "Bug fixes: Charger Mode now shows â€” when no connected car needs charging (was incorrectly showing Fast charge). Fixed price evaluation crash caused by const declaration (finalMode). Norgespris toggle now works correctly. Opening the Smart tab triggers a fresh price refresh. Modes tab thermostats have On/Off/â€” buttons with temperature memory."
+  },
+  "0.8.36": {
+    "en": "Fix: thermostats and heaters are no longer turned off when the EV charger is paused by the price engine (ekstremt dyr / Mode=av) — proactive load shedding now skips devices when the charger has no intention of running. Fix: auto-detected charger phase (1-phase / 3-phase) is now persisted across restarts so it shows immediately without waiting for new readings. Fix: phase detection now requires 3 consistent readings before confirming, preventing false 1-phase detection during charger ramp-up.",
+    "no": "Fiks: termostater og varmere slås ikke lenger av når EV-laderen er satt på pause av prismotoren (ekstremt dyr / Modus=av) — proaktiv lastavlastning hopper nå over enheter når laderen ikke har til hensikt å kjøre. Fiks: automatisk oppdaget laderfase (1-fase / 3-fase) lagres nå på tvers av omstarter slik at den vises umiddelbart uten å vente på nye avlesninger. Fiks: fasedeteksjon krever nå 3 konsistente avlesninger før bekreftelse, for å hindre feil 1-fase-deteksjon under oppramping av lader."
   }
 }
