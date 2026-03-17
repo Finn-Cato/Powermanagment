@@ -1283,7 +1283,8 @@
           isCharging: c.isCharging,
           confirmed: c.confirmed || false,
           reliability: c.reliability != null ? c.reliability : 50,
-          offeredCurrent: c.offeredCurrent
+          offeredCurrent: c.offeredCurrent,
+          detectedPhases: c.detectedPhases || null
         };
         // Live-update the status badge in the System tab table without full re-render
         var badge = document.getElementById('charger-status-' + c.deviceId);
@@ -1302,6 +1303,15 @@
                     c.status === 'connected' ? '\ud83d\udd0c' : '\u2796';
           badge.style.color = color;
           badge.textContent = icon + ' ' + (c.statusLabel || 'Idle');
+        }
+        // Live-update the phases badge when auto-detection confirms a result
+        var phasesBadge = document.getElementById('charger-phases-' + c.deviceId);
+        if (phasesBadge && c.detectedPhases) {
+          var phasesLabel = c.detectedPhases === 1 ? '1-phase (230V)' : c.detectedPhases === 3 ? '3-phase (400V)' : null;
+          if (phasesLabel) {
+            phasesBadge.textContent = phasesLabel;
+            phasesBadge.style.color = 'var(--text-muted)';
+          }
         }
       }
     });
@@ -1697,6 +1707,7 @@
     var html = '<table style="width:100%; border-collapse:collapse;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
             '<th style="text-align:left; padding:8px 4px;">Charger</th>' +
+            '<th style="text-align:center; padding:8px 4px;">Phases</th>' +
             '<th style="text-align:center; padding:8px 4px;">Status</th>' +
             '</tr></thead><tbody>';
 
@@ -1718,9 +1729,15 @@
                        liveStatus.status === 'connected' ? '🔌' :
                        '➖';
 
+      var phases = charger.detectedPhases || liveStatus.detectedPhases || charger.chargerPhases;
+      var phasesLabel = phases === 1 ? '1-phase (230V)' : phases === 3 ? '3-phase (400V)' : '–';
+      var phasesColor = phases ? 'var(--text-muted)' : '#8e8e93';
+
       var bgColor = idx % 2 === 0 ? 'transparent' : 'var(--bg-surface)';
       html += '<tr style="background:' + bgColor + '; border-bottom:1px solid var(--border-color);">' +
               '<td style="padding:8px 4px;">' + escHtml(charger.name) + '</td>' +
+              '<td style="text-align:center; padding:8px 4px;">' +
+              '<span id="charger-phases-' + charger.deviceId + '" style="font-size:11px; color:' + phasesColor + ';">' + phasesLabel + '</span></td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<span id="charger-status-' + charger.deviceId + '" style="font-size:11px; font-weight:600; color:' + statusColor + '; white-space:nowrap;">' +
               statusIcon + ' ' + escHtml(liveStatus.statusLabel) + '</span></td>' +
@@ -1753,6 +1770,7 @@
               (lim && lim.dynamic_charger_current != null ? ' | ID48 Midlertidig=' + lim.dynamic_charger_current + 'A' : '') +
               (lim && lim.circuit_current         != null ? ' | circuit='          + lim.circuit_current         + 'A' : '') +
               (lim && lim.allValues && Object.keys(lim.allValues).length ? ' | <i>caps: ' + Object.entries(lim.allValues).map(function(kv){return kv[0]+'='+kv[1];}).join(', ') + '</i>' : '') +
+              ' | phases=' + (live.detectedPhases != null ? live.detectedPhases + '-phase' : 'detecting...') +
               ' | confirmed=' + (live.confirmed ? '\u2713' : '\u2717') +
               ' | reliability=' + (live.reliability != null ? live.reliability + '%' : '?') +
               ' | isCharging=' + (live.isCharging !== undefined ? live.isCharging : '?') +

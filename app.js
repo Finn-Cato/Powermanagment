@@ -2503,14 +2503,29 @@ class PowerGuardApp extends Homey.App {
           this._appLogEntry('charger', `${entry.name} status update: connected=${data.isConnected} charging=${data.isCharging} power=${Math.round(data.powerW || 0)}W`);
         }
 
-        // Auto-detect charger phases from power/current ratio when actively charging:
+        // Auto-detect charger phases from power/current ratio when actively charging.
         // 1-phase: ~230 W/A, 3-phase: ~690 W/A. Midpoint threshold at 460.
+        // Requires 3 consecutive consistent readings before updating detectedPhases —
+        // prevents a single low reading during charger ramp-up from wrongly setting 1-phase.
         if (data.powerW > 200 && data.offeredCurrent > 0) {
           const ratio = data.powerW / data.offeredCurrent;
           const detected = ratio < 460 ? 1 : 3;
-          if (data.detectedPhases !== detected) {
-            this.log(`[EV] ${entry.name} auto-detected phases: ${detected} (${ratio.toFixed(0)} W/A)`);
-            data.detectedPhases = detected;
+          if (!data._phaseVote || data._phaseVote.value !== detected) {
+            data._phaseVote = { value: detected, count: 1 };
+          } else {
+            data._phaseVote.count++;
+            if (data._phaseVote.count >= 3 && data.detectedPhases !== detected) {
+              this.log(`[EV] ${entry.name} confirmed ${detected}-phase (ratio ${ratio.toFixed(0)} W/A, 3 consistent readings)`);
+              this._appLogEntry('charger', `${entry.name} detected ${detected}-phase charging (${ratio.toFixed(0)} W/A)`);
+              data.detectedPhases = detected;
+              // Persist confirmed phase into priorityList so it survives restarts
+              const pl = this.homey.settings.get('priorityList') || [];
+              const idx = pl.findIndex(e => e.deviceId === entry.deviceId);
+              if (idx !== -1 && pl[idx].chargerPhases !== detected) {
+                pl[idx] = { ...pl[idx], chargerPhases: detected };
+                this.homey.settings.set('priorityList', pl);
+              }
+            }
           }
         }
 
@@ -2569,7 +2584,15 @@ class PowerGuardApp extends Homey.App {
     // Phase-aware minimum budget: sum of minCurrent × voltage per connected charger.
     // A 1-phase charger needs only 6A × 230W = 1380W; a 3-phase needs 6A × 690W = 4140W.
     // Using a hardcoded 690W here would cause 1-phase users to shed heating devices 3× too early.
-    const minBudgetNeeded = connectedChargers.reduce((sum, e) => {
+    //
+    // Exclude chargers in price 'av' mode — they are intentionally paused by the price engine
+    // and will not resume soon, so protecting headroom for them would shed thermostats for no reason.
+    const priceState = this._priceState;
+    const activeChargers = connectedChargers.filter(e => {
+      const mode = priceState?.chargeModes?.[e.deviceId] ?? priceState?.chargeMode;
+      return mode !== 'av';
+    });
+    const minBudgetNeeded = activeChargers.reduce((sum, e) => {
       const evData = this._evPowerData[e.deviceId];
       const phases = evData?.detectedPhases || e.chargerPhases || 3;
       return sum + CHARGER_DEFAULTS.minCurrent * (phases * 230);
@@ -4407,6 +4430,7 @@ class PowerGuardApp extends Homey.App {
           confirmed: (this._chargerState[entry.deviceId] || {}).confirmed || false,
           reliability: Math.round(((this._chargerState[entry.deviceId] || {}).reliability ?? 0.5) * 100),
           offeredCurrent: evData.offeredCurrent || null,
+          detectedPhases: evData.detectedPhases || null,
         };
       });
 
