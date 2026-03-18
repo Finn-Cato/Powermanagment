@@ -60,6 +60,7 @@ class PowerGuardApp extends Homey.App {
     this._mitigationLog = [];
     this._deviceReliability = {};  // {deviceId: {comErrors: 0, reliability: 1.0}}
     this._missingPowerActive = false; // true when we're in missing-power mitigation mode
+    this._hanSuspendedUntil = 0;     // timestamp until which missing-data timeout is suppressed (Flow action)
 
     // Restore mitigated devices from persistent storage
     try {
@@ -804,7 +805,8 @@ class PowerGuardApp extends Homey.App {
     const timeoutS = this._settings.missingPowerTimeoutS || 0;
     if (timeoutS > 0 && this._settings.enabled) {
       const ageSec = this._lastHanReading ? (Date.now() - this._lastHanReading) / 1000 : Infinity;
-      if (ageSec > timeoutS) {
+      const hanSuspended = Date.now() < this._hanSuspendedUntil;
+      if (ageSec > timeoutS && !hanSuspended) {
         if (!this._missingPowerActive) {
           this._missingPowerActive = true;
           this.log(`[HAN Poll] No reading for ${Math.round(ageSec)}s (timeout ${timeoutS}s) — forcing mitigation`);
@@ -814,10 +816,11 @@ class PowerGuardApp extends Homey.App {
         const syntheticPower = this._getEffectiveLimit() + 100;
         this._checkLimits(syntheticPower).catch(err => this.error('Missing power checkLimits error:', err));
       } else if (this._missingPowerActive) {
-        // Readings have resumed — clear the flag
+        // Readings have resumed (or suspension lifted) — clear the flag
         this._missingPowerActive = false;
-        this.log('[HAN Poll] Power readings resumed — clearing missing power guard');
-        this._appLogEntry('han', 'Missing power guard cleared — readings resumed');
+        const reason = hanSuspended ? 'HAN suspension active' : 'readings resumed';
+        this.log(`[HAN Poll] Missing power guard cleared — ${reason}`);
+        this._appLogEntry('han', `Missing power guard cleared — ${reason}`);
       }
     }
   }
@@ -1705,6 +1708,15 @@ class PowerGuardApp extends Homey.App {
 
     const actReset = this.homey.flow.getActionCard('reset_statistics');
     if (actReset) actReset.registerRunListener(() => this._resetStatistics());
+
+    const actSuspendHan = this.homey.flow.getActionCard('suspend_han_monitoring');
+    if (actSuspendHan) actSuspendHan.registerRunListener((args) => {
+      const minutes = Math.min(Math.max(Number(args.duration_minutes) || 10, 1), 60);
+      this._hanSuspendedUntil = Date.now() + minutes * 60 * 1000;
+      this.log(`[HAN] Monitoring suspended for ${minutes} min via Flow (until ${new Date(this._hanSuspendedUntil).toISOString()})`);
+      this._appLogEntry('han', `HAN monitoring suspended for ${minutes} min via Flow`);
+      this._cacheStatus();
+    });
 
     const actEvBattery = this.homey.flow.getActionCard('report_ev_battery');
     if (actEvBattery) {
@@ -3753,6 +3765,7 @@ class PowerGuardApp extends Homey.App {
       powerBufferLen: this._powerBuffer.length,
       hanConnected: !!this._hanDeviceId,
       lastHanReading: this._lastHanReading ? new Date(this._lastHanReading).toISOString() : null,
+      hanSuspendedUntil: this._hanSuspendedUntil > Date.now() ? this._hanSuspendedUntil : null,
       cooldownSeconds: this._settings.cooldownSeconds,
       lastMitigationTime: this._lastMitigationTime ? new Date(this._lastMitigationTime).toISOString() : null,
       easeeChargers: (this._settings.priorityList || []).filter(e => e.action === 'dynamic_current').map(e => ({

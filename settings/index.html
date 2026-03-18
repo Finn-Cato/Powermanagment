@@ -441,6 +441,7 @@
 
       <div class="card">
         <h2>HAN Meter Diagnostics</h2>
+        <div id="st-han-suspended" style="display:none;font-size:12px;color:#ff9500;margin-bottom:8px;font-weight:600;"></div>
         <div id="han-diag-content" style="font-size:12px;">
           <span style="color:var(--text-muted)">Loading...</span>
         </div>
@@ -1235,6 +1236,17 @@
     } else if (hanAge) {
       hanAge.textContent = s.hanDeviceName || (s.hanConnected ? '' : 'No readings');
       hanAge.style.color = s.hanConnected ? 'var(--text-muted)' : '#ff3b30';
+    }
+    // HAN suspension indicator (Flow action "Suspend HAN monitoring")
+    var hanSuspEl = document.getElementById('st-han-suspended');
+    if (hanSuspEl) {
+      if (s.hanSuspendedUntil) {
+        var minsLeft = Math.ceil((s.hanSuspendedUntil - Date.now()) / 60000);
+        hanSuspEl.textContent = '⏸ HAN protection suspended — ' + minsLeft + 'm remaining';
+        hanSuspEl.style.display = '';
+      } else {
+        hanSuspEl.style.display = 'none';
+      }
     }
     var n = (s.mitigatedDevices || []).length;
     var m = document.getElementById('st-mitigation');
