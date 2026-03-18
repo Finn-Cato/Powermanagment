@@ -3829,7 +3829,9 @@
       else if (ph === 3) phaseInfo = ' <span style="font-size:10px;color:var(--text-muted);"> · 3-phase (400V)</span>';
     }
     row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + phaseInfo + (lt && !liveTempStr ? pwrLabel : '') + '</div>' + liveTempStr + '</div>';
-    row += '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">';
+    var pgOverride = lt && lt.mitigated;
+    row += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">';
+    row += '<div style="display:flex;align-items:center;gap:6px;' + (pgOverride ? 'opacity:0.4;pointer-events:none;' : '') + '">';
 
     if (action === 'target_temperature') {
       var v = modePref.value;
@@ -3877,7 +3879,11 @@
     } else {
       row += '<span style="font-size:12px;color:var(--text-muted);">—</span>';
     }
-    row += '</div></div>';
+    row += '</div>'; // close buttons inner div
+    if (pgOverride) {
+      row += '<span style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.02em;">&#9889; PG override</span>';
+    }
+    row += '</div></div>'; // close column wrapper + row right side
     return row;
   }
 
