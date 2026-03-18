@@ -1709,6 +1709,15 @@ class PowerGuardApp extends Homey.App {
     const actReset = this.homey.flow.getActionCard('reset_statistics');
     if (actReset) actReset.registerRunListener(() => this._resetStatistics());
 
+    const actReportPower = this.homey.flow.getActionCard('report_power');
+    if (actReportPower) actReportPower.registerRunListener((args) => {
+      const watts = Number(args.power_w);
+      if (isNaN(watts) || watts < 0) throw new Error('Invalid power value');
+      this.log(`[HAN] Flow-reported power reading: ${Math.round(watts)}W`);
+      this._appLogEntry('han', `Flow-reported power: ${Math.round(watts)}W`);
+      this._onPowerReading(watts);
+    });
+
     const actSuspendHan = this.homey.flow.getActionCard('suspend_han_monitoring');
     if (actSuspendHan) actSuspendHan.registerRunListener((args) => {
       const minutes = Math.min(Math.max(Number(args.duration_minutes) || 10, 1), 60);

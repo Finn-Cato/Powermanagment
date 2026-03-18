@@ -209,6 +209,10 @@
   "0.8.34": {
     "en": "Bug fixes: Charger Mode now shows — when no connected car needs charging (was incorrectly showing Fast charge). Fixed price evaluation crash caused by const declaration (finalMode). Norgespris toggle now works correctly. Opening the Smart tab triggers a fresh price refresh. Modes tab thermostats have On/Off/— buttons with temperature memory."
   },
+  "0.8.39": {
+    "en": "New Flow action: 'Report current power consumption as X W' — lets any Homey device (Tibber Pulse, smart plug, etc.) feed live power readings into Power Guard via a Flow. Useful when the HAN port pauses periodically: pipe readings from an alternative source so Power Guard keeps working normally instead of flying blind.",
+    "no": "Ny Flow-handling: 'Rapporter aktuelt strømforbruk som X W' — lar enhver Homey-enhet (Tibber Pulse, smartplugg osv.) sende sanntids effektavlesninger til Power Guard via en Flow. Nyttig når HAN-porten pauser periodisk: send avlesninger fra en alternativ kilde slik at Power Guard fortsetter å fungere normalt i stedet for å kjøre i blinde."
+  },
   "0.8.38": {
     "en": "New Flow action: 'Suspend HAN missing-data protection for N minutes' — useful for HAN meters that pause reporting for a known period (e.g. 10 minutes). Trigger this action from a Flow before the pause and Power Guard will not force-mitigate devices during that window. The System tab shows a notice with minutes remaining while suspension is active.",
     "no": "Ny Flow-handling: 'Suspender HAN manglende-data-beskyttelse i N minutter' — nyttig for HAN-målere som pauser rapportering i en kjent periode (f.eks. 10 minutter). Utløs denne handlingen fra en Flow før pausen og Power Guard vil ikke tvangstiltak enheter i dette tidsvinduet. System-fanen viser et varsel med gjenstående minutter mens suspensjonen er aktiv."

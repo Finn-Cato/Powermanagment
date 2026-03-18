@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.8.38",
+  "version": "0.8.39",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -545,6 +545,34 @@
           "en": "Reset statistics",
           "no": "Tilbakestill statistikk"
         }
+      },
+      {
+        "id": "report_power",
+        "title": {
+          "en": "Report current power consumption",
+          "no": "Rapporter aktuelt strømforbruk"
+        },
+        "titleFormatted": {
+          "en": "Report current power consumption as [[power_w]] W",
+          "no": "Rapporter aktuelt strømforbruk som [[power_w]] W"
+        },
+        "args": [
+          {
+            "name": "power_w",
+            "type": "number",
+            "title": {
+              "en": "Power (W)",
+              "no": "Effekt (W)"
+            },
+            "min": 0,
+            "max": 100000,
+            "step": 1,
+            "placeholder": {
+              "en": "e.g. 3500",
+              "no": "f.eks. 3500"
+            }
+          }
+        ]
       },
       {
         "id": "suspend_han_monitoring",
