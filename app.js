@@ -2565,16 +2565,18 @@ class PowerGuardApp extends Homey.App {
       e.enabled !== false && e.action === 'dynamic_current' && this._isCarConnected(e.deviceId)
     );
 
-    // Calculate effective charger power (matching the settling logic in _adjustEVChargersForPower)
+    // Calculate effective charger power using actual measured data only.
+    // The settling window (commanded current) is intentionally NOT used here — during a step-down
+    // the settling window uses the new lower commanded current, which inflates nonChargerUsage and
+    // shrinks the budget, causing proactive shed to fire when it shouldn't. Real measured power is
+    // always the correct basis for the shed/restore decision.
     const totalChargerPowerW = connectedChargers.reduce((sum, e) => {
       const evData = this._evPowerData[e.deviceId];
       const phases = evData?.detectedPhases || e.chargerPhases || 3;
       const voltage = phases * 230;
       const pw = evData?.powerW || 0;
       const offered = evData?.offeredCurrent || 0;
-      const cState = this._chargerState[e.deviceId];
-      const inSettling = cState?.commandTime && (now - cState.commandTime) < 20000 && cState.lastCommandA != null;
-      const effectivePw = inSettling ? (cState.lastCommandA * voltage) : (pw > 200 ? pw : (offered > 0 ? offered * voltage : 0));
+      const effectivePw = pw > 200 ? pw : (offered > 0 ? offered * voltage : 0);
       return sum + effectivePw;
     }, 0);
 
@@ -2585,12 +2587,18 @@ class PowerGuardApp extends Homey.App {
     // A 1-phase charger needs only 6A × 230W = 1380W; a 3-phase needs 6A × 690W = 4140W.
     // Using a hardcoded 690W here would cause 1-phase users to shed heating devices 3× too early.
     //
-    // Exclude chargers in price 'av' mode — they are intentionally paused by the price engine
-    // and will not resume soon, so protecting headroom for them would shed thermostats for no reason.
+    // Exclude chargers that will not be drawing power soon:
+    //  - Price 'av' mode: intentionally paused by price engine, won't resume until next cheap hour
+    //  - PG-paused: Power Guard itself paused the charger (currentTargetA === 0) because household
+    //    load is already too high — protecting headroom for a charger PG can't run is pointless
+    //    and causes thermostats to be shed for no benefit.
     const priceState = this._priceState;
     const activeChargers = connectedChargers.filter(e => {
       const mode = priceState?.chargeModes?.[e.deviceId] ?? priceState?.chargeMode;
-      return mode !== 'av';
+      if (mode === 'av') return false;
+      const mitigated = this._mitigatedDevices.find(m => m.deviceId === e.deviceId && m.action === 'dynamic_current');
+      if (mitigated && (mitigated.currentTargetA === 0 || mitigated.currentTargetA === null)) return false;
+      return true;
     });
     const minBudgetNeeded = activeChargers.reduce((sum, e) => {
       const evData = this._evPowerData[e.deviceId];
@@ -2609,7 +2617,10 @@ class PowerGuardApp extends Homey.App {
     const budgetSufficient = budget >= restoreBudgetNeeded;
     if (!connectedChargers.length || budgetSufficient) {
       for (const shed of [...proactivelyShed]) {
-        if (now - shed.mitigatedAt < 120000) continue; // Min 2 min before restoring
+        // Min 2 min before restoring — prevents rapid re-shed when charger is actively charging
+        // and conditions fluctuate. Bypassed when no charger is connected: the reason for shedding
+        // is gone so there is no point keeping the device off for the full cooldown period.
+        if (connectedChargers.length > 0 && now - shed.mitigatedAt < 120000) continue;
         const device = await withTimeout(
           this._api.devices.getDevice({ id: shed.deviceId }),
           10000, `proactiveRestore(${shed.deviceId})`
