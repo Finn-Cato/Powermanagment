@@ -2463,6 +2463,10 @@
               carSelOptions +
             '</select>' +
           '</label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-left:4px;" title="When ON: heaters and thermostats in the priority list are turned off as soon as this car starts charging, and restored when it stops or is paused by the price engine.">' +
+            '<input type="checkbox"' + (entry.chargerPriority ? ' checked' : '') + ' onchange="updateChargerPriority(\'' + entry.deviceId + '\',this.checked)">' +
+            '⚡ Shed heaters when charging' +
+          '</label>' +
         '</div>'
       : '';
 
@@ -2576,6 +2580,13 @@
     var entry = priorityList.filter(function(e) { return e.deviceId === chargerId; })[0];
     if (!entry) return;
     entry.carDeviceId = carDeviceId || undefined;
+    savePriorityList();
+  }
+
+  function updateChargerPriority(deviceId, checked) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (!entry) return;
+    entry.chargerPriority = !!checked;
     savePriorityList();
   }
 
