@@ -1,4 +1,8 @@
 {
+  "0.8.40": {
+    "en": "Fix: effekttariff calendar no longer loses the current hour's energy on app restart. Power Guard now persists in-progress hourly accumulation to storage and restores it on startup — so a restart mid-hour no longer zeroes out that hour's contribution to the capacity tariff calendar.",
+    "no": "Fiks: effekttariff-kalenderen mister ikke lenger inneværende times energi ved omstart av appen. Power Guard lagrer nå pågående timesakkumulering til lagring og gjenoppretter den ved oppstart — slik at en omstart midt i timen ikke lenger nullstiller timens bidrag til effekttariff-kalenderen."
+  },
   "0.8.33": {
     "en": "Fix: voltage system now always auto-detected — customers with old manual setting are self-healed on update. EV Charger Preferences now shows detected phase count per charger (1-phase / 3-phase). Slow charge hint corrected to 'no deadline set' instead of misleading 'price is moderate'. Removed redundant EV Charger virtual device driver. Fixed: priority list wording now consistently says top of list is turned off first.",
     "no": "Fiks: spenningssystem oppdages nå alltid automatisk — kunder med gammel manuell innstilling blir automatisk korrigert ved oppdatering. EV-laderinnstillinger viser nå oppdaget faseantall per lader (1-fase / 3-fase). Hint for Saktlading rettet til 'ingen frist satt' i stedet for misvisende 'prisen er moderat'. Fjernet overflødig virtuell EV-laderenhet. Fiks: prioritetslisten sier nå konsekvent at toppen av listen slås av først."

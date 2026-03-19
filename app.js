@@ -129,6 +129,16 @@ class PowerGuardApp extends Homey.App {
         this._hourlyEnergy.history = savedEnergy.slice(-24);  // Keep last 24 entries
       }
     } catch (_) {}
+    // Restore in-progress hour accumulation so restarts don't zero out the current hour
+    try {
+      const savedState = this.homey.settings.get('_hourlyEnergyState');
+      if (savedState && savedState.currentHour === this._hourlyEnergy.currentHour) {
+        this._hourlyEnergy.accumulatedWh = savedState.accumulatedWh || 0;
+        this._hourlyEnergy.lastReadingW  = savedState.lastReadingW  || 0;
+        // Leave lastReadingTime = null so the first post-restart reading creates a clean baseline
+        // (the 60s gap sanity check would skip accumulation for the restart gap anyway)
+      }
+    } catch (_) {}
 
     // Effekttariff (capacity tariff) tracking — daily peak kW per day, persisted across restarts
     // Format: { "2026-02-24": 8.5, "2026-02-23": 6.1, ... }
@@ -1037,6 +1047,14 @@ class PowerGuardApp extends Homey.App {
       this._hourlyEnergy.accumulatedWh = 0;
       this._hourlyEnergy.lastReadingW = powerW;
       this._hourlyEnergy.lastReadingTime = now;
+      // Persist fresh state for new hour
+      try {
+        this.homey.settings.set('_hourlyEnergyState', {
+          currentHour,
+          accumulatedWh: 0,
+          lastReadingW: powerW,
+        });
+      } catch (_) {}
       return;
     }
 
@@ -1053,6 +1071,15 @@ class PowerGuardApp extends Homey.App {
 
     this._hourlyEnergy.lastReadingW = powerW;
     this._hourlyEnergy.lastReadingTime = now;
+
+    // Persist in-progress state so accumulation survives app restarts
+    try {
+      this.homey.settings.set('_hourlyEnergyState', {
+        currentHour: this._hourlyEnergy.currentHour,
+        accumulatedWh: this._hourlyEnergy.accumulatedWh,
+        lastReadingW: this._hourlyEnergy.lastReadingW,
+      });
+    } catch (_) {}
   }
 
   // ─── Effekttariff (Capacity Tariff) Tracking ──────────────────────────────
