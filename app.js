@@ -101,7 +101,7 @@ class PowerGuardApp extends Homey.App {
     this._lastCacheTime = null;
     this._saveQueue = [];
     // Unified app log for remote diagnostics
-    this._appLog = [];          // Ring buffer: last 300 entries {time, category, message}
+    this._appLog = [];          // Ring buffer: last 2000 entries {time, category, message}
     this._appStartTime = Date.now();
 
     // Price engine state (SECTION 12)
@@ -1817,7 +1817,7 @@ class PowerGuardApp extends Homey.App {
 
   _appLogEntry(category, message) {
     this._appLog.push({ time: new Date().toISOString(), category: category, message: message });
-    if (this._appLog.length > 300) this._appLog.shift();
+    if (this._appLog.length > 2000) this._appLog.shift();
   }
 
   getAppLog() {
@@ -2646,6 +2646,11 @@ class PowerGuardApp extends Homey.App {
       if (mode === 'av') return false;
       const mitigated = this._mitigatedDevices.find(m => m.deviceId === e.deviceId && m.action === 'dynamic_current');
       if (mitigated && (mitigated.currentTargetA === 0 || mitigated.currentTargetA === null)) return false;
+      // Charging complete — car still plugged in but session is over, don't keep heaters shed
+      const evD = this._evPowerData[e.deviceId];
+      const chargingDone = (evD?.powerW || 0) < 100 &&
+        [4, 'completed', 'COMPLETED', 'Completed'].includes(evD?.chargerStatus);
+      if (chargingDone) return false;
       return true;
     });
     const minBudgetNeeded = activeChargers.reduce((sum, e) => {
