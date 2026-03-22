@@ -2083,7 +2083,6 @@ class PowerGuardApp extends Homey.App {
   // ══════════════════════════════════════════════════════════════════
 
   /**
-  /**
    * No-op: charger limits are now managed entirely by the charger's own app.
    * Power Guard only adjusts dynamic current (ID48) up/down and never touches
    * the permanent Ladergrense (target_charger_current / ID47).

@@ -2611,15 +2611,15 @@
     clearError();
     if (!_H) { showError('Not connected to Homey'); return; }
     var settings = collectSettings();
-    hApi('/api/app/no.powerguard/settings', 'PUT', settings, function(err) {
-      if (err) {
+    hApi('POST', '/settings', settings)
+      .then(function() {
+        showToast();
+      })
+      .catch(function(err) {
         showError(err.message || JSON.stringify(err));
         document.getElementById('s-enabled').checked = !checked;
         document.getElementById('s-enabled-toggle').checked = !checked;
-      } else {
-        showSuccess('Settings saved');
-      }
-    });
+      });
   }
 
   function pressButton(btn) {
