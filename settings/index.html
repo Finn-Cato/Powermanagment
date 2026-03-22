@@ -3415,7 +3415,7 @@
 
   function startCacheStatusPolling() {
     showCacheStatus();
-    setInterval(showCacheStatus, 5000);
+    setInterval(function() { if (!document.hidden) showCacheStatus(); }, 5000);
   }
 
   // ── Range labels ───────────────────────────────────────────────────────────
@@ -3436,6 +3436,17 @@
   //
   //  ✅ STABLE — only edit if Homey SDK init flow changes
   // ══════════════════════════════════════════════════════════════════
+
+  // ── Sleep/wake guard ──────────────────────────────────────────────────────
+  // Browsers suspend timers during sleep and fire queued callbacks all at once
+  // on wake.  guardedLoadAll() debounces so only one loadAll() runs per 5 s.
+  var _lastLoadAll = 0;
+  function guardedLoadAll() {
+    var now = Date.now();
+    if (now - _lastLoadAll < 5000) return;
+    _lastLoadAll = now;
+    loadAll();
+  }
 
   // ── Entry point ────────────────────────────────────────────────────────────
   function onHomeyReady(Homey) {
@@ -3511,6 +3522,7 @@
 
         // Poll live status every 2 seconds for responsive updates
         setInterval(function() {
+          if (document.hidden) return;
           hApi('GET', '/status', null)
             .then(function(s) { if (s) updateStatusUI(s); })
             .catch(function(err) { dbg('Status poll error: ' + (err.message || err)); });
@@ -3522,7 +3534,8 @@
 
         // Full data refresh every 30 seconds to keep everything in sync
         setInterval(function() {
-          loadAll();
+          if (document.hidden) return;
+          guardedLoadAll();
         }, 30000);
       })
       .catch(function(err) {
@@ -3547,13 +3560,14 @@
       dbg('Registered realtime: priorityList');
     } catch (e) { dbg('Realtime priorityList failed: ' + e.message); }
 
-    // Refresh data every time the page becomes visible (e.g. switching back to the app)
+    // Refresh data once when the page becomes visible (e.g. waking from sleep)
     document.addEventListener('visibilitychange', function() {
-      if (!document.hidden) loadAll();
+      if (!document.hidden) guardedLoadAll();
     });
 
     // Periodic sync fallback every 15s
     setInterval(function() {
+      if (document.hidden) return;
       hApi('GET', '/settings-all', null)
         .then(function(s) {
           if (!s || !s.priorityList) return;
