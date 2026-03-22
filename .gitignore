@@ -4,14 +4,8 @@ env.json
 
 # Temporary files
 tmpclaude-*
-_fix_settings.py
-_rewrite_settings.py
 *.pyc
 __pycache__/
-
-# Documentation / working notes (not part of the app)
-LOGIC_REFERENCE.md
-POWER_GUARD_LOGIC.txt
 
 # OS files
 Thumbs.db
