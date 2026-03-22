@@ -101,7 +101,7 @@ class PowerGuardApp extends Homey.App {
     this._lastCacheTime = null;
     this._saveQueue = [];
     // Unified app log for remote diagnostics
-    this._appLog = [];          // Ring buffer: last 300 entries {time, category, message}
+    this._appLog = [];          // Ring buffer: last 2000 entries {time, category, message}
     this._appStartTime = Date.now();
 
     // Price engine state (SECTION 12)
@@ -1817,7 +1817,7 @@ class PowerGuardApp extends Homey.App {
 
   _appLogEntry(category, message) {
     this._appLog.push({ time: new Date().toISOString(), category: category, message: message });
-    if (this._appLog.length > 300) this._appLog.shift();
+    if (this._appLog.length > 2000) this._appLog.shift();
   }
 
   getAppLog() {
@@ -2646,6 +2646,11 @@ class PowerGuardApp extends Homey.App {
       if (mode === 'av') return false;
       const mitigated = this._mitigatedDevices.find(m => m.deviceId === e.deviceId && m.action === 'dynamic_current');
       if (mitigated && (mitigated.currentTargetA === 0 || mitigated.currentTargetA === null)) return false;
+      // Charging complete — car still plugged in but session is over, don't keep heaters shed
+      const evD = this._evPowerData[e.deviceId];
+      const chargingDone = (evD?.powerW || 0) < 100 &&
+        [4, 'completed', 'COMPLETED', 'Completed'].includes(evD?.chargerStatus);
+      if (chargingDone) return false;
       return true;
     });
     const minBudgetNeeded = activeChargers.reduce((sum, e) => {
@@ -2656,39 +2661,95 @@ class PowerGuardApp extends Homey.App {
 
     const proactivelyShed = this._mitigatedDevices.filter(m => m.evProactive);
 
+    // Chargers with "Shed heaters when charging" enabled that are currently active
+    const priorityActiveChargers = activeChargers.filter(e => {
+      const plEntry = (this._settings.priorityList || []).find(pl => pl.deviceId === e.deviceId);
+      return plEntry?.chargerPriority === true;
+    });
+
     // ── Restore phase ──────────────────────────────────────────────────────────
-    // Car disconnected OR budget now sufficient without the shed device → restore
-    // Hysteresis: restore only when budget is 2000W above the shed threshold.
-    // This gap (~1 typical thermostat) prevents the flip-flop where restoring a device
-    // immediately drops budget below shed threshold and triggers another shed cycle.
+    // Two restore rules depending on how the device was shed:
+    //   evPriorityChargerId set → restore only when that charger session ends or pauses (price 'av')
+    //   budget-based shed      → restore when no charger connected or budget sufficient (+ hysteresis)
     const restoreBudgetNeeded = minBudgetNeeded + 2000;
     const budgetSufficient = budget >= restoreBudgetNeeded;
-    if (!connectedChargers.length || budgetSufficient) {
-      for (const shed of [...proactivelyShed]) {
-        // Min 2 min before restoring — prevents rapid re-shed when charger is actively charging
-        // and conditions fluctuate. Bypassed when no charger is connected: the reason for shedding
-        // is gone so there is no point keeping the device off for the full cooldown period.
-        if (connectedChargers.length > 0 && now - shed.mitigatedAt < 120000) continue;
-        const device = await withTimeout(
-          this._api.devices.getDevice({ id: shed.deviceId }),
-          10000, `proactiveRestore(${shed.deviceId})`
-        ).catch(() => null);
-        if (!device) continue;
-        const ok = await restoreDevice(device, shed.action, shed.previousState).catch(() => false);
-        if (ok) {
-          this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== shed.deviceId);
-          this._persistMitigatedDevices();
-          const entry = (this._settings.priorityList || []).find(e => e.deviceId === shed.deviceId);
-          this.log(`[EV] Proactive restore: ${entry?.name || shed.deviceId} turned back on (budget now ${Math.round(budget)}W)`);
-          this._addLog(`EV shed restore: ${entry?.name || shed.deviceId} turned back on`);
-        }
-        break; // One per cycle
+    let restoredThisCycle = false;
+    for (const shed of [...proactivelyShed]) {
+      if (restoredThisCycle) break;
+      let shouldRestore;
+      if (shed.evPriorityChargerId) {
+        // Priority shed: only restore when that charger's session is no longer active
+        const sessionActive = activeChargers.some(e => e.deviceId === shed.evPriorityChargerId);
+        shouldRestore = !sessionActive;
+      } else {
+        // Budget shed: restore when no charger connected or budget now comfortable
+        shouldRestore = !connectedChargers.length || budgetSufficient;
       }
-      return;
+      if (!shouldRestore) continue;
+      // Min 2 min before restoring when a charger is still connected — avoids rapid re-shed.
+      // Bypassed when no charger is connected (session is over).
+      if (connectedChargers.length > 0 && now - shed.mitigatedAt < 120000) continue;
+      const device = await withTimeout(
+        this._api.devices.getDevice({ id: shed.deviceId }),
+        10000, `proactiveRestore(${shed.deviceId})`
+      ).catch(() => null);
+      if (!device) continue;
+      const ok = await restoreDevice(device, shed.action, shed.previousState).catch(() => false);
+      if (ok) {
+        this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== shed.deviceId);
+        this._persistMitigatedDevices();
+        const entry = (this._settings.priorityList || []).find(e => e.deviceId === shed.deviceId);
+        this.log(`[EV] Proactive restore: ${entry?.name || shed.deviceId} turned back on`);
+        this._addLog(`EV shed restore: ${entry?.name || shed.deviceId} turned back on`);
+        restoredThisCycle = true;
+      }
+    }
+    if (restoredThisCycle) return;
+
+    // ── Priority shed phase ───────────────────────────────────────────────────
+    // For chargers with "Shed heaters when charging" ON: proactively shed all non-EV devices
+    // in the priority list regardless of budget — session-based, not budget-based.
+    if (priorityActiveChargers.length > 0 && now - this._lastProactiveSheddingTime >= 60000) {
+      const alreadyMitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
+      const sortedList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
+      for (const charger of priorityActiveChargers) {
+        const chargerEntry = (this._settings.priorityList || []).find(e => e.deviceId === charger.deviceId);
+        for (const entry of sortedList) {
+          if (entry.enabled === false) continue;
+          if (entry.action === 'dynamic_current') continue;
+          if (alreadyMitigated.has(entry.deviceId)) continue;
+          if (!this._canMitigate(entry)) continue;
+          const device = await withTimeout(
+            this._api.devices.getDevice({ id: entry.deviceId }),
+            10000, `priorityShed(${entry.deviceId})`
+          ).catch(() => null);
+          if (!device) continue;
+          const obj = device.capabilitiesObj || {};
+          // Idle guard: skip thermostats at 0W (lowering a temp that isn't heating does nothing).
+          // Do NOT skip onoff/hoiax devices at 0W — water heaters cycle on later and we want
+          // them pre-emptively off for the whole charging session.
+          if (entry.action === 'target_temperature') {
+            const pw = obj.measure_power?.value ?? obj.measure_power ?? null;
+            if (typeof pw === 'number' && pw < 50) continue;
+          }
+          const previousState = this._snapshotState(device);
+          const ok = await applyAction(device, entry.action).catch(() => false);
+          if (!ok) continue;
+          this._mitigatedDevices.push({ deviceId: entry.deviceId, action: entry.action, previousState, mitigatedAt: now, evProactive: true, evPriorityChargerId: charger.deviceId });
+          this._persistMitigatedDevices();
+          this._lastProactiveSheddingTime = now;
+          this._lastDeviceOffTime = now;
+          this.log(`[EV] Priority shed: ${entry.name} turned off — charger ${chargerEntry?.name || charger.deviceId} is charging`);
+          this._addLog(`EV priority shed: ${entry.name} off (charger ${chargerEntry?.name || charger.deviceId} active)`);
+          await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+          return; // One device per cycle
+        }
+      }
     }
 
-    // ── Shed phase ────────────────────────────────────────────────────────────
-    // Budget insufficient, car connected — shed a device (60s cooldown)
+    // ── Budget-based shed phase ───────────────────────────────────────────────
+    // For chargers without chargerPriority: shed only when budget is too tight.
+    if (!connectedChargers.length || budgetSufficient) return;
     if (now - this._lastProactiveSheddingTime < 60000) return;
 
     const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
@@ -2707,8 +2768,6 @@ class PowerGuardApp extends Homey.App {
       if (!device) continue;
 
       const obj = device.capabilitiesObj || {};
-
-      // Idle guard — skip devices not drawing power (no benefit)
       if (entry.action === 'target_temperature' || entry.action === 'onoff' || entry.action === 'hoiax_power') {
         const pw = obj.measure_power?.value ?? obj.measure_power ?? null;
         if (typeof pw === 'number' && pw < 50) continue;
@@ -2752,18 +2811,8 @@ class PowerGuardApp extends Homey.App {
     // independently claiming all available headroom when multiple are active.
     const connectedEntries = chargerEntries.filter(e => this._isCarConnected(e.deviceId));
     const totalChargerPowerW = connectedEntries.reduce((sum, e) => {
-      const evData = this._evPowerData[e.deviceId];
-      const phases = evData?.detectedPhases || e.chargerPhases || 3;
-      const voltage = phases * 230;
-      const pw = evData?.powerW || 0;
-      const offered = evData?.offeredCurrent || 0;
-      // After sending a command, Easee updates its power reading immediately while HAN takes
-      // 10s to update. This causes non_charger = HAN_total - Easee_power to appear artificially
-      // high, crashing the budget. Use the commanded current during the 20s settling window.
-      const cState = this._chargerState[e.deviceId];
-      const inSettling = cState?.commandTime && (now - cState.commandTime) < 20000 && cState.lastCommandA != null;
-      const effectivePw = inSettling ? (cState.lastCommandA * voltage) : (pw > 200 ? pw : (offered > 0 ? offered * voltage : 0));
-      return sum + effectivePw;
+      const pw = this._evPowerData[e.deviceId]?.powerW || 0;
+      return sum + (pw > 200 ? pw : 0);
     }, 0);
     // Only count chargers actually drawing power as active — a connected-but-idle
     // charger (car plugged in but not charging) should not split the headroom budget.
@@ -2780,6 +2829,10 @@ class PowerGuardApp extends Homey.App {
       this.log(`[EV] Multi-charger: ${connectedEntries.length} connected, ${activeChargerCount} charging, totalCharger=${Math.round(totalChargerPowerW)}W, household=${Math.round(sharedNonChargerUsage)}W, shared=${Math.round(sharedAvailableW)}W → ${Math.round(perChargerBudgetW)}W/charger`);
     }
     // ────────────────────────────────────────────────────────────────────────
+
+    const HEADROOM_TO_RAMP = 300;   // Minimum headroom (W) before stepping up 1A
+    const RAMP_UP_COOLDOWN = 60000; // 1 minute between up-steps — let HAN and charger stabilise
+    let madeIncrease = false;       // Only one charger ramps up per cycle
 
     for (const entry of chargerEntries) {
       const brand = this._getChargerBrand?.(entry.deviceId);
@@ -2815,64 +2868,68 @@ class PowerGuardApp extends Homey.App {
         }
       }
 
-      // Per-charger smart throttle based on confirmation state and direction
-      // Decreases use fast throttle (15s) — emergency response needed
-      // Increases use slow throttle (60s) — anti-hunt: prevents rapid ramp-up oscillation
-      // Unconfirmed → longer wait (charger may be slow or unresponsive)
-      // Emergency → minimal wait (immediate response needed)
+      // ── Simple 1A step control ────────────────────────────────────────────────
+      // Down: immediate on every reading when over budget.
+      // Up:   max 1A every 60s — gives HAN and charger time to stabilise before next step.
+      // No phase detection needed — 1A is always the step regardless of phase.
       const cState = this._chargerState[entry.deviceId] || {};
-      const isConfirmed = cState.confirmed === true;
-      const currentTargetA = (this._mitigatedDevices.find(m => m.deviceId === entry.deviceId) || {}).currentTargetA ?? null;
-      const rawTarget = this._calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, entry);
-      const isIncrease = rawTarget !== null && currentTargetA !== null && rawTarget > currentTargetA;
-      const perChargerThrottle = isEmergency ? CHARGER_DEFAULTS.toggleEmergencyMs
-        : isIncrease ? CHARGER_DEFAULTS.toggleIncreaseMs
-        : isConfirmed ? CHARGER_DEFAULTS.toggleConfirmedMs
-        : CHARGER_DEFAULTS.toggleUnconfirmedMs;
-      if (now - (cState.lastAdjustTime || 0) < perChargerThrottle) continue;
-
-      // Cap step-up per cycle to prevent oscillation jumps.
-      // Step size is phase-aware: maxStepUpW converted to amps using detected phase voltage,
-      // so the watt impact per step is equal regardless of whether the charger is 1- or 3-phase:
-      //   1-phase (230V): floor(1380/230) = 6A/step  (~1380W)
-      //   3-phase (690V): floor(1380/690) = 2A/step  (~1380W)
-      // Exception: when resuming from pause (currentTargetA=0/null), skip the gradual cap
-      // and jump to min(startCurrent, rawTarget). Stepping from 0→2→4A produces sub-minimum
-      // values that the charger ignores, causing it to default back to 16A.
-      const evDataStep = this._evPowerData[entry.deviceId];
-      const phasesStep = evDataStep?.detectedPhases || entry.chargerPhases || 3;
-      const wattsPerAmp = phasesStep * 230;
-      const maxStepUpA = Math.max(1, Math.floor(CHARGER_DEFAULTS.maxStepUpW / wattsPerAmp));
-      let targetCurrent = rawTarget;
-      if (isIncrease) {
-        const isPaused = currentTargetA === 0 || currentTargetA === null;
-        if (isPaused) {
-          targetCurrent = Math.min(CHARGER_DEFAULTS.startCurrent, rawTarget);
-          this.log(`[EV] Resume from pause: ${rawTarget}A → ${targetCurrent}A (capped to startCurrent=${CHARGER_DEFAULTS.startCurrent}A)`);
-        } else {
-          targetCurrent = Math.min(rawTarget, currentTargetA + maxStepUpA);
-          if (targetCurrent !== rawTarget) {
-            this.log(`[EV] Anti-hunt step-up: capped ${rawTarget}A → ${targetCurrent}A (+${maxStepUpA}A max, ${phasesStep}-phase ~${maxStepUpA * wattsPerAmp}W)`);
-          }
-        }
-      }
-
       const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
+      const evDataNow = this._evPowerData[entry.deviceId];
+      // If not yet tracked but charger is actively drawing power, seed currentTargetA from
+      // the charger's offered current so the step-down logic has a starting point.
+      // Without this: currentTargetA=null → isPaused=true → step-down skipped on restart.
+      const offeredA = evDataNow?.offeredCurrent || 0;
+      const currentTargetA = alreadyTracked?.currentTargetA ?? (offeredA > 0 ? offeredA : null);
+      const isPaused = currentTargetA === 0 || currentTargetA === null;
+      const circuitLimitA = entry.circuitLimitA || 32;
+      const priceCap = this._getPriceCurrentCap(entry.deviceId, circuitLimitA);
+      const maxA = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA, priceCap > 0 ? priceCap : 0);
 
-      // Skip if target hasn't changed meaningfully
-      // null == null (both paused): skip re-sending pause command
-      if (alreadyTracked && targetCurrent === null && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null)) {
-        continue;
+      const overLimit = smoothedPower > limit;
+      const headroomW = limit - smoothedPower; // positive = under limit, negative = over
+
+      let targetCurrent;
+      if (priceCap <= 0) {
+        // Price engine wants charger fully off → pause
+        targetCurrent = null;
+      } else if (householdAloneExceedsLimit) {
+        // Household alone (without charger) exceeds limit → pause charger
+        targetCurrent = null;
+      } else if (overLimit) {
+        // Total power over limit → step down 1A immediately, or pause if at minimum
+        targetCurrent = isPaused ? null
+          : currentTargetA <= CHARGER_DEFAULTS.minCurrent ? null
+          : currentTargetA - 1;
+      } else if (isPaused) {
+        // Resume from pause when enough headroom — always start at 6A
+        if (headroomW >= HEADROOM_TO_RAMP) {
+          targetCurrent = CHARGER_DEFAULTS.minCurrent;
+          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+          this._chargerState[entry.deviceId].lastRampUpTime = now;
+          this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(headroomW)}W headroom)`);
+        } else {
+          targetCurrent = null; // not enough headroom yet — stay paused
+        }
+      } else if (headroomW >= HEADROOM_TO_RAMP && currentTargetA < maxA) {
+        // Under limit with headroom — ramp up 1A if 60s cooldown satisfied
+        const lastRampUp = cState.lastRampUpTime || 0;
+        if (!madeIncrease && now - lastRampUp >= RAMP_UP_COOLDOWN) {
+          targetCurrent = currentTargetA + 1;
+          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+          this._chargerState[entry.deviceId].lastRampUpTime = now;
+          this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom)`);
+        } else {
+          targetCurrent = currentTargetA; // wait for cooldown or another charger already ramped
+        }
+      } else {
+        targetCurrent = currentTargetA; // under limit, at max, or headroom too small — stay
       }
-      // Same current (within 1A, inclusive): skip re-send that would restart the 45s unconfirmed throttle.
-      // EXCEPTION: if we are still over the limit, always allow 1A adjustments through —
-      // 1A on 3-phase = ~690W, on 1-phase = ~230W, which could be exactly what is needed.
-      // The <= 1 skip exists only to avoid noise when power is already under control.
-      const isSignificantlyOverLimit = smoothedPower > limit + 500;
-      if (alreadyTracked && targetCurrent !== null &&
-          Math.abs((alreadyTracked.currentTargetA || 0) - targetCurrent) <= 1 && !isSignificantlyOverLimit) {
-        continue;
-      }
+
+      const isIncrease = targetCurrent !== null && (isPaused ? targetCurrent > 0 : targetCurrent > currentTargetA);
+
+      // Skip if nothing changed
+      if (targetCurrent === null && isPaused) continue;
+      if (targetCurrent !== null && targetCurrent === currentTargetA) continue;
       // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
       if (!alreadyTracked && targetCurrent !== null && targetCurrent >= (entry.circuitLimitA || 32)) {
         this._mitigatedDevices.push({
@@ -2969,11 +3026,8 @@ class PowerGuardApp extends Homey.App {
         }
       }
 
-      // One charger per cycle for increases — step one charger at a time so HAN can confirm
-      // the new power before the next charger ramps up. Stacking multiple ramp-ups in one
-      // cycle doubles/triples the unconfirmed watt increase before the meter catches up.
-      // Decreases fall through the full loop for immediate emergency response on all chargers.
-      if (isIncrease) break;
+      // Track that an increase was made this cycle — prevents a second charger from also ramping up
+      if (isIncrease) madeIncrease = true;
     }
   }
 

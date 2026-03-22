@@ -195,7 +195,7 @@
 <div class="header-top">
   <div class="header-title">
     <h1>Power <span>Guard</span></h1>
-    <p class="subtitle">Automatically turns off devices before you exceed your power limit.</p>
+    <p class="subtitle">Real-time power monitoring via HAN meter.<br>Auto-controls devices to stay within your grid limit.</p>
   </div>
 </div>
 
@@ -518,12 +518,10 @@
           </div>
           <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:10px 0 0;">When a deadline is set, Power Guard picks the <b>N cheapest hours</b> before the deadline (N = whichever car needs the most hours) and charges all chargers during those hours. All other hours all chargers are Off. If the deadline is imminent, it forces full charging regardless of price. With two chargers, the available current is split equally so both cars charge at the same time.</p>
           <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">
-            <b>Phase detection &amp; current stepping:</b><br>
-            Power Guard auto-detects whether your charger is 1-phase or 3-phase from the live power/current ratio — no manual setup needed. When ramping up, the step size is calculated in watts (not amps) so the power impact per step is equal regardless of phase type: a 1-phase charger steps 6A at a time, a 3-phase charger steps 2A — both equal roughly 1400W per step.<br><br>
-            <b>Anti-oscillation:</b><br>
-            When multiple chargers are ramping up, only one steps at a time so the HAN meter can confirm each increase before the next. If the EV charging budget is tight, Power Guard proactively reduces heating devices before the charger needs to pause — preventing the charger and thermostats from repeatedly cycling against each other.<br><br>
-            <b>Phase-aware proactive shedding:</b><br>
-            The threshold for shedding heating devices is calculated from your charger's actual phase type — a 1-phase charger only needs 1380W minimum (6A × 230V), while a 3-phase charger needs 4140W (6A × 690V). This means heating devices on 1-phase setups are not shed unnecessarily early.
+            <b>Current stepping:</b><br>
+            Power Guard uses simple 1A steps to control charger current. It steps down immediately on every HAN reading when consumption is over the limit. It steps up a maximum of 1A every 60 seconds — giving the meter time to confirm each increase before the next. On restart, the charger always resumes from 6A so high-current chargers are stepped down right away if needed.<br><br>
+            <b>Charging complete detection:</b><br>
+            When a car finishes charging (session completed, power drops below 100W) but stays plugged in, Power Guard recognises the session as done — no mismatch alerts are raised and heating devices are not shed on behalf of a charger that is no longer actively charging.
           </div>
           <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.8;">
             <b>What the Charger Mode label means:</b><br>
@@ -531,6 +529,10 @@
             <span style="color:#ff3b30;">⏸ Off</span> <i>waiting for cheap hour</i> — not a cheap hour, charger is paused to save money<br>
             <span style="color:#ff9500;">🐢 Slow charge</span> <i>no deadline set</i> — no deadline configured, charging at reduced speed regardless of price<br>
             <span style="color:#8e8e93;">▶ Charging</span> — no deadline set, price is normal, charging without restriction
+          </div>
+          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+            <b>Charger priority shed:</b><br>
+            Each charger in the <b>📱 Devices</b> tab has a <b>Priority shed</b> toggle. When enabled, the charger is treated like any other device in the priority list — Power Guard can pause it to protect the grid limit. On/off type chargers are shed even when they are reporting 0W (e.g. idle between steps).
           </div>
         </div>
 
@@ -2463,6 +2465,10 @@
               carSelOptions +
             '</select>' +
           '</label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-left:4px;" title="When ON: heaters and thermostats in the priority list are turned off as soon as this car starts charging, and restored when it stops or is paused by the price engine.">' +
+            '<input type="checkbox"' + (entry.chargerPriority ? ' checked' : '') + ' onchange="updateChargerPriority(\'' + entry.deviceId + '\',this.checked)">' +
+            '⚡ Shed heaters when charging' +
+          '</label>' +
         '</div>'
       : '';
 
@@ -2576,6 +2582,13 @@
     var entry = priorityList.filter(function(e) { return e.deviceId === chargerId; })[0];
     if (!entry) return;
     entry.carDeviceId = carDeviceId || undefined;
+    savePriorityList();
+  }
+
+  function updateChargerPriority(deviceId, checked) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (!entry) return;
+    entry.chargerPriority = !!checked;
     savePriorityList();
   }
 

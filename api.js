@@ -379,7 +379,11 @@ module.exports = {
         const rawChargerMode    = (priceState && priceState.chargeModes && priceState.chargeModes[deviceId])
                                   || chargeMode;
         const chargerMode       = batteryFull ? null : rawChargerMode;
-        const shouldCharge      = c.isConnected && !batteryFull && rawChargerMode !== null && rawChargerMode !== 'av';
+        // Suppress mismatch when charger reports session completed (car is full / done),
+        // even if the battery state report is stale and still shows < 100%.
+        const chargingComplete  = [4, 'completed', 'COMPLETED', 'Completed'].includes(c.chargerStatus)
+                                && (c.powerW || 0) < 100;
+        const shouldCharge      = c.isConnected && !batteryFull && !chargingComplete && rawChargerMode !== null && rawChargerMode !== 'av';
         const mismatch          = c.isConnected && shouldCharge && !effectiveCharging;
         return {
           deviceId,
