@@ -913,7 +913,7 @@ class PowerGuardApp extends Homey.App {
         if (this._spikeConsecutiveCount >= SPIKE_RESET_THRESHOLD) {
           this.log(`[HAN] Spike filter reset: ${this._spikeConsecutiveCount} consecutive filtered readings at ~${rawValue}W — accepting as new baseline (was avg ${avg.toFixed(0)}W)`);
           this._appLogEntry('han', `Spike filter reset after ${this._spikeConsecutiveCount} consecutive readings: new baseline ~${rawValue}W (was ${avg.toFixed(0)}W)`);
-          this._powerBuffer = [rawValue, rawValue, rawValue];
+          this._powerBuffer = [rawValue, rawValue];
           this._spikeConsecutiveCount = 0;
           this._spikeLastFilteredValue = null;
           // Fall through to normal processing below
@@ -973,20 +973,28 @@ class PowerGuardApp extends Homey.App {
   /**
    * Detect whether this installation is single-phase or three-phase.
    * Detection order:
-   *   1. Live phase readings: if L2 or L3 carries > 0.3 A → 3-phase
-   *   2. HAN capabilities: if meter exposes L2/L3 capability → 3-phase meter → 3-phase install
-   *   3. Manual override: voltageSystem setting (only when NOT 'auto')
+   *   1. Charger-reported phases (live W/A ratio) — reliable regardless of load balance or time of day
+   *   2. HAN live phase currents: if L2 or L3 carries > 0.3 A → 3-phase
+   *   3. HAN capabilities: if meter exposes L2/L3 capability → 3-phase install
    *   4. Default: 1-phase (safe assumption when no data)
    * Returns 1 or 3.
    */
   _detectSystemPhases() {
-    // 1. Live phase current data is the most reliable signal
+    // 1. Charger-reported phases — most reliable, derived from live W/A ratio
+    //    (not affected by balanced loads or HAN port reporting gaps)
+    const chargerPhases = Object.values(this._evPowerData || {})
+      .map(d => d.detectedPhases)
+      .filter(Boolean);
+    if (chargerPhases.length > 0) {
+      return chargerPhases.some(p => p === 3) ? 3 : 1;
+    }
+    // 2. HAN live phase current data
     if (this._phaseCurrents) {
       const b = this._phaseCurrents['measure_current.L2'] ?? this._phaseCurrents['measure_current.phase_b'] ?? 0;
       const c = this._phaseCurrents['measure_current.L3'] ?? this._phaseCurrents['measure_current.phase_c'] ?? 0;
       if (b > 0.3 || c > 0.3) return 3;
     }
-    // 2. HAN capabilities — if the meter reports L2/L3, the install is 3-phase
+    // 3. HAN capabilities — if the meter reports L2/L3 capabilities, the install is 3-phase
     if (this._hanDevice) {
       const caps = this._hanDevice.capabilities || [];
       const has3PhaseCap = caps.some(cap =>
@@ -995,7 +1003,7 @@ class PowerGuardApp extends Homey.App {
       );
       if (has3PhaseCap) return 3;
     }
-    // 3. Safe default
+    // 4. Safe default
     return 1;
   }
 

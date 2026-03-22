@@ -18,7 +18,7 @@ function _readSettings(s) {
     errorMarginPercent:   s.get('errorMarginPercent')   ?? 0,
     missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? 120,
     dynamicRestoreGuard:  s.get('dynamicRestoreGuard')  ?? true,
-    voltageSystem:        s.get('voltageSystem')        ?? '230v-1phase',
+    voltageSystem:        s.get('voltageSystem')        ?? 'auto',
     phaseDistribution:    s.get('phaseDistribution')    ?? 'balanced',
     mainCircuitA:         s.get('mainCircuitA')         ?? 25,
     classFilters:         s.get('classFilters')         ?? {},
@@ -93,10 +93,12 @@ module.exports = {
   },
 
   async getAllData({ homey }) {
+    const status = homey.app.getStatus();
     return {
       settings: _readSettings(homey.settings),
-      status:   homey.app.getStatus(),
+      status,
       devices:  homey.app.getDevicesForSettings(),
+      detectedVoltageSystem: status.detectedVoltageSystem,
     };
   },
 
