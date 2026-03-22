@@ -1254,6 +1254,7 @@
       settingsLabel: 'Settings:',
       currentlyMitigated: 'Currently mitigated:',
       copiedToClipboard: 'Copied to clipboard (',
+      copiedPlain: 'Copied to clipboard',
       copyFailed: 'Copy failed — please select and copy manually',
       noDevicesMatching: 'No devices found matching "',
       driverLabel: 'Driver: ',
@@ -1279,6 +1280,9 @@
       allEqual: 'All equal',
       now: 'Now',
       noPriceData: 'No price data',
+      noDataYet: 'No data yet',
+      waitingFirstFetch: 'Waiting for first fetch…',
+      priceWindowStats: 'Window: min {min} — avg {avg} — max {max} øre/kWh · spread {spread} øre',
       lastUpdatedLabel: 'Last updated ',
       justNow: 'just now',
       minAgo: ' min ago',
@@ -1297,6 +1301,18 @@
       hAgo: ' h ago',
       hNeeded: ' h needed',
       capacityNotSet: 'capacity not set',
+      autoDetected: 'Auto-detected: ',
+      sysUptime: 'Uptime: ',
+      sysPower: 'Current power: ',
+      sysPowerLimit: 'Power limit: ',
+      sysOverLimit: 'Over limit count: ',
+      sysDeviceCache: 'Device cache: ',
+      sysDevices: ' devices',
+      sysMitigated: 'Mitigated: ',
+      sysDeviceCount: ' device(s)',
+      sysSettings: 'Settings:',
+      sysMitigatedNow: 'Currently mitigated:',
+      forCategory: ' for category "',
       invalidTimeFormat: 'Invalid time format. Use HH:MM (e.g. 07:00).',
       saved: 'Saved ✓',
       saveFailed: 'Save failed: ',
@@ -1562,6 +1578,7 @@
       settingsLabel: 'Innstillinger:',
       currentlyMitigated: 'For \u00f8yeblikket begrenset:',
       copiedToClipboard: 'Kopiert til utklippstavle (',
+      copiedPlain: 'Kopiert til utklippstavle',
       copyFailed: 'Kopiering feilet — vennligst velg og kopier manuelt',
       noDevicesMatching: 'Ingen enheter funnet for "',
       driverLabel: 'Driver: ',
@@ -1587,6 +1604,9 @@
       allEqual: 'Alle like',
       now: 'N\u00e5',
       noPriceData: 'Ingen prisdata',
+      noDataYet: 'Ingen data enn\u00e5',
+      waitingFirstFetch: 'Venter p\u00e5 f\u00f8rste henting\u2026',
+      priceWindowStats: 'Vindu: min {min} — snitt {avg} — maks {max} \u00f8re/kWh \u00b7 spredning {spread} \u00f8re',
       lastUpdatedLabel: 'Sist oppdatert ',
       justNow: 'akkurat n\u00e5',
       minAgo: ' min siden',
@@ -1605,6 +1625,18 @@
       hAgo: ' t siden',
       hNeeded: ' t n\u00f8dvendig',
       capacityNotSet: 'kapasitet ikke satt',
+      autoDetected: 'Autooppdaget: ',
+      sysUptime: 'Oppetid: ',
+      sysPower: 'N\u00e5v\u00e6rende effekt: ',
+      sysPowerLimit: 'Effektgrense: ',
+      sysOverLimit: 'Over grense: ',
+      sysDeviceCache: 'Enhetsbuffer: ',
+      sysDevices: ' enheter',
+      sysMitigated: 'Mitigert: ',
+      sysDeviceCount: ' enhet(er)',
+      sysSettings: 'Innstillinger:',
+      sysMitigatedNow: 'Mitigert n\u00e5:',
+      forCategory: ' for kategori "',
       invalidTimeFormat: 'Ugyldig tidsformat. Bruk TT:MM (f.eks. 07:00).',
       saved: 'Lagret ✓',
       saveFailed: 'Lagring feilet: ',
@@ -2307,7 +2339,7 @@
         var text = JSON.stringify(d, null, 2);
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(text).then(function() {
-            if (msgEl) { msgEl.style.display = 'block'; msgEl.innerHTML = '<span style="color:#34c759">Copied to clipboard</span>'; }
+            if (msgEl) { msgEl.style.display = 'block'; msgEl.innerHTML = '<span style="color:#34c759">' + t('copiedPlain') + '</span>'; }
             setTimeout(function() { if (msgEl) msgEl.style.display = 'none'; }, 3000);
           });
         } else {
@@ -2318,7 +2350,7 @@
           ta.select();
           document.execCommand('copy');
           document.body.removeChild(ta);
-          if (msgEl) { msgEl.style.display = 'block'; msgEl.innerHTML = '<span style="color:#34c759">Copied to clipboard</span>'; }
+          if (msgEl) { msgEl.style.display = 'block'; msgEl.innerHTML = '<span style="color:#34c759">' + t('copiedPlain') + '</span>'; }
           setTimeout(function() { if (msgEl) msgEl.style.display = 'none'; }, 3000);
         }
       })
@@ -2528,7 +2560,7 @@
     var selected = document.getElementById('s-voltageSystem').value;
     if (selected === 'auto') {
       var label = _detectedVoltageSystem === '400v-3phase' ? t('threePhase') : t('onePhase');
-      badge.textContent = 'ℹ️ Auto-detected: ' + label;
+      badge.textContent = '\u2139\ufe0f ' + t('autoDetected') + label;
       badge.style.color = 'var(--color-success, #34c759)';
     } else {
       badge.textContent = '';
@@ -2982,7 +3014,7 @@
       })
       .catch(function(err) {
         dbg('Save error: ' + (err.message || err));
-        showError('Save failed: ' + (err.message || err));
+        showError(t('saveFailed') + (err.message || err));
       });
   }
 
@@ -3652,7 +3684,7 @@
 
     if (entries.length === 0) {
       el.innerHTML = '<span style="color:var(--text-muted)">' + t('noLogEntries') +
-        (_appLogFilter !== 'all' ? ' for category "' + _appLogFilter + '"' : '') + '</span>';
+        (_appLogFilter !== 'all' ? t('forCategory') + _appLogFilter + '"' : '') + '</span>';
       return;
     }
 
@@ -3765,18 +3797,18 @@
     var uptimeStr = Math.floor(uptime / 3600) + 'h ' + Math.floor((uptime % 3600) / 60) + 'm ' + (uptime % 60) + 's';
 
     var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">' +
-      '<div>Uptime: <strong>' + uptimeStr + '</strong></div>' +
-      '<div>Current power: <strong>' + (data.currentPowerW || 0) + 'W</strong></div>' +
-      '<div>Power limit: <strong>' + (data.limitW || 0) + 'W</strong></div>' +
-      '<div>Over limit count: <strong>' + (data.overLimitCount || 0) + '</strong></div>' +
-      '<div>Device cache: <strong>' + (data.deviceCacheCount || 0) + ' devices</strong></div>' +
-      '<div>Mitigated: <strong>' + ((data.mitigatedDevices || []).length) + ' device(s)</strong></div>' +
+      '<div>' + t('sysUptime') + '<strong>' + uptimeStr + '</strong></div>' +
+      '<div>' + t('sysPower') + '<strong>' + (data.currentPowerW || 0) + 'W</strong></div>' +
+      '<div>' + t('sysPowerLimit') + '<strong>' + (data.limitW || 0) + 'W</strong></div>' +
+      '<div>' + t('sysOverLimit') + '<strong>' + (data.overLimitCount || 0) + '</strong></div>' +
+      '<div>' + t('sysDeviceCache') + '<strong>' + (data.deviceCacheCount || 0) + t('sysDevices') + '</strong></div>' +
+      '<div>' + t('sysMitigated') + '<strong>' + ((data.mitigatedDevices || []).length) + t('sysDeviceCount') + '</strong></div>' +
       '</div>';
 
     // Settings summary
     if (data.settings) {
       var s = data.settings;
-      html += '<div style="margin-top:10px;"><strong>Settings:</strong></div>' +
+      html += '<div style="margin-top:10px;"><strong>' + t('sysSettings') + '</strong></div>' +
         '<div style="font-family:monospace; font-size:10px; background:var(--bg-surface); padding:6px; border-radius:6px;">' +
         'enabled: ' + s.enabled + ' | profile: ' + s.profile + ' | limit: ' + s.powerLimitW + 'W<br>' +
         'smoothing: ' + s.smoothingWindow + ' | hysteresis: ' + s.hysteresisCount + ' | cooldown: ' + s.cooldownSeconds + 's<br>' +
@@ -3786,7 +3818,7 @@
 
     // Mitigated devices
     if (data.mitigatedDevices && data.mitigatedDevices.length > 0) {
-      html += '<div style="margin-top:10px;"><strong>Currently mitigated:</strong></div>';
+      html += '<div style="margin-top:10px;"><strong>' + t('sysMitigatedNow') + '</strong></div>';
       data.mitigatedDevices.forEach(function(m) {
         html += '<div style="font-size:11px; padding:2px 0;">- ' + m.deviceId + ' (' + m.action + ')</div>';
       });
@@ -3843,7 +3875,7 @@
         if (msgEl) {
           msgEl.style.display = 'block';
           msgEl.style.color = '#34c759';
-          msgEl.textContent = 'Copied to clipboard (' + text.length + ' chars)';
+          msgEl.textContent = t('copiedToClipboard') + text.length + ' chars)';
           setTimeout(function() { msgEl.style.display = 'none'; }, 3000);
         }
       }).catch(function() {
@@ -3866,14 +3898,14 @@
       if (msgEl) {
         msgEl.style.display = 'block';
         msgEl.style.color = '#34c759';
-        msgEl.textContent = 'Copied to clipboard (' + text.length + ' chars)';
+        msgEl.textContent = t('copiedToClipboard') + text.length + ' chars)';
         setTimeout(function() { msgEl.style.display = 'none'; }, 3000);
       }
     } catch (e) {
       if (msgEl) {
         msgEl.style.display = 'block';
         msgEl.style.color = '#ff3b30';
-        msgEl.textContent = 'Copy failed — please select and copy manually';
+        msgEl.textContent = t('copyFailed');
         setTimeout(function() { msgEl.style.display = 'none'; }, 5000);
       }
     }
@@ -3917,12 +3949,12 @@
         }
       })
       .catch(function(err) {
-        document.getElementById('price-level-badge').textContent = 'Error loading data';
+        document.getElementById('price-level-badge').textContent = t('noData');
       });
   }
 
   function triggerPriceRefresh() {
-    document.getElementById('price-updated').textContent = 'Refreshing…';
+    document.getElementById('price-updated').textContent = t('refreshing');
     hApi('POST', '/price-refresh', {})
       .then(function() { return loadPriceData(); })
       .catch(function() { loadPriceData(); });
@@ -3930,8 +3962,8 @@
 
   function renderPriceState(state) {
     if (!state) {
-      document.getElementById('price-level-badge').textContent = 'No data yet';
-      document.getElementById('price-ore-now').textContent     = 'Waiting for first fetch…';
+      document.getElementById('price-level-badge').textContent = t('noDataYet');
+      document.getElementById('price-ore-now').textContent     = t('waitingFirstFetch');
       document.getElementById('price-charge-badge').textContent = '–';
       document.getElementById('price-ore-next').textContent    = '';
       document.getElementById('price-next-cheap').textContent      = '–';
@@ -3943,9 +3975,9 @@
     }
 
     var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
-    var levelLabels = { 'billig': '🟢 Cheap', 'normal': '⚪ Normal', 'dyr': '🟠 Expensive', 'ekstremt dyr': '🔴 Extreme' };
-    var modeLabels  = { 'av': '⏸ Off', 'lav': '🐢 Slow charge', 'normal': '▶ Charging', 'maks': '⚡ Fast charge' };
-    var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'no deadline set', 'normal': '', 'maks': 'cheap hour' };
+    var levelLabels = { 'billig': '🟢 ' + t('priceCheap'), 'normal': '⚪ ' + t('priceNormal'), 'dyr': '🟠 ' + t('priceExpensive'), 'ekstremt dyr': '🔴 ' + t('priceExtreme') };
+    var modeLabels  = { 'av': '⏸ ' + t('modeOff'), 'lav': '🐢 ' + t('modeSlow'), 'normal': '▶ ' + t('modeCharging'), 'maks': '⚡ ' + t('modeFast') };
+    var modeHints   = { 'av': t('hintWaiting'), 'lav': t('hintNoDeadline'), 'normal': '', 'maks': t('hintCheapHour') };
     var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
 
     var lvl = state.level || 'normal';
@@ -3956,8 +3988,8 @@
     lblEl.style.color  = levelColors[lvl] || '';
 
     var oreLabel = state.currentOre + ' øre/kWh';
-    if (state.nightDiscount) oreLabel += ' (night rate)';
-    if (state.norgespris > 0) oreLabel += ' · Norgespris flat rate (spot: ' + state.spotOre + ' øre)';
+    if (state.nightDiscount) oreLabel += ' (' + t('nightRate') + ')';
+    if (state.norgespris > 0) oreLabel += ' · ' + t('norgesprisFlat') + state.spotOre + ' øre)';
     document.getElementById('price-ore-now').textContent = oreLabel;
 
     var mEl = document.getElementById('price-charge-badge');
@@ -3972,7 +4004,7 @@
     }
 
     document.getElementById('price-ore-next').textContent =
-      state.nextOre != null ? 'Next hour: ' + state.nextOre + ' øre' : '';
+      state.nextOre != null ? t('nextHour') + state.nextOre + ' øre' : '';
 
     // Find next cheap / next expensive from entries
     var now = Date.now();
@@ -3984,16 +4016,16 @@
     // When Norgespris flat rate is active, spread=0 and all hours are identical —
     // there are no cheap or expensive hours to point to.
     document.getElementById('price-next-cheap').textContent = isFlat
-      ? 'All equal'
+      ? t('allEqual')
       : (nextCheap
         ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
-        : (lvl === 'billig' ? 'Now' : '–'));
+        : (lvl === 'billig' ? t('now') : '–'));
 
     document.getElementById('price-next-expensive').textContent = isFlat
-      ? 'All equal'
+      ? t('allEqual')
       : (nextExp
         ? new Date(nextExp.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
-        : (lvl === 'dyr' || lvl === 'ekstremt dyr' ? 'Now' : '–'));
+        : (lvl === 'dyr' || lvl === 'ekstremt dyr' ? t('now') : '–'));
 
     // Bar chart
     var chartEl = document.getElementById('price-chart');
@@ -4023,18 +4055,18 @@
       chartEl.innerHTML = bars;
       document.getElementById('price-chart-labels').innerHTML = labels;
     } else {
-      chartEl.innerHTML = '<span style="font-size:11px;color:var(--text-muted);align-self:center">No price data</span>';
+      chartEl.innerHTML = '<span style="font-size:11px;color:var(--text-muted);align-self:center">' + t('noPriceData') + '</span>';
     }
 
     // Stats row
     var s = state.stats || {};
     document.getElementById('price-stats').textContent =
-      'Window: min ' + s.min + ' — avg ' + (s.mean || 0).toFixed(1) + ' — max ' + s.max + ' øre/kWh · spread ' + s.spread + ' øre';
+      t('priceWindowStats').replace('{min}', s.min).replace('{avg}', (s.mean || 0).toFixed(1)).replace('{max}', s.max).replace('{spread}', s.spread);
 
     // Last updated
     var ago = state.updatedAt ? Math.round((Date.now() - state.updatedAt) / 60000) : null;
     document.getElementById('price-updated').textContent =
-      ago != null ? 'Last updated ' + (ago < 1 ? 'just now' : ago + ' min ago') : '';
+      ago != null ? t('lastUpdatedLabel') + (ago < 1 ? t('justNow') : ago + t('minAgo')) : '';
   }
 
   function renderPriceSettings(cfg) {
@@ -4121,10 +4153,10 @@
         }
 
         var modeColors  = { 'av': '#ff3b30', 'lav': '#ff9500', 'normal': '#8e8e93', 'maks': '#34c759' };
-        var modeLabels  = { 'av': '⏸ Off', 'lav': '🐢 Slow charge', 'normal': '▶ Charging', 'maks': '⚡ Fast charge' };
-        var modeHints   = { 'av': 'waiting for cheap hour', 'lav': 'no deadline set', 'normal': '', 'maks': 'cheap hour' };
+        var modeLabels  = { 'av': '⏸ ' + t('modeOff'), 'lav': '🐢 ' + t('modeSlow'), 'normal': '▶ ' + t('modeCharging'), 'maks': '⚡ ' + t('modeFast') };
+        var modeHints   = { 'av': t('hintWaiting'), 'lav': t('hintNoDeadline'), 'normal': '', 'maks': t('hintCheapHour') };
         var levelColors = { 'billig': '#34c759', 'normal': '#8e8e93', 'dyr': '#ff9500', 'ekstremt dyr': '#ff3b30' };
-        var levelLabels = { 'billig': '🟢 Cheap', 'normal': '⚪ Normal', 'dyr': '🟠 Expensive', 'ekstremt dyr': '🔴 Extreme' };
+        var levelLabels = { 'billig': '🟢 ' + t('priceCheap'), 'normal': '⚪ ' + t('priceNormal'), 'dyr': '🟠 ' + t('priceExpensive'), 'ekstremt dyr': '🔴 ' + t('priceExtreme') };
 
         // Global boxes
         var modeEl = document.getElementById('ev-lademodus');
@@ -4140,7 +4172,7 @@
         lvlEl.style.color = levelColors[lvl] || '';
 
         document.getElementById('ev-neste-billig').textContent =
-          data.neste_billige_time === 'flat_rate' ? 'All equal' : (data.neste_billige_time || '–');
+          data.neste_billige_time === 'flat_rate' ? t('allEqual') : (data.neste_billige_time || '–');
 
         // Per-charger rows
         var rowsEl = document.getElementById('ev-charger-rows');
@@ -4159,19 +4191,19 @@
             html += '<div style="border:1px solid ' + borderColor + ';border-radius:8px;padding:8px 10px;margin-bottom:8px;background:' + bgColor + ';">';
             html += '<div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-primary);">⚡ ' + escHtml(c.name) + (c.powerW > 0 ? ' <span style="font-weight:400;color:var(--text-muted);">(' + c.powerW + 'W)</span>' : '') + '</div>';
             html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:6px;">';
-            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Connected</div><div style="font-size:14px;">' + connIcon + ' ' + (c.connected ? 'Yes' : 'No') + '</div></div>';
-            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Charging now</div><div style="font-size:14px;">' + chgIcon + ' ' + (c.charging ? 'Yes' : 'No') + '</div></div>';
-            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Should charge</div><div style="font-size:14px;">' + shouldIcon + ' ' + (c.shouldCharge ? 'Yes' : 'No') + '</div></div>';
-            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">Charger mode</div><div style="font-size:14px;color:' + cModeColor + ';">' + cModeLabel + '</div>' + (cModeHint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + cModeHint + '</div>' : '') + '</div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">' + t('connected') + '</div><div style="font-size:14px;">' + connIcon + ' ' + (c.connected ? t('yes') : t('no')) + '</div></div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">' + t('chargingNow') + '</div><div style="font-size:14px;">' + chgIcon + ' ' + (c.charging ? t('yes') : t('no')) + '</div></div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">' + t('shouldCharge') + '</div><div style="font-size:14px;">' + shouldIcon + ' ' + (c.shouldCharge ? t('yes') : t('no')) + '</div></div>';
+            html += '<div class="stat-box" style="padding:5px 8px;"><div class="stat-label">' + t('chargerModeLabel') + '</div><div style="font-size:14px;color:' + cModeColor + ';">' + cModeLabel + '</div>' + (cModeHint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + cModeHint + '</div>' : '') + '</div>';
             html += '</div>';
             if (c.mismatch) {
-              html += '<div style="margin-top:6px;font-size:11px;color:#ff3b30;">⚠️ Mismatch: should charge but is not (or vice versa).</div>';
+              html += '<div style="margin-top:6px;font-size:11px;color:#ff3b30;">' + t('chargeMismatch') + '</div>';
             }
             html += '</div>';
           });
           rowsEl.innerHTML = html;
         } else if (rowsEl) {
-          rowsEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px 0;">No EV chargers tracked — add a charger in the Devices tab.</div>';
+          rowsEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px 0;">' + t('noEvChargers') + '</div>';
         }
 
         // Populate schedule inputs (don't overwrite if user is editing)
@@ -4186,7 +4218,7 @@
       })
       .catch(function() {
         var rowsEl = document.getElementById('ev-charger-rows');
-        if (rowsEl) rowsEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Could not load charger status.</div>';
+        if (rowsEl) rowsEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">' + t('chargerStatusError') + '</div>';
       });
 
     // Also load battery state
@@ -4197,9 +4229,9 @@
         var state = data.batteryState || {};
         var entries = Object.entries(state);
         var now = Date.now();
-        var html = '<b>🔋 Last battery reports:</b><br>';
+        var html = t('lastBatteryReports') + '<br>';
         if (!entries.length) {
-          html += '<span style="color:var(--text-muted)">No reports yet — trigger your "Report EV battery" Flow to update.</span>';
+          html += '<span style="color:var(--text-muted)">' + t('noBatteryReports') + '</span>';
           panel.innerHTML = html;
           panel.style.display = 'block';
           return;
@@ -4209,8 +4241,8 @@
           var entry = (priorityList || []).find(function(e) { return e.deviceId === deviceId; });
           var name = entry ? entry.name : deviceId;
           var age = Math.round((now - bst.updatedAt) / 60000);
-          var ageStr = age < 60 ? age + 'min ago' : Math.round(age/60) + 'h ago';
-          var hoursStr = bst.hoursNeeded !== null ? bst.hoursNeeded + 'h needed' : 'capacity not set';
+          var ageStr = age < 60 ? age + t('minAgo') : Math.round(age/60) + t('hAgo');
+          var hoursStr = bst.hoursNeeded !== null ? bst.hoursNeeded + t('hNeeded') : t('capacityNotSet');
           html += '<div style="margin-top:2px;">' + escHtml(name) + ': <b>' + bst.pct + '%</b> → ' + hoursStr + ' <span style="color:var(--text-muted)">(' + ageStr + ')</span></div>';
         });
         panel.innerHTML = html;
@@ -4226,7 +4258,7 @@
 
     // Validate time format
     if (ferdig && !/^\d{1,2}:\d{2}$/.test(ferdig)) {
-      statusEl.textContent = 'Invalid time format. Use HH:MM (e.g. 07:00).';
+      statusEl.textContent = t('invalidTimeFormat');
       statusEl.style.color = '#ff3b30';
       return;
     }
@@ -4234,12 +4266,12 @@
     hApi('POST', '/set-ev-charging-settings', { ladebehov_timer: timer, ferdig_ladet_kl: ferdig })
       .then(function(res) {
         if (res && res.ok) {
-          statusEl.textContent = 'Saved ✓';
+          statusEl.textContent = t('saved');
           statusEl.style.color = '#34c759';
           setTimeout(function() { statusEl.textContent = ''; }, 3000);
           loadEvChargingStatus();
         } else {
-          statusEl.textContent = 'Save failed: ' + (res && res.error ? res.error : 'unknown');
+          statusEl.textContent = t('saveFailed') + (res && res.error ? res.error : 'unknown');
           statusEl.style.color = '#ff3b30';
         }
       })
