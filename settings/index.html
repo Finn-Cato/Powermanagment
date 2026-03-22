@@ -481,7 +481,7 @@
 
         <div class="card">
           <h2 data-i18n="gettingStarted">Getting Started</h2>
-          <ol style="font-size:13px;color:var(--text-primary);line-height:1.8;margin:0;padding-left:18px;">
+          <ol style="font-size:13px;color:var(--text-primary);line-height:1.8;margin:0;padding-left:18px;" data-i18n-html="helpGettingStartedList">
             <li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li>
             <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>top</b> are turned off first.</li>
             <li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>
@@ -490,8 +490,8 @@
 
         <div class="card">
           <h2 data-i18n="powerGuardCore">Power Guard (Core)</h2>
-          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.</p>
-          <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;" data-i18n-html="helpCoreDesc">Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.</p>
+          <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;" data-i18n-html="helpCoreList">
             <li><b>Normal profile</b> — acts at 100% of your limit.</li>
             <li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li>
             <li><b>Solar-friendly profile</b> — relaxed limits to allow solar production to offset consumption.</li>
@@ -502,35 +502,35 @@
 
         <div class="card">
           <h2 data-i18n="smartEvCharging">Smart EV Charging</h2>
-          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 10px;">Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:</p>
-          <ol style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 10px;" data-i18n-html="helpEvIntro">Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:</p>
+          <ol style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;" data-i18n-html="helpEvSteps">
             <li><b>Devices tab</b> — enable your EV charger and set action to <b>Dynamic Current</b>.</li>
             <li><b>Devices tab</b> — fill in Battery size (kWh), Charge to (%), and link a <b>Car device</b> under the charger row.</li>
             <li><b>📊 System tab</b> — set the circuit breaker limit (A) for the charger.</li>
             <li><b>🧠 Smart → EV tab</b> — set <b>Ready by</b> (deadline). Hours needed is calculated automatically per charger from the linked car's battery.</li>
           </ol>
-          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;" data-i18n-html="helpEvHoursCalc">
             <b>How hours are calculated (per charger):</b><br>
             kWh needed = (target% − current%) ÷ 100 × battery capacity<br>
             Charger power = circuit limit (A) × 230 V × phases<br>
             Hours needed = kWh needed ÷ charger power (kW)<br><br>
             <b>Example:</b> 40% → 80%, 77 kWh battery, 16A 1-phase = (80−40)/100 × 77 ÷ 3.7 kW ≈ 8.3 hours
           </div>
-          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:10px 0 0;">When a deadline is set, Power Guard picks the <b>N cheapest hours</b> before the deadline (N = whichever car needs the most hours) and charges all chargers during those hours. All other hours all chargers are Off. If the deadline is imminent, it forces full charging regardless of price. With two chargers, the available current is split equally so both cars charge at the same time.</p>
-          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:10px 0 0;" data-i18n-html="helpEvCheapHours">When a deadline is set, Power Guard picks the <b>N cheapest hours</b> before the deadline (N = whichever car needs the most hours) and charges all chargers during those hours. All other hours all chargers are Off. If the deadline is imminent, it forces full charging regardless of price. With two chargers, the available current is split equally so both cars charge at the same time.</p>
+          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;" data-i18n-html="helpEvStepping">
             <b>Current stepping:</b><br>
             Power Guard uses simple 1A steps to control charger current. It steps down immediately on every HAN reading when consumption is over the limit. It steps up a maximum of 1A every 60 seconds — giving the meter time to confirm each increase before the next. On restart, the charger always resumes from 6A so high-current chargers are stepped down right away if needed.<br><br>
             <b>Charging complete detection:</b><br>
             When a car finishes charging (session completed, power drops below 100W) but stays plugged in, Power Guard recognises the session as done — no mismatch alerts are raised and heating devices are not shed on behalf of a charger that is no longer actively charging.
           </div>
-          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.8;">
+          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.8;" data-i18n-html="helpEvChargerMode">
             <b>What the Charger Mode label means:</b><br>
             <span style="color:#34c759;">⚡ Fast charge</span> <i>cheap hour</i> — this is one of the cheapest hours, charging at full speed<br>
             <span style="color:#ff3b30;">⏸ Off</span> <i>waiting for cheap hour</i> — not a cheap hour, charger is paused to save money<br>
             <span style="color:#ff9500;">🐢 Slow charge</span> <i>no deadline set</i> — no deadline configured, charging at reduced speed regardless of price<br>
             <span style="color:#8e8e93;">▶ Charging</span> — no deadline set, price is normal, charging without restriction
           </div>
-          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">
+          <div style="margin-top:12px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;" data-i18n-html="helpEvPriorityShed">
             <b>Charger priority shed:</b><br>
             Each charger in the <b>📱 Devices</b> tab has a <b>Priority shed</b> toggle. When enabled, the charger is treated like any other device in the priority list — Power Guard can pause it to protect the grid limit. On/off type chargers are shed even when they are reporting 0W (e.g. idle between steps).
           </div>
@@ -538,14 +538,14 @@
 
         <div class="card">
           <h2 data-i18n="modesTitle">Modes (Home / Night / Away / Holiday)</h2>
-          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Find modes under <b>🧠 Smart → Modes</b> (when Smart Price Control is ON) or <b>🌡️ Heaters</b> tab (when OFF). Each mode lets you set per-device preferences:</p>
-          <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;" data-i18n-html="helpModesDesc">Find modes under <b>🧠 Smart → Modes</b> (when Smart Price Control is ON) or <b>🌡️ Heaters</b> tab (when OFF). Each mode lets you set per-device preferences:</p>
+          <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;" data-i18n-html="helpModesList">
             <li><b>Switches</b> — On / Off</li>
             <li><b>Thermostats</b> — target temperature</li>
             <li><b>EV chargers</b> — Allow / Pause</li>
             <li><b>Høiax water heaters</b> — High / Medium / Low / Off</li>
           </ul>
-          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:8px 0 0;">Set a <b>Night schedule</b> to automatically switch between Home and Night at chosen times. Power Guard never restores a device that is currently being throttled — safety always takes priority.</p>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:8px 0 0;" data-i18n-html="helpModesNight">Set a <b>Night schedule</b> to automatically switch between Home and Night at chosen times. Power Guard never restores a device that is currently being throttled — safety always takes priority.</p>
         </div>
 
         <div class="card">
@@ -561,7 +561,7 @@
             </tr>
             <tr style="border-bottom:1px solid var(--border-light);">
               <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">Thermostats</td>
-              <td style="padding:6px 0;color:var(--text-muted);">Any brand — auto-detected</td>
+              <td style="padding:6px 0;color:var(--text-muted);" data-i18n="helpHwThermostats">Any brand — auto-detected</td>
             </tr>
             <tr>
               <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">Water Heater</td>
@@ -1099,6 +1099,20 @@
       supportedHardware: 'Supported Hardware',
       bugReport: 'Found a bug or have a question?',
       bugReportLink: 'Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
+      helpGettingStartedList: '<li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li><li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>top</b> are turned off first.</li><li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>',
+      helpCoreDesc: 'Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.',
+      helpCoreList: '<li><b>Normal profile</b> — acts at 100% of your limit.</li><li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li><li><b>Solar-friendly profile</b> — relaxed limits to allow solar production to offset consumption.</li><li><b>Phase limits</b> — set per-phase ampere limits (L1/L2/L3) in Advanced settings.</li><li><b>Smart restore</b> — devices are only turned back on when there is confirmed headroom; charger ramping power is accounted for before restoring heating devices.</li>',
+      helpEvIntro: 'Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:',
+      helpEvSteps: '<li><b>Devices tab</b> — enable your EV charger and set action to <b>Dynamic Current</b>.</li><li><b>Devices tab</b> — fill in Battery size (kWh), Charge to (%), and link a <b>Car device</b> under the charger row.</li><li><b>📊 System tab</b> — set the circuit breaker limit (A) for the charger.</li><li><b>🧠 Smart → EV tab</b> — set <b>Ready by</b> (deadline). Hours needed is calculated automatically per charger from the linked car\'s battery.</li>',
+      helpEvHoursCalc: '<b>How hours are calculated (per charger):</b><br>kWh needed = (target% − current%) ÷ 100 × battery capacity<br>Charger power = circuit limit (A) × 230 V × phases<br>Hours needed = kWh needed ÷ charger power (kW)<br><br><b>Example:</b> 40% → 80%, 77 kWh battery, 16A 1-phase = (80−40)/100 × 77 ÷ 3.7 kW ≈ 8.3 hours',
+      helpEvCheapHours: 'When a deadline is set, Power Guard picks the <b>N cheapest hours</b> before the deadline (N = whichever car needs the most hours) and charges all chargers during those hours. All other hours all chargers are Off. If the deadline is imminent, it forces full charging regardless of price. With two chargers, the available current is split equally so both cars charge at the same time.',
+      helpEvStepping: '<b>Current stepping:</b><br>Power Guard uses simple 1A steps to control charger current. It steps down immediately on every HAN reading when consumption is over the limit. It steps up a maximum of 1A every 60 seconds — giving the meter time to confirm each increase before the next. On restart, the charger always resumes from 6A so high-current chargers are stepped down right away if needed.<br><br><b>Charging complete detection:</b><br>When a car finishes charging (session completed, power drops below 100W) but stays plugged in, Power Guard recognises the session as done — no mismatch alerts are raised and heating devices are not shed on behalf of a charger that is no longer actively charging.',
+      helpEvChargerMode: '<b>What the Charger Mode label means:</b><br><span style="color:#34c759;">⚡ Fast charge</span> <i>cheap hour</i> — this is one of the cheapest hours, charging at full speed<br><span style="color:#ff3b30;">⏸ Off</span> <i>waiting for cheap hour</i> — not a cheap hour, charger is paused to save money<br><span style="color:#ff9500;">🐢 Slow charge</span> <i>no deadline set</i> — no deadline configured, charging at reduced speed regardless of price<br><span style="color:#8e8e93;">▶ Charging</span> — no deadline set, price is normal, charging without restriction',
+      helpEvPriorityShed: '<b>Charger priority shed:</b><br>Each charger in the <b>📱 Devices</b> tab has a <b>Priority shed</b> toggle. When enabled, the charger is treated like any other device in the priority list — Power Guard can pause it to protect the grid limit. On/off type chargers are shed even when they are reporting 0W (e.g. idle between steps).',
+      helpModesDesc: 'Find modes under <b>🧠 Smart → Modes</b> (when Smart Price Control is ON) or <b>🌡️ Heaters</b> tab (when OFF). Each mode lets you set per-device preferences:',
+      helpModesList: '<li><b>Switches</b> — On / Off</li><li><b>Thermostats</b> — target temperature</li><li><b>EV chargers</b> — Allow / Pause</li><li><b>Høiax water heaters</b> — High / Medium / Low / Off</li>',
+      helpModesNight: 'Set a <b>Night schedule</b> to automatically switch between Home and Night at chosen times. Power Guard never restores a device that is currently being throttled — safety always takes priority.',
+      helpHwThermostats: 'Any brand — auto-detected',
       powerConsumption: 'Power Consumption by Device',
       filterByType: 'Filter by device type', lastUpdated: 'Last updated:',
       thermostats: 'Thermostats', loadingHeaters: 'Loading\u2026',
@@ -1218,6 +1232,20 @@
       supportedHardware: 'St\u00f8ttet maskinvare',
       bugReport: 'Funnet en feil eller har du sp\u00f8rsm\u00e5l?',
       bugReportLink: 'Rapporter det p\u00e5 GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
+      helpGettingStartedList: '<li>G\u00e5 til <b>\u2699\ufe0f Innstillinger</b> og sett <b>Maks effekt (W)</b> \u2014 dette er din nettforbindelses grense (f.eks. 10\u202f000 W).</li><li>G\u00e5 til <b>\ud83d\udcf1 Enheter</b>-fanen og aktiver enhetene du vil at Power Guard skal styre. Dra dem i prioritert rekkefl\u00f8lge \u2014 enheter \u00f8verst sl\u00e5s av f\u00f8rst.</li><li>Sl\u00e5 p\u00e5 <b>Vakt aktiv</b> i <b>\u2699\ufe0f Innstillinger</b>.</li>',
+      helpCoreDesc: 'Power Guard leser din HAN-str\u00f8mm\u00e5ler i sanntid. N\u00e5r totalforbruket n\u00e6rmer seg nettgrensen, sl\u00e5r den av eller reduserer enheter \u2014 fra toppen av prioritetslisten. N\u00e5r effekten faller tilbake, gjenopprettes enhetene automatisk.',
+      helpCoreList: '<li><b>Normal profil</b> \u2014 virker ved 100% av grensen din.</li><li><b>Streng profil</b> \u2014 virker ved 95% av grensen for ekstra sikkerhetsmargin.</li><li><b>Sol-vennlig profil</b> \u2014 avslappede grenser for \u00e5 tillate solproduksjon \u00e5 motvirke forbruket.</li><li><b>Fasegrenser</b> \u2014 sett per-fase ampere-grenser (L1/L2/L3) i Avanserte innstillinger.</li><li><b>Smart gjenoppretting</b> \u2014 enheter sl\u00e5s bare p\u00e5 igjen n\u00e5r det er bekreftet plass; laderens opptrappingseffekt tas h\u00f8yde for f\u00f8r varmeenheter gjenopprettes.</li>',
+      helpEvIntro: 'Aktiver <b>Smart priskontroll</b> i Innstillinger for \u00e5 aktivere smart elbillading. Alle ladere deler samme billigste-timer-vindu \u2014 bilen som trenger mest tid setter vinduets st\u00f8rrelse, og tilgjengelig effekt fordeles likt mellom ladere i disse timene. Sett opp hver lader i 4 trinn:',
+      helpEvSteps: '<li><b>Enheter-fanen</b> \u2014 aktiver elbilladeren og sett handling til <b>Dynamisk str\u00f8m</b>.</li><li><b>Enheter-fanen</b> \u2014 fyll inn batterist\u00f8rrelse (kWh), Lad til (%), og koble til en <b>Bil-enhet</b> under laderraden.</li><li><b>\ud83d\udcca System-fanen</b> \u2014 sett sikringsgrensen (A) for laderen.</li><li><b>\ud83e\udde0 Smart \u2192 EV-fanen</b> \u2014 sett <b>Klar innen</b> (frist). Timer n\u00f8dvendig beregnes automatisk per lader fra tilkoblet bils batteri.</li>',
+      helpEvHoursCalc: '<b>Slik beregnes timer n\u00f8dvendig (per lader):</b><br>kWh n\u00f8dvendig = (m\u00e5l% \u2212 n\u00e5v\u00e6rende%) \u00f7 100 \u00d7 batterikapasitet<br>Ladereffekt = sikringsgrense (A) \u00d7 230 V \u00d7 faser<br>Timer n\u00f8dvendig = kWh n\u00f8dvendig \u00f7 ladereffekt (kW)<br><br><b>Eksempel:</b> 40% \u2192 80%, 77 kWh batteri, 16A 1-fase = (80\u221240)/100 \u00d7 77 \u00f7 3,7 kW \u2248 8,3 timer',
+      helpEvCheapHours: 'N\u00e5r en frist er satt, velger Power Guard de <b>N billigste timene</b> f\u00f8r fristen (N = bilen som trenger flest timer) og lader alle ladere i disse timene. Alle andre timer er alle ladere Av. Dersom fristen er n\u00e6r, tvinges full lading uavhengig av pris. Med to ladere fordeles tilgjengelig str\u00f8m likt slik at begge biler lader samtidig.',
+      helpEvStepping: '<b>Str\u00f8mtrapping:</b><br>Power Guard bruker enkle 1A-trinn for \u00e5 styre laderstr\u00f8m. Trapper ned umiddelbart p\u00e5 hver HAN-avlesning n\u00e5r forbruket er over grensen. Trapper opp maks 1A hvert 60. sekund \u2014 gir m\u00e5leren tid til \u00e5 bekrefte hver \u00f8kning f\u00f8r neste. Ved omstart starter laderen alltid fra 6A slik at ladere p\u00e5 h\u00f8y str\u00f8m trappes ned umiddelbart.<br><br><b>Deteksjon av fulladt bil:</b><br>N\u00e5r en bil er ferdigladet (\u00f8kt fullf\u00f8rt, effekt faller under 100W) men fortsatt er tilkoblet, gjenkjenner Power Guard \u00f8kten som ferdig \u2014 ingen misforhold-varsler utl\u00f8ses og varmeenheter settes ikke p\u00e5 pause for en lader som ikke lenger lader aktivt.',
+      helpEvChargerMode: '<b>Hva Ladermodus-etiketten betyr:</b><br><span style=\'color:#34c759;\'>\u26a1 Hurtiglading</span> <i>billig time</i> \u2014 dette er en av de billigste timene, lader p\u00e5 full hastighet<br><span style=\'color:#ff3b30;\'>\u23f8 Av</span> <i>venter p\u00e5 billig time</i> \u2014 ikke en billig time, laderen er satt p\u00e5 pause for \u00e5 spare penger<br><span style=\'color:#ff9500;\'>\ud83d\udc22 Saktlading</span> <i>ingen frist satt</i> \u2014 ingen frist konfigurert, lader p\u00e5 redusert hastighet uavhengig av pris<br><span style=\'color:#8e8e93;\'>\u25b6 Lader</span> \u2014 ingen frist satt, prisen er normal, lading uten begrensning',
+      helpEvPriorityShed: '<b>Laderprioritetsstyring:</b><br>Hver lader i <b>\ud83d\udcf1 Enheter</b>-fanen har en <b>Prioritetsstyring</b>-bryter. N\u00e5r aktivert, behandles laderen som enhver annen enhet i prioritetslisten \u2014 Power Guard kan sette den p\u00e5 pause for \u00e5 beskytte nettgrensen. P\u00e5/av-type ladere prioritetsstyres selv n\u00e5r de rapporterer 0W (f.eks. inaktive mellom trinn).',
+      helpModesDesc: 'Finn modi under <b>\ud83e\udde0 Smart \u2192 Modi</b> (n\u00e5r Smart priskontroll er P\u00c5) eller <b>\ud83c\udf21\ufe0f Varmere</b>-fanen (n\u00e5r AV). Hvert modus lar deg sette per-enhet-preferanser:',
+      helpModesList: '<li><b>Brytere</b> \u2014 P\u00e5 / Av</li><li><b>Termostater</b> \u2014 m\u00e5ltemperatur</li><li><b>Elbilladere</b> \u2014 Tillat / Pause</li><li><b>H\u00f8iax varmtvannsberedere</b> \u2014 H\u00f8y / Middels / Lav / Av</li>',
+      helpModesNight: 'Sett en <b>Nattplan</b> for \u00e5 automatisk bytte mellom Hjem og Natt p\u00e5 valgte tider. Power Guard gjenoppretter aldri en enhet som for \u00f8yeblikket begrenses \u2014 sikkerhet har alltid prioritet.',
+      helpHwThermostats: 'Alle merker \u2014 auto-detektert',
       powerConsumption: 'Effektforbruk per enhet',
       filterByType: 'Filtrer etter enhetstype', lastUpdated: 'Sist oppdatert:',
       thermostats: 'Termostater', loadingHeaters: 'Laster\u2026',
