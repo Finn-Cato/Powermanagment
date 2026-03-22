@@ -195,25 +195,25 @@
 <div class="header-top">
   <div class="header-title">
     <h1>Power <span>Guard</span></h1>
-    <p class="subtitle">Real-time power monitoring via HAN meter.<br>Auto-controls devices to stay within your grid limit.</p>
+    <p class="subtitle" data-i18n-html="subtitle">Real-time power monitoring via HAN meter.<br>Auto-controls devices to stay within your grid limit.</p>
   </div>
 </div>
 
   <div id="error-banner"></div>
-  <div id="loading-indicator">Connecting to Homey…</div>
+  <div id="loading-indicator" data-i18n="connecting">Connecting to Homey…</div>
 
   <!-- Token fallback card -->
   <div class="card" id="connect-card">
-    <h2>Connect to Homey API</h2>
+    <h2 data-i18n="connectTitle">Connect to Homey API</h2>
     <div class="steps">
-      Power Guard needs a Personal Access Token to read and save settings.<br>
-      <b>1.</b> Go to <b>my.homey.app</b> → your name → <b>Account</b> → <b>Security</b> → <b>Personal Access Tokens</b><br>
-      <b>2.</b> Create a new token with scope <b>homey:manager:api</b><br>
-      <b>3.</b> Paste it below (held in memory only for this session).
+      <span data-i18n="connectTokenIntro">Power Guard needs a Personal Access Token to read and save settings.</span><br>
+      <b>1.</b> <span data-i18n-html="connectStep1">Go to <b>my.homey.app</b> → your name → <b>Account</b> → <b>Security</b> → <b>Personal Access Tokens</b></span><br>
+      <b>2.</b> <span data-i18n-html="connectStep2">Create a new token with scope <b>homey:manager:api</b></span><br>
+      <b>3.</b> <span data-i18n="connectStep3">Paste it below (held in memory only for this session).</span>
     </div>
     <div id="token-row">
       <input type="password" id="token-input" placeholder="pat-apps-…" autocomplete="off">
-      <button class="btn-primary" onclick="connectWithToken()">Connect</button>
+      <button class="btn-primary" onclick="connectWithToken()" data-i18n="connect">Connect</button>
     </div>
     <div id="connect-error"></div>
   </div>
@@ -223,12 +223,12 @@
 
     <!-- Tab bar -->
     <div class="tab-bar">
-      <button class="tab-btn active" id="tb-overview" onclick="showTab('overview')"><span class="tab-icon">🏠</span><span class="tab-label">Home</span></button>
-      <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')"><span class="tab-icon">📱</span><span class="tab-label">Devices</span></button>
-      <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label">Power</span></button>
-      <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label">Heaters</span></button>
-      <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label">Log</span></button>
-      <button class="tab-btn"        id="tb-smart"       onclick="showTab('smart')"><span class="tab-icon">🧠</span><span class="tab-label">Smart</span></button>
+      <button class="tab-btn active" id="tb-overview" onclick="showTab('overview')"><span class="tab-icon">🏠</span><span class="tab-label" data-i18n="tabHome">Home</span></button>
+      <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')"><span class="tab-icon">📱</span><span class="tab-label" data-i18n="tabDevices">Devices</span></button>
+      <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label" data-i18n="tabPower">Power</span></button>
+      <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label" data-i18n="tabHeaters">Heaters</span></button>
+      <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label" data-i18n="tabLog">Log</span></button>
+      <button class="tab-btn"        id="tb-smart"       onclick="showTab('smart')"><span class="tab-icon">🧠</span><span class="tab-label" data-i18n="tabSmart">Smart</span></button>
     </div>
 
     <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
@@ -236,10 +236,10 @@
 
       <!-- Overview sub-tab bar -->
       <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
-        <button id="otb-overview"  onclick="showOverviewSubTab('overview')"  class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;">🏠 Overview</button>
-        <button id="otb-settings"  onclick="showOverviewSubTab('settings')"  class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">⚙️ Settings</button>
-        <button id="otb-system"    onclick="showOverviewSubTab('system')"    class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">📊 System</button>
-        <button id="otb-help"      onclick="showOverviewSubTab('help')"      class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;">❓ Help</button>
+        <button id="otb-overview"  onclick="showOverviewSubTab('overview')"  class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subOverview">🏠 Overview</button>
+        <button id="otb-settings"  onclick="showOverviewSubTab('settings')"  class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subSettings">⚙️ Settings</button>
+        <button id="otb-system"    onclick="showOverviewSubTab('system')"    class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subSystem">📊 System</button>
+        <button id="otb-help"      onclick="showOverviewSubTab('help')"      class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subHelp">❓ Help</button>
       </div>
 
       <!-- ── Overview panel ── -->
@@ -247,44 +247,44 @@
 
       <div id="active-mode-card" style="display:none">
       <div class="card" style="padding:10px 14px;">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:8px;">ACTIVE MODE</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:8px;" data-i18n="activeModeLabel">ACTIVE MODE</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
-          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">🏠&nbsp;Home</button>
-          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">🌙&nbsp;Night</button>
-          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">🚗&nbsp;Away</button>
-          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;">❄️&nbsp;Holiday</button>
+          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeHome">🏠&nbsp;Home</button>
+          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeNight">🌙&nbsp;Night</button>
+          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeAway">🚗&nbsp;Away</button>
+          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeHoliday">❄️&nbsp;Holiday</button>
         </div>
       </div>
       </div>
 
       <div class="card">
-        <h2>Live Status</h2>
+        <h2 data-i18n="liveStatus">Live Status</h2>
         <div class="status-grid">
           <div class="stat-box">
-            <div class="stat-label">Power right now</div>
+            <div class="stat-label" data-i18n="powerNow">Power right now</div>
             <div class="stat-value" id="st-power">– W</div>
-            <div class="stat-sub">of <span id="st-limit">–</span> W limit</div>
+            <div class="stat-sub"><span data-i18n="ofLimit">of</span> <span id="st-limit">–</span> W <span data-i18n="wLimit">limit</span></div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Devices controlled</div>
+            <div class="stat-label" data-i18n="devicesControlled">Devices controlled</div>
             <div class="stat-value" id="st-mitigation">–</div>
           </div>
         </div>
         <div id="ev-section" style="display:none;margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">EV CHARGERS</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500" data-i18n="evChargersLabel">EV CHARGERS</div>
           <div id="ev-grid" class="status-grid"></div>
         </div>
         <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
-               onclick="(function(btn){var d=document.getElementById('log-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'\u25b6 RECENT ACTIVITY':'\u25bc RECENT ACTIVITY';})(this)">
-            &#9660; RECENT ACTIVITY</div>
-          <div id="log-container"><div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div></div>
+          <div id="recent-activity-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
+               onclick="(function(btn){var d=document.getElementById('log-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?t('recentActivityCollapsed'):t('recentActivity');})(this)">
+            ▼ <span data-i18n="recentActivity">RECENT ACTIVITY</span></div>
+          <div id="log-container"><div class="log-entry" style="color:var(--text-tertiary)" data-i18n="noActivityYet">No activity yet.</div></div>
         </div>
         <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
-               onclick="(function(btn){var d=document.getElementById('scan-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?'\u25b6 LAST MITIGATION SCAN':'\u25bc LAST MITIGATION SCAN';})(this)">
-            &#9660; LAST MITIGATION SCAN</div>
-          <div id="scan-container"><div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div></div>
+          <div id="mitigation-scan-label" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500;cursor:pointer;user-select:none;"
+               onclick="(function(btn){var d=document.getElementById('scan-container');var open=d.style.display!=='none';d.style.display=open?'none':'block';btn.textContent=open?t('lastMitigationScanCollapsed'):t('lastMitigationScan');})(this)">
+            ▼ <span data-i18n="lastMitigationScan">LAST MITIGATION SCAN</span></div>
+          <div id="scan-container"><div class="log-entry" style="color:var(--text-tertiary)" data-i18n="noScanYet">No scan data yet.</div></div>
         </div>
       </div>
 
@@ -292,7 +292,7 @@
       <div class="card" id="effekt-section">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">⚡ EFFEKTTARIFF (TEST)</div>
         <div id="effekt-container" style="background:var(--bg-surface);border-radius:8px;padding:10px;">
-          <div style="color:var(--text-tertiary);font-size:12px">Waiting for data...</div>
+          <div style="color:var(--text-tertiary);font-size:12px" data-i18n="waitingData">Waiting for data...</div>
         </div>
       </div>
 
@@ -307,7 +307,7 @@
 
       <div class="card">
         <div class="row" style="margin-bottom:8px;">
-          <div class="label-group"><label style="font-size:16px;font-weight:600;">Power Guard</label></div>
+          <div class="label-group"><label style="font-size:16px;font-weight:600;" data-i18n="guardActive">Power Guard</label></div>
           <div class="control">
             <label class="toggle" id="guard-toggle">
               <input type="checkbox" id="s-enabled-toggle" onchange="updateEnabledSync(this.checked)">
@@ -317,27 +317,27 @@
         </div>
         <span id="st-enabled-big" style="display:none"></span>
         <span id="st-profile-sub" style="display:none"></span>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.5">Monitors your home's total power consumption and automatically turns devices off to keep usage below your grid connection limit. When power drops back down, devices are restored.</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5" data-i18n="pgDescription">Monitors your home's total power consumption and automatically turns devices off to keep usage below your grid connection limit. When power drops back down, devices are restored.</div>
         <!-- Hidden sync element for s-enabled -->
         <input type="checkbox" id="s-enabled" style="display:none" onchange="syncEnabledCheckbox()" checked>
       </div>
 
       <div class="card">
         <div class="row" style="margin-bottom:8px;">
-          <div class="label-group"><label style="font-size:16px;font-weight:600;">Smart Price Control</label></div>
+          <div class="label-group"><label style="font-size:16px;font-weight:600;" data-i18n="smartPriceTitle">Smart Price Control</label></div>
           <div class="control">
             <label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity — charging fast when power is cheap, slowing down when it's expensive. Power Guard's hard safety limit always takes priority.</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;" data-i18n="smartPriceDescription">Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity — charging fast when power is cheap, slowing down when it's expensive. Power Guard's hard safety limit always takes priority.</div>
       </div>
 
       <div id="smart-price-advanced-notice" style="display:none;background:rgba(232,68,26,.1);border:1px solid rgba(232,68,26,.35);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
         <div style="display:flex;align-items:flex-start;gap:10px;">
           <span style="font-size:20px;flex-shrink:0;">⚠️</span>
           <div>
-            <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:3px;">Advanced Mode Active</div>
-            <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Smart Price Control enables an advanced interface for fine-tuning EV charger behaviour, device modes, and dynamic price schedules. Make sure you understand each setting before making changes.<br><br>The <b>🌡️ Heaters</b> tab has been replaced by the <b>🧠 Smart</b> tab, which gives you access to Price settings, Modes, and EV charger control.</div>
+            <div style="font-size:13px;font-weight:700;color:var(--brand);margin-bottom:3px;" data-i18n="advancedModeActive">Advanced Mode Active</div>
+            <div style="font-size:12px;color:var(--text-muted);line-height:1.5;" data-i18n-html="advancedModeDesc">Smart Price Control enables an advanced interface for fine-tuning EV charger behaviour, device modes, and dynamic price schedules. Make sure you understand each setting before making changes.<br><br>The <b>🌡️ Heaters</b> tab has been replaced by the <b>🧠 Smart</b> tab, which gives you access to Price settings, Modes, and EV charger control.</div>
           </div>
         </div>
       </div>
@@ -345,8 +345,8 @@
       <div class="card">
         <div class="row">
           <div class="label-group">
-            <label>Protection mode</label>
-            <span class="hint"><b>Normal</b> — full limit. &nbsp;<b>Strict</b> — 95% of limit.</span>
+            <label data-i18n="protectionMode">Protection mode</label>
+            <span class="hint" data-i18n-html="protectionHint"><b>Normal</b> — full limit. &nbsp;<b>Strict</b> — 95% of limit.</span>
           </div>
           <div class="control">
             <select id="s-profile">
@@ -358,11 +358,11 @@
       </div>
 
       <div class="card">
-        <h2>Power Limit</h2>
+        <h2 data-i18n="powerLimit">Power Limit</h2>
         <div class="row">
           <div class="label-group">
-            <label>Maximum power (W)</label>
-            <span class="hint">Your grid connection limit. Typical: 10 000 W (10 kW) or 15 000 W (15 kW).</span>
+            <label data-i18n="maximumPower">Maximum power (W)</label>
+            <span class="hint" data-i18n="maximumPowerHint">Your grid connection limit. Typical: 10 000 W (10 kW) or 15 000 W (15 kW).</span>
           </div>
           <div class="control">
             <input type="number" id="s-powerLimitW" min="100" max="100000" step="500" value="10000">
@@ -370,59 +370,59 @@
           </div>
         </div>
         <div class="advanced-toggle" onclick="toggleAdvanced()">
-          <span id="adv-arrow">&#9654;</span> Advanced settings
+          <span id="adv-arrow">&#9654;</span> <span data-i18n="advancedSettings">Advanced settings</span>
         </div>
         <div id="advanced-section">
           <div class="row" style="padding-top:12px">
-            <div class="label-group"><label>Phase 1 limit (A)</label><span class="hint">0 = disabled</span></div>
+            <div class="label-group"><label data-i18n="phase1Limit">Phase 1 limit (A)</label><span class="hint" data-i18n="zeroDisabled">0 = disabled</span></div>
             <div class="control"><input type="number" id="s-phase1LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:var(--text-muted)">A</span></div>
           </div>
           <div class="row">
-            <div class="label-group"><label>Phase 2 limit (A)</label></div>
+            <div class="label-group"><label data-i18n="phase2Limit">Phase 2 limit (A)</label></div>
             <div class="control"><input type="number" id="s-phase2LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:var(--text-muted)">A</span></div>
           </div>
           <div class="row">
-            <div class="label-group"><label>Phase 3 limit (A)</label></div>
+            <div class="label-group"><label data-i18n="phase3Limit">Phase 3 limit (A)</label></div>
             <div class="control"><input type="number" id="s-phase3LimitA" min="0" max="63" step="1" value="0"><span style="font-size:12px;color:var(--text-muted)">A</span></div>
           </div>
           <div class="row">
-            <div class="label-group"><label>Reaction speed</label><span class="hint">Readings to average. Lower = faster.</span></div>
+            <div class="label-group"><label data-i18n="reactionSpeed">Reaction speed</label><span class="hint" data-i18n="reactionSpeedHint">Readings to average. Lower = faster.</span></div>
             <div class="control">
               <input type="range" id="s-smoothingWindow" min="1" max="20" step="1" value="5">
               <span class="range-val" id="v-smoothingWindow">5</span>
             </div>
           </div>
           <div class="row">
-            <div class="label-group"><label>Spike ignore threshold</label><span class="hint">Readings × avg before ignoring as a spike.</span></div>
+            <div class="label-group"><label data-i18n="spikeThreshold">Spike ignore threshold</label><span class="hint" data-i18n="spikeThresholdHint">Readings × avg before ignoring as a spike.</span></div>
             <div class="control">
               <input type="range" id="s-spikeMultiplier" min="1.2" max="5.0" step="0.1" value="2.0">
               <span class="range-val" id="v-spikeMultiplier">2.0×</span>
             </div>
           </div>
           <div class="row">
-            <div class="label-group"><label>Missing data timeout</label><span class="hint">Force mitigation if no power reading for this many seconds. 0 = disabled.</span></div>
+            <div class="label-group"><label data-i18n="missingDataTimeout">Missing data timeout</label><span class="hint" data-i18n="missingDataTimeoutHint">Force mitigation if no power reading for this many seconds. 0 = disabled.</span></div>
             <div class="control">
               <input type="number" id="s-missingPowerTimeoutS" min="0" max="600" step="1" value="120">
               <span style="font-size:12px;color:var(--text-muted)">s</span>
             </div>
           </div>
           <div class="row">
-            <div class="label-group"><label>Dynamic restore guard</label><span class="hint">Wait 1–5 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.</span></div>
+            <div class="label-group"><label data-i18n="dynamicRestoreGuard">Dynamic restore guard</label><span class="hint" data-i18n="dynamicRestoreGuardHint">Wait 1–5 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.</span></div>
             <div class="control"><input type="checkbox" id="s-dynamicRestoreGuard" checked></div>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <h2>Power Meter</h2>
+        <h2 data-i18n="powerMeter">Power Meter</h2>
         <div class="row">
           <div class="label-group">
-            <label>Power meter device</label>
-            <span class="hint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
+            <label data-i18n="powerMeterDevice">Power meter device</label>
+            <span class="hint" data-i18n="powerMeterDeviceHint">Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.</span>
           </div>
           <div class="control">
             <select id="s-meterDevice" onchange="changeMeterDevice(this.value)" style="min-width:180px">
-              <option value="auto">Auto-detect</option>
+              <option value="auto" data-i18n="autoDetect">Auto-detect</option>
             </select>
           </div>
         </div>
@@ -430,8 +430,8 @@
       </div>
 
       <div class="save-row">
-        <button class="btn-secondary" onclick="loadAll()">Discard</button>
-        <button class="btn-primary"   onclick="saveAll()">Save settings</button>
+        <button class="btn-secondary" onclick="loadAll()" data-i18n="discard">Discard</button>
+        <button class="btn-primary"   onclick="saveAll()" data-i18n="saveSettings">Save settings</button>
       </div>
 
       </div><!-- /#overview-panel-settings -->
@@ -440,29 +440,29 @@
       <div id="overview-panel-system" style="display:none">
 
       <div class="card">
-        <h2>HAN Meter Diagnostics</h2>
+        <h2 data-i18n="hanDiagnostics">HAN Meter Diagnostics</h2>
         <div id="st-han-suspended" style="display:none;font-size:12px;color:#ff9500;margin-bottom:8px;font-weight:600;"></div>
         <div id="han-diag-content" style="font-size:12px;">
-          <span style="color:var(--text-muted)">Loading...</span>
+          <span style="color:var(--text-muted)" data-i18n="loading">Loading...</span>
         </div>
         <div style="margin-top:10px; display:flex; gap:8px;">
-          <button class="btn-secondary" onclick="loadHanDiagnostic()" style="font-size:12px; padding:5px 12px;">Refresh</button>
-          <button class="btn-secondary" onclick="copyHanDiagnostic()" style="font-size:12px; padding:5px 12px;">Copy diagnostic JSON</button>
+          <button class="btn-secondary" onclick="loadHanDiagnostic()" style="font-size:12px; padding:5px 12px;" data-i18n="refresh">Refresh</button>
+          <button class="btn-secondary" onclick="copyHanDiagnostic()" style="font-size:12px; padding:5px 12px;" data-i18n="copyDiagnosticJSON">Copy diagnostic JSON</button>
         </div>
         <div id="han-diag-copy-msg" style="font-size:11px; margin-top:4px; display:none;"></div>
       </div>
 
       <div class="card" id="managed-chargers-card">
-        <h2>Managed Chargers</h2>
+        <h2 data-i18n="managedChargers">Managed Chargers</h2>
         <!-- voltageSystem and mainCircuitA are now fully auto-detected from HAN and charger data -->
         <input type="hidden" id="s-voltageSystem" value="auto">
         <input type="hidden" id="s-mainCircuitA" value="25">
         <div id="charger-details-list" style="font-size:12px;">
-          <span style="color:var(--text-muted)">⏳ Loading chargers...</span>
+          <span style="color:var(--text-muted)" data-i18n="loadingChargers">⏳ Loading chargers...</span>
         </div>
 
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-color);">
-          <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px;">
+          <button class="btn-secondary" onclick="testChargerControl()" style="font-size:12px; padding:6px 14px;" data-i18n="testChargerControl">
             🔌 Test charger control
           </button>
           <div id="charger-test-result" style="margin-top:8px; font-size:12px; display:none;"></div>
@@ -470,8 +470,8 @@
       </div>
 
       <div class="save-row">
-        <button class="btn-secondary" onclick="loadAll()">Discard</button>
-        <button class="btn-primary"   onclick="saveAll()">Save</button>
+        <button class="btn-secondary" onclick="loadAll()" data-i18n="discard">Discard</button>
+        <button class="btn-primary"   onclick="saveAll()" data-i18n="save">Save</button>
       </div>
 
       </div><!-- /#overview-panel-system -->
@@ -480,7 +480,7 @@
       <div id="overview-panel-help" style="display:none">
 
         <div class="card">
-          <h2>Getting Started</h2>
+          <h2 data-i18n="gettingStarted">Getting Started</h2>
           <ol style="font-size:13px;color:var(--text-primary);line-height:1.8;margin:0;padding-left:18px;">
             <li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li>
             <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>top</b> are turned off first.</li>
@@ -489,7 +489,7 @@
         </div>
 
         <div class="card">
-          <h2>Power Guard (Core)</h2>
+          <h2 data-i18n="powerGuardCore">Power Guard (Core)</h2>
           <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.</p>
           <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
             <li><b>Normal profile</b> — acts at 100% of your limit.</li>
@@ -501,7 +501,7 @@
         </div>
 
         <div class="card">
-          <h2>Smart EV Charging</h2>
+          <h2 data-i18n="smartEvCharging">Smart EV Charging</h2>
           <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 10px;">Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:</p>
           <ol style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
             <li><b>Devices tab</b> — enable your EV charger and set action to <b>Dynamic Current</b>.</li>
@@ -537,7 +537,7 @@
         </div>
 
         <div class="card">
-          <h2>Modes (Home / Night / Away / Holiday)</h2>
+          <h2 data-i18n="modesTitle">Modes (Home / Night / Away / Holiday)</h2>
           <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;">Find modes under <b>🧠 Smart → Modes</b> (when Smart Price Control is ON) or <b>🌡️ Heaters</b> tab (when OFF). Each mode lets you set per-device preferences:</p>
           <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0;padding-left:18px;">
             <li><b>Switches</b> — On / Off</li>
@@ -549,7 +549,7 @@
         </div>
 
         <div class="card">
-          <h2>Supported Hardware</h2>
+          <h2 data-i18n="supportedHardware">Supported Hardware</h2>
           <table style="width:100%;font-size:12px;border-collapse:collapse;">
             <tr style="border-bottom:1px solid var(--border-light);">
               <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">EV Charger</td>
@@ -571,8 +571,8 @@
         </div>
 
         <div class="card" style="text-align:center;">
-          <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">Found a bug or have a question?</div>
-          <div style="font-size:12px;color:var(--text-muted);">Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b></div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;" data-i18n="bugReport">Found a bug or have a question?</div>
+          <div style="font-size:12px;color:var(--text-muted);" data-i18n-html="bugReportLink">Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b></div>
         </div>
 
       </div><!-- /#overview-panel-help -->
@@ -582,11 +582,11 @@
     <div id="tab-consumption" style="display:none">
 
       <div class="card">
-        <h2>Power Consumption by Device</h2>
+        <h2 data-i18n="powerConsumption">Power Consumption by Device</h2>
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5;">
           📊 <strong>Read-only monitoring.</strong> This tab shows live power readings from all your Homey devices. It has no effect on the system — nothing here controls or changes any device.
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:500">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:500" data-i18n="filterByType">
           Filter by device type
         </div>
         <div id="device-type-filters" style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:8px;">
@@ -611,7 +611,7 @@
           </tbody>
         </table>
         <div style="font-size:11px;color:var(--text-tertiary);margin-top:12px;text-align:right;">
-          Last updated: <span id="consumption-time">–</span>
+          <span data-i18n="lastUpdated">Last updated:</span> <span id="consumption-time">–</span>
         </div>
       </div>
 
@@ -622,11 +622,11 @@
 
       <div class="card" style="padding-bottom:8px;">
         <div style="margin-bottom:10px;">
-          <h2 style="margin:0 0 2px;">Thermostats</h2>
+          <h2 style="margin:0 0 2px;" data-i18n="thermostats">Thermostats</h2>
           <div style="font-size:11px;color:var(--text-muted);"><span id="floorheater-count">–</span> found · auto-refreshes</div>
         </div>
         <div id="floorheater-list" class="heater-list">
-          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Loading…</div>
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;" data-i18n="loadingHeaters">Loading…</div>
         </div>
       </div>
 
@@ -636,29 +636,29 @@
     <div id="tab-log" style="display:none">
 
       <div class="card">
-        <h2>Diagnostic Log</h2>
-        <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px 0;">
+        <h2 data-i18n="diagnosticLog">Diagnostic Log</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin:0 0 12px 0;" data-i18n="diagnosticLogDesc">
           Consolidated diagnostic log for remote debugging. Use filter buttons to view specific categories, and copy buttons to share data.
         </p>
 
         <!-- Filter buttons -->
         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">
-          <button class="btn-secondary log-filter-btn active" data-filter="all" onclick="filterAppLog('all')" style="font-size:11px; padding:4px 10px;">All</button>
-          <button class="btn-secondary log-filter-btn" data-filter="han" onclick="filterAppLog('han')" style="font-size:11px; padding:4px 10px; border-left:3px solid #34c759;">HAN</button>
-          <button class="btn-secondary log-filter-btn" data-filter="charger" onclick="filterAppLog('charger')" style="font-size:11px; padding:4px 10px; border-left:3px solid #007aff;">Charger</button>
-          <button class="btn-secondary log-filter-btn" data-filter="mitigation" onclick="filterAppLog('mitigation')" style="font-size:11px; padding:4px 10px; border-left:3px solid #ff9500;">Mitigation</button>
-          <button class="btn-secondary log-filter-btn" data-filter="energy" onclick="filterAppLog('energy')" style="font-size:11px; padding:4px 10px; border-left:3px solid #af52de;">Energy</button>
-          <button class="btn-secondary log-filter-btn" data-filter="cache" onclick="filterAppLog('cache')" style="font-size:11px; padding:4px 10px; border-left:3px solid #5ac8fa;">Cache</button>
-          <button class="btn-secondary log-filter-btn" data-filter="system" onclick="filterAppLog('system')" style="font-size:11px; padding:4px 10px; border-left:3px solid #8e8e93;">System</button>
+          <button class="btn-secondary log-filter-btn active" data-filter="all" onclick="filterAppLog('all')" style="font-size:11px; padding:4px 10px;" data-i18n="filterAll">All</button>
+          <button class="btn-secondary log-filter-btn" data-filter="han" onclick="filterAppLog('han')" style="font-size:11px; padding:4px 10px; border-left:3px solid #34c759;" data-i18n="filterHan">HAN</button>
+          <button class="btn-secondary log-filter-btn" data-filter="charger" onclick="filterAppLog('charger')" style="font-size:11px; padding:4px 10px; border-left:3px solid #007aff;" data-i18n="filterCharger">Charger</button>
+          <button class="btn-secondary log-filter-btn" data-filter="mitigation" onclick="filterAppLog('mitigation')" style="font-size:11px; padding:4px 10px; border-left:3px solid #ff9500;" data-i18n="filterMitigation">Mitigation</button>
+          <button class="btn-secondary log-filter-btn" data-filter="energy" onclick="filterAppLog('energy')" style="font-size:11px; padding:4px 10px; border-left:3px solid #af52de;" data-i18n="filterEnergy">Energy</button>
+          <button class="btn-secondary log-filter-btn" data-filter="cache" onclick="filterAppLog('cache')" style="font-size:11px; padding:4px 10px; border-left:3px solid #5ac8fa;" data-i18n="filterCache">Cache</button>
+          <button class="btn-secondary log-filter-btn" data-filter="system" onclick="filterAppLog('system')" style="font-size:11px; padding:4px 10px; border-left:3px solid #8e8e93;" data-i18n="filterSystem">System</button>
         </div>
 
         <!-- Copy and auto-refresh controls -->
         <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; align-items:center;">
-          <button class="btn-secondary" onclick="copyAppLog('filtered')" style="font-size:11px; padding:4px 10px;">Copy Filtered</button>
-          <button class="btn-secondary" onclick="copyAppLog('all')" style="font-size:11px; padding:4px 10px;">Copy All JSON</button>
-          <button class="btn-secondary" onclick="loadAppLog()" style="font-size:11px; padding:4px 10px;">Refresh</button>
+          <button class="btn-secondary" onclick="copyAppLog('filtered')" style="font-size:11px; padding:4px 10px;" data-i18n="copyFiltered">Copy Filtered</button>
+          <button class="btn-secondary" onclick="copyAppLog('all')" style="font-size:11px; padding:4px 10px;" data-i18n="copyAllJSON">Copy All JSON</button>
+          <button class="btn-secondary" onclick="loadAppLog()" style="font-size:11px; padding:4px 10px;" data-i18n="refresh">Refresh</button>
           <label style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-left:auto;">
-            <input type="checkbox" id="log-auto-refresh" onchange="toggleLogAutoRefresh(this.checked)"> Auto-refresh (5s)
+            <input type="checkbox" id="log-auto-refresh" onchange="toggleLogAutoRefresh(this.checked)"> <span data-i18n="autoRefresh">Auto-refresh (5s)</span>
           </label>
         </div>
 
@@ -666,52 +666,52 @@
 
         <!-- App log entries -->
         <div id="app-log-entries" style="font-family:monospace; font-size:11px; background:var(--bg-surface); border-radius:8px; padding:10px; max-height:400px; overflow-y:auto; white-space:pre-wrap; word-break:break-all;">
-          <span style="color:var(--text-muted)">Loading log data...</span>
+          <span style="color:var(--text-muted)" data-i18n="loadingLog">Loading log data...</span>
         </div>
       </div>
 
       <!-- HAN Diagnostic Summary -->
       <div class="card">
-        <h2>HAN Meter Summary</h2>
+        <h2 data-i18n="hanMeterSummary">HAN Meter Summary</h2>
         <div id="log-han-summary" style="font-size:12px;">
-          <span style="color:var(--text-muted)">Loading...</span>
+          <span style="color:var(--text-muted)" data-i18n="loading">Loading...</span>
         </div>
         <div style="margin-top:8px;">
-          <button class="btn-secondary" onclick="copyAppLog('han-diagnostic')" style="font-size:11px; padding:4px 10px;">Copy HAN Diagnostic JSON</button>
+          <button class="btn-secondary" onclick="copyAppLog('han-diagnostic')" style="font-size:11px; padding:4px 10px;" data-i18n="copyHanDiagnosticJSON">Copy HAN Diagnostic JSON</button>
         </div>
       </div>
 
       <!-- Mitigation Scan Results -->
       <div class="card">
-        <h2>Last Mitigation Scan</h2>
+        <h2 data-i18n="lastMitigationScanTitle">Last Mitigation Scan</h2>
         <div id="log-mitigation-scan" style="font-size:12px;">
-          <span style="color:var(--text-muted)">Loading...</span>
+          <span style="color:var(--text-muted)" data-i18n="loading">Loading...</span>
         </div>
         <div style="margin-top:8px;">
-          <button class="btn-secondary" onclick="copyAppLog('mitigation-scan')" style="font-size:11px; padding:4px 10px;">Copy Mitigation Scan JSON</button>
+          <button class="btn-secondary" onclick="copyAppLog('mitigation-scan')" style="font-size:11px; padding:4px 10px;" data-i18n="copyMitigationScanJSON">Copy Mitigation Scan JSON</button>
         </div>
       </div>
 
       <!-- System Info -->
       <div class="card">
-        <h2>System Info</h2>
+        <h2 data-i18n="systemInfo">System Info</h2>
         <div id="log-system-info" style="font-size:12px;">
-          <span style="color:var(--text-muted)">Loading...</span>
+          <span style="color:var(--text-muted)" data-i18n="loading">Loading...</span>
         </div>
         <div style="margin-top:8px;">
-          <button class="btn-secondary" onclick="copyAppLog('system-info')" style="font-size:11px; padding:4px 10px;">Copy System Info JSON</button>
+          <button class="btn-secondary" onclick="copyAppLog('system-info')" style="font-size:11px; padding:4px 10px;" data-i18n="copySystemInfoJSON">Copy System Info JSON</button>
         </div>
       </div>
 
       <!-- Device Firmware Info -->
       <div class="card">
-        <h2>Device Firmware Info</h2>
-        <p style="font-size:12px; color:var(--text-muted); margin:0 0 10px 0;">Search devices by name or driver to read their firmware version from Homey.</p>
+        <h2 data-i18n="deviceFirmwareInfo">Device Firmware Info</h2>
+        <p style="font-size:12px; color:var(--text-muted); margin:0 0 10px 0;" data-i18n="deviceFirmwareInfoDesc">Search devices by name or driver to read their firmware version from Homey.</p>
         <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
-          <input type="text" id="firmware-search" placeholder="e.g. namron, dimmer…" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-surface); color:var(--text-primary);" onkeydown="if(event.key==='Enter') loadFirmwareInfo()">
-          <button class="btn-secondary" onclick="loadFirmwareInfo()" style="font-size:12px; padding:6px 14px;">Search</button>
+          <input type="text" id="firmware-search" placeholder="e.g. namron, dimmer…" data-i18n="firmwarePlaceholder" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-surface); color:var(--text-primary);" onkeydown="if(event.key==='Enter') loadFirmwareInfo()">
+          <button class="btn-secondary" onclick="loadFirmwareInfo()" style="font-size:12px; padding:6px 14px;" data-i18n="search">Search</button>
         </div>
-        <div id="firmware-results" style="font-size:12px; color:var(--text-muted);">Enter a search term above and click Search.</div>
+        <div id="firmware-results" style="font-size:12px; color:var(--text-muted);" data-i18n="firmwareInitialText">Enter a search term above and click Search.</div>
       </div>
 
     </div><!-- /#tab-log -->
@@ -721,9 +721,9 @@
 
       <!-- Smart sub-tab bar -->
       <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
-        <button id="stb-price" onclick="showSmartSubTab('price')" class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;">💰 Price</button>
-        <button id="stb-modes" onclick="showSmartSubTab('modes')" class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;">🏠 Modes</button>
-        <button id="stb-ev"    onclick="showSmartSubTab('ev')"    class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;">🔌 EV</button>
+        <button id="stb-price" onclick="showSmartSubTab('price')" class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartPriceTab">💰 Price</button>
+        <button id="stb-modes" onclick="showSmartSubTab('modes')" class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartModesTab">🏠 Modes</button>
+        <button id="stb-ev"    onclick="showSmartSubTab('ev')"    class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartEvTab">🔌 EV</button>
       </div>
 
       <!-- ── Price panel ── -->
@@ -731,28 +731,28 @@
 
       <!-- Status card -->
       <div class="card">
-        <h2>Spot Price Now</h2>
+        <h2 data-i18n="spotPriceNow">Spot Price Now</h2>
         <div class="status-grid" style="grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
           <div class="stat-box">
-            <div class="stat-label">Price level</div>
+            <div class="stat-label" data-i18n="priceLevel">Price level</div>
             <div class="stat-value" id="price-level-badge" style="font-size:15px">–</div>
             <div class="stat-sub" id="price-ore-now">–</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Charger mode</div>
+            <div class="stat-label" data-i18n="chargerMode">Charger mode</div>
             <div class="stat-value" id="price-charge-badge" style="font-size:15px">–</div>
             <div class="stat-sub" id="price-ore-next">–</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Next cheap hour</div>
+            <div class="stat-label" data-i18n="nextCheapHour">Next cheap hour</div>
             <div class="stat-value" id="price-next-cheap" style="font-size:15px">–</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Next expensive hour</div>
+            <div class="stat-label" data-i18n="nextExpensiveHour">Next expensive hour</div>
             <div class="stat-value" id="price-next-expensive" style="font-size:15px">–</div>
           </div>
         </div>
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;font-weight:500">18-HOUR PRICE TIMELINE</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;font-weight:500" data-i18n="priceTimeline">18-HOUR PRICE TIMELINE</div>
         <div id="price-chart" style="display:flex;align-items:flex-end;gap:2px;height:80px;background:var(--bg-surface);border-radius:8px;padding:8px 8px 0 8px;overflow-x:auto"></div>
         <div id="price-chart-labels" style="display:flex;gap:2px;padding:0 8px;margin-top:2px;overflow-x:hidden;"></div>
         <div id="price-chart-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:10px;color:var(--text-muted)">
@@ -770,11 +770,11 @@
 
       <!-- Settings card -->
       <div class="card">
-        <h2>Price Control Settings</h2>
+        <h2 data-i18n="priceControlSettings">Price Control Settings</h2>
         <div class="row">
           <div class="label-group">
-            <label>Price area</label>
-            <span class="hint">Norwegian spot price area (NO1–NO5). Default: NO4 (Nord-Norge).</span>
+            <label data-i18n="priceArea">Price area</label>
+            <span class="hint" data-i18n="priceAreaHint">Norwegian spot price area (NO1–NO5). Default: NO4 (Nord-Norge).</span>
           </div>
           <div class="control">
             <select id="ps-priceArea" onchange="priceSaveSettings()">
@@ -788,8 +788,8 @@
         </div>
         <div class="row">
           <div class="label-group">
-            <label>Night discount (øre/kWh)</label>
-            <span class="hint">Subtracted from spot price between 22:00–06:00 to reflect lower nettleie at night.</span>
+            <label data-i18n="nightDiscount">Night discount (øre/kWh)</label>
+            <span class="hint" data-i18n="nightDiscountHint">Subtracted from spot price between 22:00–06:00 to reflect lower nettleie at night.</span>
           </div>
           <div class="control">
             <input type="number" id="ps-nightDiscountOre" min="0" max="50" step="1" value="12" onchange="priceSaveSettings()">
@@ -797,9 +797,9 @@
           </div>
         </div>
         <div class="row">
-          <div class="label-group">
-            <label>Charger limit when <b>lav</b></label>
-            <span class="hint">“Lav” mode caps the charger at this fraction of its circuit limit (e.g. 50% of 16A = 8A).</span>
+          <div class=”label-group”>
+            <label data-i18n-html=”chargerLimitLav”>Charger limit when <b>lav</b></label>
+            <span class=”hint” data-i18n=”chargerLimitLavHint”>”Lav” mode caps the charger at this fraction of its circuit limit (e.g. 50% of 16A = 8A).</span>
           </div>
           <div class="control">
             <input type="range" id="ps-capLav" min="10" max="90" step="5" value="50"
@@ -809,16 +809,16 @@
         </div>
         <div class="row">
           <div class="label-group">
-            <label>Norgespris</label>
-            <span class="hint">Enable if you have Norgespris. You pay a fixed flat rate instead of spot price. Price control will use this fixed rate for all hours.</span>
+            <label data-i18n="norgespris">Norgespris</label>
+            <span class="hint" data-i18n="norgesprisHint">Enable if you have Norgespris. You pay a fixed flat rate instead of spot price. Price control will use this fixed rate for all hours.</span>
           </div>
           <div class="control"><label class="toggle"><input type="checkbox" id="ps-norgespris" onchange="psToggleNorgespris(); priceSaveSettings();"><span class="slider"></span></label></div>
         </div>
         <div id="ps-norgespris-rows" style="display:none">
           <div class="row">
             <div class="label-group">
-              <label>Flat rate</label>
-              <span class="hint">The fixed price you pay per kWh incl. VAT. Default 50 øre. Use 40 øre if you are in Nordland, Troms or Finnmark (no VAT on electricity).</span>
+              <label data-i18n="flatRate">Flat rate</label>
+              <span class="hint" data-i18n="flatRateHint">The fixed price you pay per kWh incl. VAT. Default 50 øre. Use 40 øre if you are in Nordland, Troms or Finnmark (no VAT on electricity).</span>
             </div>
             <div class="control">
               <input type="number" id="ps-norgesprisFlatOre" min="1" max="200" step="1" value="50" onchange="priceSaveSettings()">
@@ -835,8 +835,8 @@
 
       <!-- Night schedule -->
       <div class="card" style="padding:10px 14px;">
-        <h2 style="margin:0 0 4px;font-size:14px;">Night Schedule</h2>
-        <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px 0;">Automatically switches between Home and Night mode at the chosen times.</p>
+        <h2 style="margin:0 0 4px;font-size:14px;" data-i18n="nightSchedule">Night Schedule</h2>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px 0;" data-i18n="nightScheduleDesc">Automatically switches between Home and Night mode at the chosen times.</p>
         <div id="modes-sched-custom" style="display:flex;align-items:center;gap:10px;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
             <button class="btn-small btn-secondary" onclick="schedStep('from',10)"  style="padding:1px 10px;font-size:11px;">▲</button>
@@ -850,10 +850,10 @@
             <button class="btn-small btn-secondary" onclick="schedStep('to',-10)" style="padding:1px 10px;font-size:11px;">▼</button>
           </div>
           <div style="margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
-            <span style="font-size:11px;color:var(--text-muted);">Schedule type</span>
+            <span style="font-size:11px;color:var(--text-muted);" data-i18n="scheduleType">Schedule type</span>
             <select id="modes-sched-type" onchange="saveNightSchedule()" style="font-size:12px;padding:3px 6px;">
-              <option value="custom">Custom time</option>
-              <option value="homey">Use Homey night hours</option>
+              <option value="custom" data-i18n="customTime">Custom time</option>
+              <option value="homey" data-i18n="homeyNightHours">Use Homey night hours</option>
             </select>
           </div>
         </div>
@@ -861,16 +861,16 @@
 
       <!-- Per-device preferences -->
       <div class="card">
-        <h2>Device Preferences</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;">
+        <h2 data-i18n="devicePreferences">Device Preferences</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;" data-i18n="devicePreferencesDesc">
           Set the desired state for each managed device in each mode. Power Guard still overrides these during high-power events.
         </p>
         <!-- Sub-tab bar -->
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-          <button id="msub-home"    onclick="showModeSubTab('home')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🏠 Home</button>
-          <button id="msub-night"   onclick="showModeSubTab('night')"   class="btn-secondary" style="font-size:12px;padding:5px 12px;">🌙 Night</button>
-          <button id="msub-away"    onclick="showModeSubTab('away')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🚗 Away</button>
-          <button id="msub-holiday" onclick="showModeSubTab('holiday')" class="btn-secondary" style="font-size:12px;padding:5px 12px;">❄️ Holiday</button>
+          <button id="msub-home"    onclick="showModeSubTab('home')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeHome">🏠 Home</button>
+          <button id="msub-night"   onclick="showModeSubTab('night')"   class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeNight">🌙 Night</button>
+          <button id="msub-away"    onclick="showModeSubTab('away')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeAway">🚗 Away</button>
+          <button id="msub-holiday" onclick="showModeSubTab('holiday')" class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeHoliday">❄️ Holiday</button>
         </div>
         <div id="modes-dev-home"></div>
         <div id="modes-dev-night"   style="display:none"></div>
@@ -885,28 +885,28 @@
 
       <!-- Smart Charging Status card -->
       <div class="card" style="padding:10px 14px;">
-        <h2>Smart Charging Status</h2>
-        <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px 0;">Live status from Power Guard — updated automatically.</p>
+        <h2 data-i18n="smartChargingStatus">Smart Charging Status</h2>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px 0;" data-i18n="smartChargingStatusDesc">Live status from Power Guard — updated automatically.</p>
 
         <!-- Global price/mode boxes -->
         <div class="status-grid" style="grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
           <div class="stat-box">
-            <div class="stat-label">Charge mode</div>
+            <div class="stat-label" data-i18n="chargeMode">Charge mode</div>
             <div class="stat-value" id="ev-lademodus" style="font-size:15px">–</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Price level</div>
+            <div class="stat-label" data-i18n="priceLevel">Price level</div>
             <div class="stat-value" id="ev-strompris" style="font-size:15px">–</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Next cheap hour</div>
+            <div class="stat-label" data-i18n="nextCheapHour">Next cheap hour</div>
             <div class="stat-value" id="ev-neste-billig" style="font-size:15px">–</div>
           </div>
         </div>
 
         <!-- Per-charger status rows (rendered dynamically) -->
         <div id="ev-charger-rows" style="margin-bottom:12px">
-          <div style="color:var(--text-muted);font-size:12px;padding:6px 0;">Loading charger status…</div>
+          <div style="color:var(--text-muted);font-size:12px;padding:6px 0;" data-i18n="loadingChargerStatus">Loading charger status…</div>
         </div>
 
         <!-- Hidden legacy elements kept for any code that still references them -->
@@ -945,8 +945,8 @@
 
         <div class="row">
           <div class="label-group">
-            <label>Hours needed (if no car device linked)</label>
-            <span class="hint">How many hours are needed to charge the car. Auto-calculated when a car device is linked or battery % is reported via Flow. Set a fixed number here if neither is configured.</span>
+            <label data-i18n="hoursNeeded">Hours needed (if no car device linked)</label>
+            <span class="hint" data-i18n="hoursNeededHint">How many hours are needed to charge the car. Auto-calculated when a car device is linked or battery % is reported via Flow. Set a fixed number here if neither is configured.</span>
           </div>
           <div class="control">
             <input type="number" id="ev-ladebehov-timer" min="0" max="24" step="1" value="0">
@@ -955,8 +955,8 @@
         </div>
         <div class="row">
           <div class="label-group">
-            <label>Finish charging by</label>
-            <span class="hint">e.g. 07:00. Power Guard picks the N cheapest hours before this time and charges at max only during those. Leave empty to use price-only mode.</span>
+            <label data-i18n="finishChargingBy">Finish charging by</label>
+            <span class="hint" data-i18n="finishChargingByHint">e.g. 07:00. Power Guard picks the N cheapest hours before this time and charges at max only during those. Leave empty to use price-only mode.</span>
           </div>
           <div class="control">
             <input type="text" id="ev-ferdig-ladet-kl" placeholder="07:00" maxlength="5" style="width:80px;text-align:center;">
@@ -964,21 +964,21 @@
         </div>
 
         <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;">
-          <button class="btn-secondary" onclick="loadEvChargingStatus()">Refresh</button>
-          <button class="btn-primary" onclick="saveEvChargingSettings()">Save schedule</button>
+          <button class="btn-secondary" onclick="loadEvChargingStatus()" data-i18n="refresh">Refresh</button>
+          <button class="btn-primary" onclick="saveEvChargingSettings()" data-i18n="saveSchedule">Save schedule</button>
         </div>
         <div id="ev-save-status" style="font-size:12px;color:var(--text-muted);margin-top:6px;text-align:right;"></div>
       </div>
 
       <div class="card" style="padding:10px 14px;">
-        <h2>EV Charger Preferences</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;">Set whether each EV charger is allowed or paused in each mode. Power Guard's hard power limit always takes priority.</p>
+        <h2 data-i18n="evChargerPreferences">EV Charger Preferences</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px 0;" data-i18n="evChargerPreferencesDesc">Set whether each EV charger is allowed or paused in each mode. Power Guard's hard power limit always takes priority.</p>
         <!-- Mode sub-tab bar -->
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-          <button id="evsub-home"    onclick="showEvSubTab('home')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🏠 Home</button>
-          <button id="evsub-night"   onclick="showEvSubTab('night')"   class="btn-secondary" style="font-size:12px;padding:5px 12px;">🌙 Night</button>
-          <button id="evsub-away"    onclick="showEvSubTab('away')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;">🚗 Away</button>
-          <button id="evsub-holiday" onclick="showEvSubTab('holiday')" class="btn-secondary" style="font-size:12px;padding:5px 12px;">❄️ Holiday</button>
+          <button id="evsub-home"    onclick="showEvSubTab('home')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeHome">🏠 Home</button>
+          <button id="evsub-night"   onclick="showEvSubTab('night')"   class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeNight">🌙 Night</button>
+          <button id="evsub-away"    onclick="showEvSubTab('away')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeAway">🚗 Away</button>
+          <button id="evsub-holiday" onclick="showEvSubTab('holiday')" class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeHoliday">❄️ Holiday</button>
         </div>
         <div id="ev-dev-home"></div>
         <div id="ev-dev-night"   style="display:none"></div>
@@ -1004,8 +1004,8 @@
           </span>
         </div>
 
-        <h2>Device priority</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;line-height:1.5">
+        <h2 data-i18n="devicePriority">Device priority</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;line-height:1.5" data-i18n-html="devicePriorityDesc">
           Toggle a device <b>on</b> to let Power Guard control it. Drag &#9776; to set the order —
           devices higher in the list are turned off first.
         </p>
@@ -1023,7 +1023,7 @@
   </div><!-- /#main-content -->
 </div>
 
-<div id="toast">Settings saved!</div>
+<div id="toast" data-i18n="settingsSaved">Settings saved!</div>
 
 <!-- Debug log panel -->
 <div id="debug-panel" style="position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow-y:auto;background:#1a1a2e;color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;z-index:9999;display:none;border-top:2px solid #e8441a;">
@@ -1038,6 +1038,270 @@
 </div>
 
 <script>
+  // ── i18n ──────────────────────────────────────────────────────────────────
+  var _lang = 'en';
+  var _T = {
+    en: {
+      subtitle: 'Real-time power monitoring via HAN meter.<br>Auto-controls devices to stay within your grid limit.',
+      connecting: 'Connecting to Homey\u2026',
+      connectTitle: 'Connect to Homey API',
+      connectStepIntro: 'Power Guard needs a Personal Access Token to read and save settings.',
+      connect: 'Connect',
+      tabHome: 'Home', tabDevices: 'Devices', tabPower: 'Power',
+      tabHeaters: 'Heaters', tabLog: 'Log', tabSmart: 'Smart',
+      subOverview: '\uD83C\uDFE0 Overview', subSettings: '\u2699\uFE0F Settings',
+      subSystem: '\uD83D\uDCCA System', subHelp: '\u2753 Help',
+      activeModeLabel: 'ACTIVE MODE',
+      modeHome: '\uD83C\uDFE0\u00A0Home', modeNight: '\uD83C\uDF19\u00A0Night',
+      modeAway: '\uD83D\uDE97\u00A0Away', modeHoliday: '\u2744\uFE0F\u00A0Holiday',
+      liveStatus: 'Live Status', powerNow: 'Power right now',
+      ofLimit: 'of', wLimit: 'W limit', devicesControlled: 'Devices controlled',
+      evChargersLabel: 'EV CHARGERS',
+      recentActivity: '\u25BC RECENT ACTIVITY',
+      recentActivityCollapsed: '\u25B6 RECENT ACTIVITY',
+      noActivityYet: 'No activity yet.',
+      lastMitigationScan: '\u25BC LAST MITIGATION SCAN',
+      lastMitigationScanCollapsed: '\u25B6 LAST MITIGATION SCAN',
+      noScanYet: 'No scan data yet.',
+      waitingData: 'Waiting for data...',
+      protectionMode: 'Protection mode',
+      protectionHint: '<b>Normal</b> \u2014 full limit. &nbsp;<b>Strict</b> \u2014 95% of limit.',
+      pgDescription: 'Monitors your home\'s total power consumption and automatically turns devices off to keep usage below your grid connection limit. When power drops back down, devices are restored.',
+      smartPriceTitle: 'Smart Price Control',
+      smartPriceDescription: 'Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity \u2014 charging fast when power is cheap, slowing down when it\'s expensive. Power Guard\'s hard safety limit always takes priority.',
+      advancedModeActive: 'Advanced Mode Active',
+      advancedModeDesc: 'Smart Price Control enables an advanced interface for fine-tuning EV charger behaviour, device modes, and dynamic price schedules. Make sure you understand each setting before making changes.<br><br>The <b>\uD83C\uDF21\uFE0F Heaters</b> tab has been replaced by the <b>\uD83E\uDDE0 Smart</b> tab, which gives you access to Price settings, Modes, and EV charger control.',
+      powerLimit: 'Power Limit', maximumPower: 'Maximum power (W)',
+      maximumPowerHint: 'Your grid connection limit. Typical: 10\u202f000\u202fW (10\u202fkW) or 15\u202f000\u202fW (15\u202fkW).',
+      advancedSettings: 'Advanced settings',
+      phase1Limit: 'Phase 1 limit (A)', phase2Limit: 'Phase 2 limit (A)', phase3Limit: 'Phase 3 limit (A)',
+      zeroDisabled: '0 = disabled',
+      reactionSpeed: 'Reaction speed', reactionSpeedHint: 'Readings to average. Lower = faster.',
+      spikeThreshold: 'Spike ignore threshold', spikeThresholdHint: 'Readings \u00d7 avg before ignoring as a spike.',
+      missingDataTimeout: 'Missing data timeout',
+      missingDataTimeoutHint: 'Force mitigation if no power reading for this many seconds. 0 = disabled.',
+      dynamicRestoreGuard: 'Dynamic restore guard',
+      dynamicRestoreGuardHint: 'Wait 1\u20135 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.',
+      powerMeter: 'Power Meter', powerMeterDevice: 'Power meter device',
+      powerMeterDeviceHint: 'Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.',
+      autoDetect: 'Auto-detect',
+      discard: 'Discard', saveSettings: 'Save settings', save: 'Save',
+      refresh: 'Refresh', search: 'Search',
+      hanDiagnostics: 'HAN Meter Diagnostics', loading: 'Loading...',
+      copyDiagnosticJSON: 'Copy diagnostic JSON',
+      managedChargers: 'Managed Chargers',
+      loadingChargers: '\u23f3 Loading chargers...',
+      testChargerControl: '\uD83D\uDD0C Test charger control',
+      gettingStarted: 'Getting Started',
+      powerGuardCore: 'Power Guard (Core)',
+      smartEvCharging: 'Smart EV Charging',
+      modesTitle: 'Modes (Home / Night / Away / Holiday)',
+      supportedHardware: 'Supported Hardware',
+      bugReport: 'Found a bug or have a question?',
+      bugReportLink: 'Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
+      powerConsumption: 'Power Consumption by Device',
+      filterByType: 'Filter by device type', lastUpdated: 'Last updated:',
+      thermostats: 'Thermostats', loadingHeaters: 'Loading\u2026',
+      diagnosticLog: 'Diagnostic Log',
+      diagnosticLogDesc: 'Consolidated diagnostic log for remote debugging. Use filter buttons to view specific categories, and copy buttons to share data.',
+      filterAll: 'All', filterHan: 'HAN', filterCharger: 'Charger',
+      filterMitigation: 'Mitigation', filterEnergy: 'Energy', filterCache: 'Cache', filterSystem: 'System',
+      copyFiltered: 'Copy Filtered', copyAllJSON: 'Copy All JSON', autoRefresh: 'Auto-refresh (5s)',
+      loadingLog: 'Loading log data...',
+      hanMeterSummary: 'HAN Meter Summary',
+      lastMitigationScanTitle: 'Last Mitigation Scan',
+      systemInfo: 'System Info',
+      deviceFirmwareInfo: 'Device Firmware Info',
+      deviceFirmwareInfoDesc: 'Search devices by name or driver to read their firmware version from Homey.',
+      firmwarePlaceholder: 'e.g. namron, dimmer\u2026',
+      firmwareInitialText: 'Enter a search term above and click Search.',
+      copyHanDiagnosticJSON: 'Copy HAN Diagnostic JSON',
+      copyMitigationScanJSON: 'Copy Mitigation Scan JSON',
+      copySystemInfoJSON: 'Copy System Info JSON',
+      smartPriceTab: '\uD83D\uDCB0 Price', smartModesTab: '\uD83C\uDFE0 Modes', smartEvTab: '\uD83D\uDD0C EV',
+      spotPriceNow: 'Spot Price Now', priceLevel: 'Price level', chargerMode: 'Charger mode',
+      nextCheapHour: 'Next cheap hour', nextExpensiveHour: 'Next expensive hour',
+      priceTimeline: '18-HOUR PRICE TIMELINE',
+      priceControlSettings: 'Price Control Settings',
+      priceArea: 'Price area', priceAreaHint: 'Norwegian spot price area (NO1\u2013NO5). Default: NO4 (Nord-Norge).',
+      nightDiscount: 'Night discount (\u00f8re/kWh)',
+      nightDiscountHint: 'Subtracted from spot price between 22:00\u201306:00 to reflect lower nettleie at night.',
+      chargerLimitLav: 'Charger limit when <b>lav</b>',
+      chargerLimitLavHint: '"Lav" mode caps the charger at this fraction of its circuit limit (e.g. 50% of 16A = 8A).',
+      norgespris: 'Norgespris',
+      norgesprisHint: 'Enable if you have Norgespris. You pay a fixed flat rate instead of spot price. Price control will use this fixed rate for all hours.',
+      flatRate: 'Flat rate',
+      flatRateHint: 'The fixed price you pay per kWh incl. VAT. Default 50 \u00f8re. Use 40 \u00f8re if you are in Nordland, Troms or Finnmark (no VAT on electricity).',
+      nightSchedule: 'Night Schedule',
+      nightScheduleDesc: 'Automatically switches between Home and Night mode at the chosen times.',
+      scheduleType: 'Schedule type', customTime: 'Custom time', homeyNightHours: 'Use Homey night hours',
+      devicePreferences: 'Device Preferences',
+      devicePreferencesDesc: 'Set the desired state for each managed device in each mode. Power Guard still overrides these during high-power events.',
+      smartChargingStatus: 'Smart Charging Status',
+      smartChargingStatusDesc: 'Live status from Power Guard \u2014 updated automatically.',
+      chargeMode: 'Charge mode', loadingChargerStatus: 'Loading charger status\u2026',
+      evChargerPreferences: 'EV Charger Preferences',
+      evChargerPreferencesDesc: 'Set whether each EV charger is allowed or paused in each mode. Power Guard\'s hard power limit always takes priority.',
+      hoursNeeded: 'Hours needed (if no car device linked)',
+      hoursNeededHint: 'How many hours are needed to charge the car. Auto-calculated when a car device is linked or battery % is reported via Flow. Set a fixed number here if neither is configured.',
+      finishChargingBy: 'Finish charging by',
+      finishChargingByHint: 'e.g. 07:00. Power Guard picks the N cheapest hours before this time and charges at max only during those. Leave empty to use price-only mode.',
+      saveSchedule: 'Save schedule',
+      devicePriority: 'Device priority',
+      devicePriorityDesc: 'Toggle a device <b>on</b> to let Power Guard control it. Drag \u2630 to set the order \u2014 devices higher in the list are turned off first.',
+      settingsSaved: 'Settings saved!',
+      noDevicesFound: 'No devices with power data found',
+      noThermostatsFound: 'No thermostats found',
+      noChargersConfigured: 'No chargers configured',
+      enablePowerGuard: 'Enable Power Guard', disablePowerGuard: 'Disable Power Guard',
+      guardActive: 'Guard active',
+      connectTokenIntro: 'Power Guard needs a Personal Access Token to read and save settings.',
+      connectStep1: 'Go to <b>my.homey.app</b> \u2192 your name \u2192 <b>Account</b> \u2192 <b>Security</b> \u2192 <b>Personal Access Tokens</b>',
+      connectStep2: 'Create a new token with scope <b>homey:manager:api</b>',
+      connectStep3: 'Paste it below (held in memory only for this session).',
+    },
+    no: {
+      subtitle: 'Sanntids effektoverv\u00e5kning via HAN-m\u00e5ler.<br>Styrer enheter automatisk for \u00e5 holde seg under nettgrensen.',
+      connecting: 'Kobler til Homey\u2026',
+      connectTitle: 'Koble til Homey API',
+      connectStepIntro: 'Power Guard trenger et personlig tilgangstoken for \u00e5 lese og lagre innstillinger.',
+      connect: 'Koble til',
+      tabHome: 'Hjem', tabDevices: 'Enheter', tabPower: 'Effekt',
+      tabHeaters: 'Varmere', tabLog: 'Logg', tabSmart: 'Smart',
+      subOverview: '\uD83C\uDFE0 Oversikt', subSettings: '\u2699\uFE0F Innstillinger',
+      subSystem: '\uD83D\uDCCA System', subHelp: '\u2753 Hjelp',
+      activeModeLabel: 'AKTIV MODUS',
+      modeHome: '\uD83C\uDFE0\u00A0Hjem', modeNight: '\uD83C\uDF19\u00A0Natt',
+      modeAway: '\uD83D\uDE97\u00A0Borte', modeHoliday: '\u2744\uFE0F\u00A0Ferie',
+      liveStatus: 'Live status', powerNow: 'Effekt n\u00e5',
+      ofLimit: 'av', wLimit: 'W grense', devicesControlled: 'Enheter styrt',
+      evChargersLabel: 'ELBILLADERE',
+      recentActivity: '\u25BC SISTE AKTIVITET',
+      recentActivityCollapsed: '\u25B6 SISTE AKTIVITET',
+      noActivityYet: 'Ingen aktivitet enn\u00e5.',
+      lastMitigationScan: '\u25BC SISTE TILDELINGSSKANNING',
+      lastMitigationScanCollapsed: '\u25B6 SISTE TILDELINGSSKANNING',
+      noScanYet: 'Ingen skanningsdata enn\u00e5.',
+      waitingData: 'Venter p\u00e5 data...',
+      protectionMode: 'Beskyttelsesmodus',
+      protectionHint: '<b>Normal</b> \u2014 full grense. &nbsp;<b>Streng</b> \u2014 95\u202f% av grensen.',
+      pgDescription: 'Overv\u00e5ker hjemmets totale effektforbruk og sl\u00e5r automatisk av enheter for \u00e5 holde forbruket under nettgrensen. N\u00e5r effekten g\u00e5r ned igjen, gjenopprettes enhetene.',
+      smartPriceTitle: 'Smart priskontroll',
+      smartPriceDescription: 'Justerer automatisk elbilladerhastigheten og andre styrbare laster basert p\u00e5 gjeldende spotpris p\u00e5 str\u00f8m \u2014 lader raskt n\u00e5r str\u00f8m er billig, bremser ned n\u00e5r den er dyr. Power Guards harde sikkerhetsgrense har alltid prioritet.',
+      advancedModeActive: 'Avansert modus aktiv',
+      advancedModeDesc: 'Smart priskontroll aktiverer et avansert grensesnitt for finjustering av elbilladeroppf\u00f8rsel, enhetsmodi og dynamiske prisplaner. S\u00f8rg for at du forst\u00e5r hver innstilling f\u00f8r du gj\u00f8r endringer.<br><br>Fanen <b>\uD83C\uDF21\uFE0F Varmere</b> er erstattet av fanen <b>\uD83E\uDDE0 Smart</b>, som gir tilgang til prisinnstillinger, modi og elbillader-styring.',
+      powerLimit: 'Effektgrense', maximumPower: 'Maks effekt (W)',
+      maximumPowerHint: 'Din nettilkoblingsgrense. Typisk: 10\u202f000\u202fW (10\u202fkW) eller 15\u202f000\u202fW (15\u202fkW).',
+      advancedSettings: 'Avanserte innstillinger',
+      phase1Limit: 'Fase 1-grense (A)', phase2Limit: 'Fase 2-grense (A)', phase3Limit: 'Fase 3-grense (A)',
+      zeroDisabled: '0 = deaktivert',
+      reactionSpeed: 'Reaksjonshastighet', reactionSpeedHint: 'Avlesninger \u00e5 gjennomsnittes. Lavere = raskere.',
+      spikeThreshold: 'Piggfiltergrense', spikeThresholdHint: 'Avlesninger \u00d7 snitt f\u00f8r den ignoreres som en pigg.',
+      missingDataTimeout: 'Tidsavbrudd for manglende data',
+      missingDataTimeoutHint: 'Tving begrensning hvis ingen effektavlesning i dette antall sekunder. 0 = deaktivert.',
+      dynamicRestoreGuard: 'Dynamisk gjenopprettingsvakt',
+      dynamicRestoreGuardHint: 'Vent 1\u20135 min etter at en enhet er sl\u00e5tt av f\u00f8r den gjenopprettes. Lengre ventetid n\u00e5r mer av timen gjenst\u00e5r. Forhindrer rask veksling.',
+      powerMeter: 'Effektm\u00e5ler', powerMeterDevice: 'Effektm\u00e5lerenhet',
+      powerMeterDeviceHint: 'Velg hvilken enhet som skal brukes til sanntids effektoverv\u00e5kning. "Auto-detekter" finner HAN-m\u00e5lere automatisk.',
+      autoDetect: 'Auto-detekter',
+      discard: 'Forkast', saveSettings: 'Lagre innstillinger', save: 'Lagre',
+      refresh: 'Oppdater', search: 'S\u00f8k',
+      hanDiagnostics: 'HAN-m\u00e5ler diagnostikk', loading: 'Laster...',
+      copyDiagnosticJSON: 'Kopier diagnostikk-JSON',
+      managedChargers: 'Administrerte ladere',
+      loadingChargers: '\u23f3 Laster ladere...',
+      testChargerControl: '\uD83D\uDD0C Test laderstyring',
+      gettingStarted: 'Kom i gang',
+      powerGuardCore: 'Power Guard (kjerne)',
+      smartEvCharging: 'Smart elbillading',
+      modesTitle: 'Modi (Hjem / Natt / Borte / Ferie)',
+      supportedHardware: 'St\u00f8ttet maskinvare',
+      bugReport: 'Funnet en feil eller har du sp\u00f8rsm\u00e5l?',
+      bugReportLink: 'Rapporter det p\u00e5 GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
+      powerConsumption: 'Effektforbruk per enhet',
+      filterByType: 'Filtrer etter enhetstype', lastUpdated: 'Sist oppdatert:',
+      thermostats: 'Termostater', loadingHeaters: 'Laster\u2026',
+      diagnosticLog: 'Diagnostisk logg',
+      diagnosticLogDesc: 'Konsolidert diagnostisk logg for fjerndebuggging. Bruk filterknapper for \u00e5 se spesifikke kategorier, og kopieringsknapper for \u00e5 dele data.',
+      filterAll: 'Alle', filterHan: 'HAN', filterCharger: 'Lader',
+      filterMitigation: 'Begrensning', filterEnergy: 'Energi', filterCache: 'Cache', filterSystem: 'System',
+      copyFiltered: 'Kopier filtrert', copyAllJSON: 'Kopier alle JSON', autoRefresh: 'Auto-oppdatering (5s)',
+      loadingLog: 'Laster loggdata...',
+      hanMeterSummary: 'HAN-m\u00e5ler sammendrag',
+      lastMitigationScanTitle: 'Siste tildelingsskanning',
+      systemInfo: 'Systeminformasjon',
+      deviceFirmwareInfo: 'Enhets fastvare-info',
+      deviceFirmwareInfoDesc: 'S\u00f8k etter enheter etter navn eller driver for \u00e5 lese fastvareversjon fra Homey.',
+      firmwarePlaceholder: 'f.eks. namron, dimmer\u2026',
+      firmwareInitialText: 'Skriv inn et s\u00f8keord ovenfor og klikk S\u00f8k.',
+      copyHanDiagnosticJSON: 'Kopier HAN diagnostikk-JSON',
+      copyMitigationScanJSON: 'Kopier tildelingsskanning-JSON',
+      copySystemInfoJSON: 'Kopier systeminformasjon-JSON',
+      smartPriceTab: '\uD83D\uDCB0 Pris', smartModesTab: '\uD83C\uDFE0 Modi', smartEvTab: '\uD83D\uDD0C EV',
+      spotPriceNow: 'Spotpris n\u00e5', priceLevel: 'Prisniv\u00e5', chargerMode: 'Ladermodus',
+      nextCheapHour: 'Neste billige time', nextExpensiveHour: 'Neste dyre time',
+      priceTimeline: '18-TIMERS PRISTIDSLINJE',
+      priceControlSettings: 'Priskontrollinnstillinger',
+      priceArea: 'Prisomr\u00e5de', priceAreaHint: 'Norsk spotprisomr\u00e5de (NO1\u2013NO5). Standard: NO4 (Nord-Norge).',
+      nightDiscount: 'Nattrabatt (\u00f8re/kWh)',
+      nightDiscountHint: 'Trekkes fra spotprisen mellom 22:00\u201306:00 for \u00e5 gjenspeile lavere nettleie om natten.',
+      chargerLimitLav: 'Ladergrense ved <b>lav</b>',
+      chargerLimitLavHint: '"Lav"-modus begrenser laderen til denne andelen av kretsgrensen (f.eks. 50\u202f% av 16A = 8A).',
+      norgespris: 'Norgespris',
+      norgesprisHint: 'Aktiver hvis du har Norgespris. Du betaler en fast flatsats i stedet for spotpris. Priskontroll vil bruke denne faste satsen for alle timer.',
+      flatRate: 'Fast sats',
+      flatRateHint: 'Den faste prisen du betaler per kWh inkl. mva. Standard 50 \u00f8re. Bruk 40 \u00f8re hvis du er i Nordland, Troms eller Finnmark (ingen mva. p\u00e5 str\u00f8m).',
+      nightSchedule: 'Nattplan',
+      nightScheduleDesc: 'Bytter automatisk mellom Hjem- og Natt-modus p\u00e5 de valgte tidspunktene.',
+      scheduleType: 'Plantype', customTime: 'Egendefinert tid', homeyNightHours: 'Bruk Homeys nattetimer',
+      devicePreferences: 'Enhetsinnstillinger',
+      devicePreferencesDesc: 'Angi \u00f8nsket tilstand for hver administrert enhet i hvert modus. Power Guard overstyrer disse ved h\u00f8yeffekthendelser.',
+      smartChargingStatus: 'Smart ladestatus',
+      smartChargingStatusDesc: 'Sanntidsstatus fra Power Guard \u2014 oppdateres automatisk.',
+      chargeMode: 'Ladermodus', loadingChargerStatus: 'Laster laderstatus\u2026',
+      evChargerPreferences: 'Elbillader-innstillinger',
+      evChargerPreferencesDesc: 'Angi om hver elbillader er tillatt eller satt p\u00e5 pause i hvert modus. Power Guards harde effektgrense har alltid prioritet.',
+      hoursNeeded: 'Timer n\u00f8dvendig (hvis ingen bilenhet er koblet til)',
+      hoursNeededHint: 'Antall timer som trengs for \u00e5 lade bilen. Beregnes automatisk n\u00e5r en bilenhet er koblet til eller batteri-% rapporteres via Flow. Angi et fast tall her hvis ingen av delene er konfigurert.',
+      finishChargingBy: 'Ferdig ladet innen',
+      finishChargingByHint: 'f.eks. 07:00. Power Guard velger de N billigste timene f\u00f8r dette tidspunktet og lader maksimalt kun i disse. La st\u00e5 tomt for \u00e5 bruke prismodus.',
+      saveSchedule: 'Lagre plan',
+      devicePriority: 'Enhets prioritet',
+      devicePriorityDesc: 'Sl\u00e5 p\u00e5 en enhet for \u00e5 la Power Guard styre den. Dra \u2630 for \u00e5 angi rekkef\u00f8lge \u2014 enheter h\u00f8yt oppe sl\u00e5s av f\u00f8rst.',
+      settingsSaved: 'Innstillinger lagret!',
+      noDevicesFound: 'Ingen enheter med effektdata funnet',
+      noThermostatsFound: 'Ingen termostater funnet',
+      noChargersConfigured: 'Ingen ladere konfigurert',
+      enablePowerGuard: 'Aktiver Power Guard', disablePowerGuard: 'Deaktiver Power Guard',
+      guardActive: 'Vakt aktiv',
+      connectTokenIntro: 'Power Guard trenger et personlig tilgangstoken for \u00e5 lese og lagre innstillinger.',
+      connectStep1: 'G\u00e5 til <b>my.homey.app</b> \u2192 ditt navn \u2192 <b>Konto</b> \u2192 <b>Sikkerhet</b> \u2192 <b>Personlige tilgangstokener</b>',
+      connectStep2: 'Opprett et nytt token med omfang <b>homey:manager:api</b>',
+      connectStep3: 'Lim det inn nedenfor (lagres kun i minnet for denne \u00f8kten).',
+    }
+  };
+  function t(key) {
+    return (_T[_lang] && _T[_lang][key]) || (_T['en'] && _T['en'][key]) || key;
+  }
+  function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n');
+      var val = t(key);
+      if (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'password')) {
+        el.placeholder = val;
+      } else if (el.hasAttribute('data-i18n-html')) {
+        el.innerHTML = val;
+      } else {
+        el.textContent = val;
+      }
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el) {
+      var key = el.getAttribute('data-i18n-html');
+      el.innerHTML = t(key);
+    });
+  }
+  // ── end i18n ───────────────────────────────────────────────────────────────
+
   // ══════════════════════════════════════════════════════════════════
   // ██ SECTION 1 — CORE INFRASTRUCTURE                              ██
   // ══════════════════════════════════════════════════════════════════
@@ -1172,16 +1436,19 @@
     } else {
       loadAll();
     }
+    applyI18n();
   }
 
   function showMain() {
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('connect-card').style.display     = 'none';
     document.getElementById('main-content').style.display     = 'block';
+    applyI18n();
   }
   function showConnectCard() {
     document.getElementById('loading-indicator').style.display = 'none';
     document.getElementById('connect-card').style.display     = 'block';
+    applyI18n();
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -1271,7 +1538,7 @@
             (e.time ? new Date(e.time).toLocaleTimeString() : '') + '</span>' +
             escHtml(e.message || '') + '</div>';
         }).join('')
-      : '<div class="log-entry" style="color:var(--text-tertiary)">No activity yet.</div>';
+      : '<div class="log-entry" style="color:var(--text-tertiary)">' + t('noActivityYet') + '</div>';
     // Render last mitigation scan diagnostics
     var scanData = Array.isArray(s.lastMitigationScan) ? s.lastMitigationScan : [];
     document.getElementById('scan-container').innerHTML = scanData.length
@@ -1283,7 +1550,7 @@
             escHtml(d.name || '?') + '</span> [' + escHtml(d.action || '?') + '] → ' +
             escHtml(d.result || '?') + '</div>';
         }).join('')
-      : '<div class="log-entry" style="color:var(--text-tertiary)">No scan data yet.</div>';
+      : '<div class="log-entry" style="color:var(--text-tertiary)">' + t('noScanYet') + '</div>';
     var evChargers = Array.isArray(s.evChargers) ? s.evChargers : [];
     // Update cached charger status for the System tab table
     evChargers.forEach(function(c) {
@@ -1524,7 +1791,7 @@
         if (!sel) return;
         // Keep auto option, clear rest
         var currentVal = sel.value;
-        sel.innerHTML = '<option value=\"auto\">Auto-detect</option>';
+        sel.innerHTML = '<option value="auto">' + t('autoDetect') + '</option>';
         if (Array.isArray(devices)) {
           devices.forEach(function(d) {
             var opt = document.createElement('option');
@@ -1714,7 +1981,7 @@
     });
 
     if (chargers.length === 0) {
-      container.innerHTML = '<span style="color:var(--text-muted)">No chargers configured</span>';
+      container.innerHTML = '<span style="color:var(--text-muted)">' + t('noChargersConfigured') + '</span>';
       return;
     }
 
@@ -1800,6 +2067,7 @@
             '</div>';
 
     container.innerHTML = html;
+    applyI18n();
   }
 
   // updateChargerCircuitFromSystem removed — circuit limits are handled by the charger's own app
@@ -2100,7 +2368,7 @@
         if (!tbody)  return;
 
         if (devices.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-tertiary);">No devices with power data found</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-tertiary);">' + t('noDevicesFound') + '</td></tr>';
           document.getElementById('consumption-time').textContent = '–';
           document.getElementById('device-type-filters').innerHTML = '';
           return;
@@ -2181,7 +2449,7 @@
         if (countEl) countEl.textContent = heaters.length;
 
         if (heaters.length === 0) {
-          list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">No thermostats found</div>';
+          list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">' + t('noThermostatsFound') + '</div>';
           return;
         }
 
@@ -2230,6 +2498,8 @@
             '</div>' +
           '</div>';
         }).join('');
+
+        applyI18n();
 
         // Start auto-refresh while heater tab is visible
         if (!_heaterRefreshTimer) {
@@ -2418,6 +2688,7 @@
         : 'No devices found. The cache is loading \u2014 this will update automatically.';
       container.appendChild(msg);
     }
+    applyI18n();
   }
 
   function buildManagedRow(entry, idx, total) {
@@ -2762,6 +3033,13 @@
     _H = Homey;
     dbg('onHomeyReady called');
 
+    // ── i18n: detect language before loading any data ───────────────
+    Homey.getLanguage(function(err, lang) {
+      if (!err && lang) _lang = lang;
+      applyI18n();
+    });
+    // ── end i18n ─────────────────────────────────────────────────────
+
     Homey.ready();
     dbg('Homey.ready() called, api=' + (typeof Homey.api));
     Homey.get('pg_peaks_open', function(val) { _peaksOpen = val === true; });
@@ -2915,8 +3193,8 @@
   function loadFirmwareInfo() {
     var search = (document.getElementById('firmware-search').value || '').trim();
     var el = document.getElementById('firmware-results');
-    if (!search) { el.innerHTML = '<span style="color:#ff3b30;">Enter a search term first.</span>'; return; }
-    el.innerHTML = '<span style="color:var(--text-muted);">Loading…</span>';
+    if (!search) { el.innerHTML = '<span style="color:#ff3b30;">' + t('firmwareInitialText') + '</span>'; return; }
+    el.innerHTML = '<span style="color:var(--text-muted);">' + t('loading') + '</span>';
     hApi('GET', '/firmwareInfo?search=' + encodeURIComponent(search), null)
       .then(function(data) {
         if (!data || data.length === 0) {
@@ -3014,6 +3292,7 @@
     });
 
     el.innerHTML = html;
+    applyI18n();
   }
 
   function renderHanSummary(han) {
@@ -3073,6 +3352,7 @@
     }
 
     el.innerHTML = html;
+    applyI18n();
   }
 
   function renderMitigationScan(scan) {
@@ -3097,6 +3377,7 @@
     });
     html += '</table>';
     el.innerHTML = html;
+    applyI18n();
   }
 
   function renderSystemInfo(data) {
@@ -3135,6 +3416,7 @@
     }
 
     el.innerHTML = html;
+    applyI18n();
   }
 
   function copyAppLog(section) {
@@ -3640,6 +3922,7 @@
         renderModesActive(data.modeSettings.activeMode);
         renderNightSchedule(data.modeSettings.nightSchedule || {});
         showModeSubTab(_modesSubTab);
+        applyI18n();
       })
       .catch(function(err) { console.error('loadModesSettings error:', err); });
   }
@@ -3754,6 +4037,7 @@
     } else {
       el.innerHTML = rows.join('');
     }
+    applyI18n();
   }
 
   function renderEvDevices(mode) {
@@ -3777,6 +4061,7 @@
     } else {
       el.innerHTML = rows.join('');
     }
+    applyI18n();
   }
 
   function showEvSubTab(mode) {
