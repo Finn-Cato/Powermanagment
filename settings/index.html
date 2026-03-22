@@ -3562,7 +3562,13 @@
 
     // Refresh data once when the page becomes visible (e.g. waking from sleep)
     document.addEventListener('visibilitychange', function() {
-      if (!document.hidden) guardedLoadAll();
+      if (!document.hidden) {
+        guardedLoadAll();
+        // Also fetch live status immediately so the power bar updates
+        hApi('GET', '/status', null)
+          .then(function(s) { if (s) updateStatusUI(s); })
+          .catch(function() {});
+      }
     });
 
     // Periodic sync fallback every 15s
