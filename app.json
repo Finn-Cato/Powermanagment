@@ -347,6 +347,10 @@
           "en": "Active profile is",
           "no": "Aktiv profil er"
         },
+        "titleFormatted": {
+          "en": "Active profile is [[profile]]",
+          "no": "Aktiv profil er [[profile]]"
+        },
         "args": [
           {
             "name": "profile",
@@ -453,6 +457,10 @@
         "title": {
           "en": "Set active profile",
           "no": "Sett aktiv profil"
+        },
+        "titleFormatted": {
+          "en": "Set active profile to [[profile]]",
+          "no": "Sett aktiv profil til [[profile]]"
         },
         "args": [
           {
