@@ -3903,9 +3903,7 @@ class PowerGuardApp extends Homey.App {
       
       // Get zone name - try live device first, then cached
       let zoneName = '';
-      if (liveDevice && liveDevice.zoneName) {
-        zoneName = liveDevice.zoneName;
-      } else if (liveDevice && liveDevice.zone && typeof liveDevice.zone === 'object' && liveDevice.zone.name) {
+      if (liveDevice && liveDevice.zone && typeof liveDevice.zone === 'object' && liveDevice.zone.name) {
         zoneName = liveDevice.zone.name;
       } else if (cached.zoneName) {
         zoneName = cached.zoneName;
