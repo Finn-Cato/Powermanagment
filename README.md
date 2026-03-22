@@ -15,7 +15,7 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 - Automatically turns off / reduces devices when you approach your grid limit
 - Brings devices back once consumption drops to a safe level
 - Priority list — drag-and-drop to choose which devices are turned off first
-- Protection profiles: **Normal** and **Strict** (95% of limit)
+- Protection profiles: **Normal**, **Strict** (95% of limit), and **Solar-friendly**
 - Per-phase ampere limits (L1 / L2 / L3)
 - Spike filtering and configurable reaction speed
 - Flow cards for Homey automations
@@ -27,8 +27,8 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 - **Smart Charging Status panel** — shows car connected, charging now, charge mode, next cheap hour
 - **Minimum current** — keeps charger at 6A minimum to avoid stopping the session unnecessarily
 - **Resume threshold** — resumes from pause at 11A (not 6A) to ensure a reliable charger restart
-- **Phase-aware current stepping** — step size is calculated in watts (equal impact per step regardless of phase): 1-phase = 6A/step, 3-phase = 2A/step — ramp always completes before other devices are restored
-- **Anti-oscillation** — one charger ramps per cycle so HAN can confirm each step before the next; decreases apply to all chargers immediately in emergencies
+- **Smooth current stepping** — ramps charger current in 1A steps so each change is small enough for the HAN meter to confirm before the next step; ramp always completes before other devices are restored
+- **Anti-oscillation** — a shared 30-second settling window blocks all chargers from ramping after any one ramps, giving the HAN meter time to confirm the change; decreases apply to all chargers immediately in emergencies
 - **Proactive load coordination** — when EV budget is tight, heating devices are shed before the charger needs to pause, preventing charger and thermostats from repeatedly cycling against each other; the shed threshold is phase-aware (1-phase charger = 1380W minimum, 3-phase = 4140W) so heating devices are not shed unnecessarily on 1-phase setups; shedding is skipped entirely when the charger is paused by the price engine (ekstremt dyr / Mode=av) so thermostats are never turned off for a charger that isn't running
 - **Grace window** — 2-minute grace period after confirmed charging before flagging a mismatch
 - **Confirmation tracking** — verifies commands by reading `measure_current.offered`, with per-charger reliability scoring
