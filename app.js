@@ -540,7 +540,7 @@ class PowerGuardApp extends Homey.App {
       this._overLimitCount = this._settings.hysteresisCount; // Skip hysteresis for immediate action
       await this._triggerMitigation(currentPower).catch(err => this.error('Force mitigation error:', err));
     } else if (this._mitigatedDevices.length > 0) {
-      await this._triggerRestore().catch(err => this.error('Force restore error:', err));
+      await this._triggerRestore(currentPower).catch(err => this.error('Force restore error:', err));
     }
 
     this._cacheStatus();
@@ -2731,12 +2731,21 @@ class PowerGuardApp extends Homey.App {
           ).catch(() => null);
           if (!device) continue;
           const obj = device.capabilitiesObj || {};
-          // Idle guard: skip thermostats at 0W (lowering a temp that isn't heating does nothing).
+          // Idle guard: skip thermostats not drawing power (lowering a temp that isn't heating does nothing).
           // Do NOT skip onoff/hoiax devices at 0W — water heaters cycle on later and we want
           // them pre-emptively off for the whole charging session.
           if (entry.action === 'target_temperature') {
+            const caps = Object.keys(obj);
             const pw = obj.measure_power?.value ?? obj.measure_power ?? null;
             if (typeof pw === 'number' && pw < 50) continue;
+            if (pw == null && caps.includes('tuya_thermostat_load_status') && obj.tuya_thermostat_load_status != null) {
+              const ls = obj.tuya_thermostat_load_status.value !== undefined ? obj.tuya_thermostat_load_status.value : obj.tuya_thermostat_load_status;
+              if (ls === false) continue;
+            }
+            if (pw == null && caps.includes('onoff') && obj.onoff != null) {
+              const onoffVal = obj.onoff.value !== undefined ? obj.onoff.value : obj.onoff;
+              if (onoffVal === false) continue;
+            }
           }
           const previousState = this._snapshotState(device);
           const ok = await applyAction(device, entry.action).catch(() => false);
@@ -2775,8 +2784,17 @@ class PowerGuardApp extends Homey.App {
 
       const obj = device.capabilitiesObj || {};
       if (entry.action === 'target_temperature' || entry.action === 'onoff' || entry.action === 'hoiax_power') {
+        const caps = Object.keys(obj);
         const pw = obj.measure_power?.value ?? obj.measure_power ?? null;
         if (typeof pw === 'number' && pw < 50) continue;
+        if (pw == null && caps.includes('tuya_thermostat_load_status') && obj.tuya_thermostat_load_status != null) {
+          const ls = obj.tuya_thermostat_load_status.value !== undefined ? obj.tuya_thermostat_load_status.value : obj.tuya_thermostat_load_status;
+          if (ls === false) continue;
+        }
+        if (pw == null && caps.includes('onoff') && obj.onoff != null) {
+          const onoffVal = obj.onoff.value !== undefined ? obj.onoff.value : obj.onoff;
+          if (onoffVal === false) continue;
+        }
       }
 
       const previousState = this._snapshotState(device);
