@@ -1974,7 +1974,7 @@ class PowerGuardApp extends Homey.App {
         .filter(d => {
           if (!d) return false;
           const caps = d.capabilities || [];
-          const ownerUri = (d.driver && d.driver.owner_uri) || d.driverUri || '';
+          const ownerUri = (d.driver && d.driver.owner_uri) || d.driverId || '';
 
           // Zaptec creates two virtual devices: the charger (charging_button, charge_mode, charging_mode)
           // and the installation/meter device (meter_sum_current, meter_sum_month, etc.).
@@ -2043,12 +2043,11 @@ class PowerGuardApp extends Homey.App {
             capabilities: d.capabilities || [],
             zoneName:     zoneMap[d.zone] || 'Other',
             driverId:     d.driverId,
-            driverUri:    d.driverUri || '',
             isEasee:      (d.driverId === 'charger' && d.driver && d.driver.owner_uri === 'homey:app:no.easee'),
             isZaptec:     (d.class === 'evcharger' && d.driver && d.driver.owner_uri === 'homey:app:com.zaptec'),
             isEnua:       (d.driver && d.driver.owner_uri === 'homey:app:no.enua'),
-            isAdax:       (d.driverUri || '').includes('no.adax') || (d.driver && d.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app'),
-            isHoiax:      (d.driverUri || '').includes('no.hoiax') || (d.driver && d.driver.owner_uri === 'homey:app:no.hoiax'),
+            isAdax:       (d.driverId || '').includes('no.adax') || (d.driver && d.driver.owner_uri === 'homey:app:no.adax.smart-heater.homey-app'),
+            isHoiax:      (d.driverId || '').includes('no.hoiax') || (d.driver && d.driver.owner_uri === 'homey:app:no.hoiax'),
             zbProductId:  (d.settings && d.settings.zb_product_id) ? String(d.settings.zb_product_id) : null,
           };
         });
@@ -2252,14 +2251,14 @@ class PowerGuardApp extends Homey.App {
         // installation/meter device (only has meter_sum_* caps). If the priority list
         // points at the meter device, auto-find and use the real charger instead.
         const _zaptecChargeCaps = ['charging_button', 'charge_mode', 'charge_pause', 'charging_mode'];
-        const _devOwner = (device.driver && device.driver.owner_uri) || device.driverUri || '';
+        const _devOwner = (device.driver && device.driver.owner_uri) || device.driverId || '';
         if (_devOwner.includes('com.zaptec') && !caps.some(c => _zaptecChargeCaps.includes(c))) {
           this.log(`[Zaptec] "${entry.name}" (${entry.deviceId}) appears to be the Zaptec meter/installation device. Searching for real charger...`);
           try {
             const allDevs = await withTimeout(this._api.devices.getDevices(), 10000, 'getAllDevicesForZaptecRedirect');
             const realCharger = Object.values(allDevs).find(d => {
               const dCaps = d.capabilities || [];
-              const dOwner = (d.driver && d.driver.owner_uri) || d.driverUri || '';
+              const dOwner = (d.driver && d.driver.owner_uri) || d.driverId || '';
               return dOwner.includes('com.zaptec') && dCaps.some(c => _zaptecChargeCaps.includes(c));
             });
             if (realCharger) {
@@ -3916,7 +3915,7 @@ class PowerGuardApp extends Homey.App {
       
       // If no zone, use driver/brand name instead of "Unknown"
       if (!zoneName) {
-        const driverStr = (liveDevice && liveDevice.driverUri) || cached.driverId || '';
+        const driverStr = (liveDevice && liveDevice.driverId) || cached.driverId || '';
         zoneName = driverStr.replace(/^homey:app:/, '').replace(/[:.]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || '';
       }
 
@@ -4168,7 +4167,7 @@ class PowerGuardApp extends Homey.App {
         //   target-0.5 to target: near setpoint, light cycling  → 20% rated
         //   target-2.0 to target-0.5: moderate cycling           → 50% rated
         //   < target-2.0: actively heating                       → 100% rated
-        const isAdaxDevice = (device.driverUri || '').includes('no.adax');
+        const isAdaxDevice = (device.driverId || '').includes('no.adax');
         if (isAdaxDevice && currentW > 0) {
           // If this device has already been mitigated, show 0W immediately
           // (command was sent; heater will respond within ~20 min for cloud devices)
@@ -4639,7 +4638,7 @@ class PowerGuardApp extends Homey.App {
 
       } else {
         // Unknown charger type — check if this is the Zaptec meter/installation device
-        const ownerUri = (device.driver && device.driver.owner_uri) || device.driverUri || '';
+        const ownerUri = (device.driver && device.driver.owner_uri) || device.driverId || '';
         const isZaptecMeter = ownerUri.includes('com.zaptec');
         if (isZaptecMeter) {
           results.steps.push({

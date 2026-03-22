@@ -123,7 +123,7 @@ async function applyAction(device, action) {
     case ACTIONS.TARGET_TEMP: {
       // Adax Wi-Fi heaters use cloud polling — commands have ~20 min delay.
       // Using onoff=false is equally delayed but cuts heating harder than temp-3°C.
-      const isAdax = (device.driverUri || device.driverId || '').toLowerCase().includes('adax');
+      const isAdax = (device.driverId || '').toLowerCase().includes('adax');
       if (isAdax && caps.includes('onoff')) {
         if (obj.onoff && obj.onoff.value === false) return false;
         await device.setCapabilityValue({ capabilityId: 'onoff', value: false });

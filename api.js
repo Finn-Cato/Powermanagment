@@ -56,8 +56,7 @@ module.exports = {
       if (!d) continue;
       const name = (d.name || '').toLowerCase();
       const driverId = (d.driverId || '').toLowerCase();
-      const driverUri = (d.driverUri || '').toLowerCase();
-      const driver = driverId || driverUri;
+      const driver = driverId;
       if (search && !name.includes(search) && !driver.includes(search)) continue;
       const s = d.settings || {};
       // Z-Wave firmware fields
@@ -70,7 +69,7 @@ module.exports = {
         name: d.name,
         id: d.id,
         class: d.class,
-        driver: driverId || driverUri.replace(/^homey:app:/, ''),
+        driver: driverId,
         firmware: fw,
         hardwareVersion: hwVer,
         allSettings: s,
@@ -196,8 +195,7 @@ module.exports = {
           id: cached.id,
           name: cached.name,
           class: cached.class,
-          driverId: cached.driverId,
-          driverUri: cached.driverUri || (live && live.driverUri) || '',
+          driverId: cached.driverId || (live && live.driverId) || '',
           ownerUri: (live && live.driver && live.driver.owner_uri) || '',
           isAdax: cached.isAdax || false,
           capabilities: live ? Object.keys(live.capabilitiesObj || {}) : cached.capabilities,
