@@ -1253,8 +1253,7 @@ class PowerGuardApp extends Homey.App {
       }
 
       // EV charger current is managed exclusively by _adjustEVChargersForPower (runs on every
-      // HAN reading). _mitigateEaseeChargers was removed here to avoid two engines sending
-      // conflicting current commands to the same charger (Fix 2 — one engine owns current).
+      // HAN reading) — one engine owns current to avoid conflicting commands to the same charger.
 
       // Primary sort: user-defined priority. Secondary sort: push high-comError devices to end
       // Unreliable devices are attempted last to avoid getting stuck.
@@ -2823,10 +2822,9 @@ class PowerGuardApp extends Homey.App {
     const activeChargerCount = Math.max(1, chargingCount);
     const sharedNonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
     const sharedAvailableW = limit - sharedNonChargerUsage;
-    const perChargerBudgetW = sharedAvailableW / activeChargerCount;
     const householdAloneExceedsLimit = sharedNonChargerUsage > (limit - 200);
     if (connectedEntries.length > 1) {
-      this.log(`[EV] Multi-charger: ${connectedEntries.length} connected, ${activeChargerCount} charging, totalCharger=${Math.round(totalChargerPowerW)}W, household=${Math.round(sharedNonChargerUsage)}W, shared=${Math.round(sharedAvailableW)}W → ${Math.round(perChargerBudgetW)}W/charger`);
+      this.log(`[EV] Multi-charger: ${connectedEntries.length} connected, ${activeChargerCount} charging, totalCharger=${Math.round(totalChargerPowerW)}W, household=${Math.round(sharedNonChargerUsage)}W, shared=${Math.round(sharedAvailableW)}W`);
     }
     // ────────────────────────────────────────────────────────────────────────
 
@@ -3032,92 +3030,6 @@ class PowerGuardApp extends Homey.App {
   }
 
   // ─── Dynamic EV Charger Control ────────────────────────────────────────────
-
-  /**
-   * Calculate optimal current for an EV charger given its pre-calculated power budget.
-   * The budget is already split evenly across all active chargers by the caller.
-   * @param {number} perChargerBudgetW - Watts this charger is allowed to use
-   * @param {boolean} householdAloneExceedsLimit - True if non-charger usage alone exceeds limit
-   * @param {Object} chargerEntry - Entry from priorityList (may have circuitLimitA)
-   * @returns {number} Target current in amps (7-32), or null to pause
-   */
-  _calculateOptimalChargerCurrent(perChargerBudgetW, householdAloneExceedsLimit, chargerEntry) {
-    // Use the learned hardware max if lower than the configured circuit limit.
-    // Any charger whose firmware or physical breaker caps it below circuitLimitA will
-    // have its real ceiling discovered automatically via _checkChargerConfirmation.
-    const configuredLimitA = chargerEntry.circuitLimitA || 32;
-    const learnedMaxA = this._chargerState[chargerEntry.deviceId]?.learnedMaxA;
-    const circuitLimitA = learnedMaxA ? Math.min(configuredLimitA, learnedMaxA) : configuredLimitA;
-    const minCurrent = CHARGER_DEFAULTS.minCurrent;   // 6A minimum (Easee supports 6A)
-    // Price cap: additive soft ceiling from price engine (full circuit limit when disabled/no data)
-    const priceCap = this._getPriceCurrentCap(chargerEntry.deviceId, circuitLimitA);
-    // Mode 'av' → price engine wants charger fully off — return null to trigger proper pause
-    if (priceCap <= 0) return null;
-    const maxCurrent = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA, priceCap);
-
-    const evData = this._evPowerData[chargerEntry.deviceId];
-    const chargerPowerW = evData?.powerW || 0;
-    const offeredCurrent = evData?.offeredCurrent;
-
-    // Use auto-detected phases (derived from live power/current ratio) when available.
-    // Falls back to the per-charger setting stored in the priority list.
-    const chargerPhases = evData?.detectedPhases || chargerEntry.chargerPhases || 3;
-    const chargerVoltage = chargerPhases * 230;  // 230W for 1-phase, 460 for 2-ph, 690 for 3-ph
-
-    if (householdAloneExceedsLimit) {
-      // TRUE emergency: household alone exceeds limit, must pause charger entirely
-      this.log(`EV calc: household exceeds limit → PAUSE (emergency)`);
-      return null;
-    }
-
-    if (perChargerBudgetW <= 0) {
-      // No headroom at all — householdAloneExceedsLimit should already have caught this,
-      // but guard here too. Must pause: charger cannot help.
-      this.log(`EV calc: budget=${Math.round(perChargerBudgetW)}W ≤ 0 → PAUSE`);
-      return null;
-    }
-
-    // Prefer reducing to minimum current over a full pause whenever the overrun at minCurrent
-    // would be small (≤ 500W). Pausing causes a 16A spike on every resume which is far more
-    // disruptive than a brief 500W overrun that the next adjustment cycle will correct.
-    const minCurrentPowerW = minCurrent * chargerVoltage;
-    const preferMinOverPause = () => {
-      if (minCurrentPowerW <= perChargerBudgetW + 500) {
-        this.log(`EV calc: prefer minCurrent (${minCurrent}A) over pause — overrun ≤ 500W`);
-        return minCurrent;
-      }
-      return null;  // Overrun would be too large — full pause is necessary
-    };
-
-    // Proportional scaling: when charger is actively drawing power with known offered current,
-    // scale proportionally for more accurate adjustment. This accounts for actual voltage,
-    // power factor, and phase imbalance rather than assuming a fixed voltage.
-    let targetCurrent;
-    if (offeredCurrent > 0 && chargerPowerW > 500) {
-      // Proportional: offeredCurrent × (desiredPower / actualPower)
-      // Use Math.floor (not round) so we always stay within the budget — rounding up
-      // could push the charger slightly over the allowed watts and keep us over the limit.
-      const proportionalA = Math.floor(offeredCurrent * (perChargerBudgetW / chargerPowerW));
-      if (proportionalA < minCurrent) {
-        const result = preferMinOverPause();
-        this.log(`EV calc (proportional): budget=${Math.round(perChargerBudgetW)}W → ${proportionalA}A < min ${minCurrent}A → ${result ?? 'PAUSE'}`);
-        return result;
-      }
-      targetCurrent = Math.min(maxCurrent, proportionalA);
-      this.log(`EV calc (proportional): charger=${Math.round(chargerPowerW)}W@${offeredCurrent}A, budget=${Math.round(perChargerBudgetW)}W → ${targetCurrent}A`);
-    } else {
-      // Additive fallback: when charger is not active or no offered current data
-      const availableCurrentA = Math.floor(perChargerBudgetW / chargerVoltage);
-      if (availableCurrentA < minCurrent) {
-        const result = preferMinOverPause();
-        this.log(`EV calc (additive): budget=${Math.round(perChargerBudgetW)}W → ${availableCurrentA}A < min ${minCurrent}A → ${result ?? 'PAUSE'}`);
-        return result;
-      }
-      targetCurrent = Math.min(maxCurrent, availableCurrentA);
-      this.log(`EV calc (additive): phases=${chargerPhases}, budget=${Math.round(perChargerBudgetW)}W → ${targetCurrent}A`);
-    }
-    return targetCurrent;
-  }
 
   // ══════════════════════════════════════════════════════════════════
   // █ SECTION 6 — EV CHARGERS — BRAND DETECTION & FLOW DISCOVERY               █
@@ -3721,110 +3633,8 @@ class PowerGuardApp extends Homey.App {
     return false;
   }
 
-  /**
-   * Mitigate by adjusting Easee chargers specifically.
-   */
-  async _mitigateEaseeChargers() {
-    const easeeEntries = (this._settings.priorityList || []).filter(e =>
-      e.enabled !== false && e.action === 'dynamic_current'
-    );
-
-    if (!easeeEntries.length) return;
-
-    const limit = this._getEffectiveLimit();
-    const currentPower = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
-    const totalOverload = Math.max(0, currentPower - limit);
-
-    for (const entry of easeeEntries) {
-      // Skip chargers with no car connected
-      if (!this._isCarConnected(entry.deviceId)) continue;
-
-      // Skip chargers that have finished charging — car is full, no point limiting them
-      {
-        const evData = this._evPowerData[entry.deviceId];
-        const cs = evData?.chargerStatus;
-        const isChargingComplete = [4, 'completed', 'COMPLETED', 'Completed'].includes(cs)
-                                && (evData?.powerW || 0) < 100;
-        if (isChargingComplete) {
-          // Clean up any stale mitigation so UI doesn't show "device controlled"
-          const stale = this._mitigatedDevices.findIndex(m => m.deviceId === entry.deviceId);
-          if (stale >= 0) {
-            this._mitigatedDevices.splice(stale, 1);
-            this._persistMitigatedDevices();
-            this._fireTrigger('mitigation_cleared', { device_name: entry.name });
-            this.log(`[EV] _mitigateEaseeChargers: skipped fully-charged car ${entry.name} (status=${cs})`);
-          }
-          continue;
-        }
-      }
-
-      const evDataM = this._evPowerData[entry.deviceId];
-      const chargerPowerWM = evDataM?.powerW || 0;
-      const householdNonChargerW = Math.max(0, currentPower - chargerPowerWM);
-      const householdAloneExceedsLimitM = householdNonChargerW > (limit - 200);
-      const perChargerBudgetWM = limit - householdNonChargerW - 200;
-      const targetCurrent = this._calculateOptimalChargerCurrent(perChargerBudgetWM, householdAloneExceedsLimitM, entry);
-      const success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent, entry.circuitLimitA || 32).catch(() => false);
-
-      if (success) {
-        // Track in mitigatedDevices so the UI shows it as "controlled"
-        const alreadyTracked = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
-        if (targetCurrent !== null && targetCurrent < (entry.circuitLimitA || 32)) {
-          // Charger is being limited
-          if (!alreadyTracked) {
-            this._mitigatedDevices.push({
-              deviceId: entry.deviceId,
-              action: 'dynamic_current',
-              previousState: { targetCurrent: entry.circuitLimitA || 32 },
-              mitigatedAt: Date.now(),
-              currentTargetA: targetCurrent
-            });
-            this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
-            await this._updateVirtualDevice({ alarm: true }).catch(() => {});
-          } else {
-            // Update the tracked current
-            const tracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
-            if (tracked) tracked.currentTargetA = targetCurrent;
-          }
-          this._lastDeviceOffTime = Date.now();   // track for dynamic restore guard
-          this._updateDeviceReliability(entry.deviceId, true);
-          this._persistMitigatedDevices();
-          // Note: _lastMitigationTime is NOT reset here — charger current adjustments
-          // should not block the thermostat restore cooldown (Fix 8).
-        } else if (targetCurrent === null) {
-          // Charger paused
-          if (!alreadyTracked) {
-            this._mitigatedDevices.push({
-              deviceId: entry.deviceId,
-              action: 'dynamic_current',
-              previousState: { targetCurrent: entry.circuitLimitA || 32 },
-              mitigatedAt: Date.now(),
-              currentTargetA: 0
-            });
-            this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
-            await this._updateVirtualDevice({ alarm: true }).catch(() => {});
-          }
-          this._lastDeviceOffTime = Date.now();   // track for dynamic restore guard
-          this._updateDeviceReliability(entry.deviceId, true);
-          this._persistMitigatedDevices();
-          // Note: _lastMitigationTime is NOT reset here — charger pauses should not
-          // block the thermostat restore cooldown (Fix 8).
-        } else if (alreadyTracked) {
-          // Charger restored to full — remove from mitigated
-          this._mitigatedDevices = this._mitigatedDevices.filter(m => m.deviceId !== entry.deviceId);
-          this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
-          this._persistMitigatedDevices();
-          this._fireTrigger('mitigation_cleared', { device_name: entry.name });
-          if (this._mitigatedDevices.length === 0) {
-            await this._updateVirtualDevice({ alarm: false }).catch(() => {});
-          }
-        }
-      }
-    }
-  }
-
-
-
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 10 — DIAGNOSTICS & SETTINGS PAGE API                              █
   // ══════════════════════════════════════════════════════════════════
   // █ SECTION 10 — DIAGNOSTICS & SETTINGS PAGE API                              █
   // ══════════════════════════════════════════════════════════════════
@@ -4853,8 +4663,7 @@ class PowerGuardApp extends Homey.App {
   //  TO REMOVE ENTIRELY:
   //    1. Delete this SECTION 12 block
   //    2. Delete the _startPriceEngine() call in onInit
-  //    3. Delete the priceCap lines in _calculateOptimalChargerCurrent
-  //    4. Remove PRICE_DEFAULTS from constants.js and its import here
+  //    3. Remove PRICE_DEFAULTS from constants.js and its import here
   //    5. Remove getPriceData / setPriceSettings from api.js
   //    6. Remove the price tab from settings/index.html
   // ════════════════════════════════════════════════════════════════
@@ -5176,7 +4985,7 @@ class PowerGuardApp extends Homey.App {
     const mode = (deviceId && this._priceState.chargeModes && this._priceState.chargeModes[deviceId])
       || this._priceState.chargeMode;
     const cfg  = this._priceSettings;
-    if (mode === 'av')   return 0;  // Pause (→ _calculateOptimalChargerCurrent returns null)
+    if (mode === 'av')   return 0;  // Pause
     if (mode === 'lav')  return Math.max(CHARGER_DEFAULTS.minCurrent, Math.floor(circuitLimitA * (cfg.capLav  || 0.5)));
     if (mode === 'maks') return Math.floor(circuitLimitA * (cfg.capMaks || 1.0));
     return circuitLimitA; // 'normal' = no price restriction
