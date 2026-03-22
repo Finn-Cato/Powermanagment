@@ -290,7 +290,7 @@
 
       <!-- Effekttariff (Capacity Tariff) Section -->
       <div class="card" id="effekt-section">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">⚡ EFFEKTTARIFF (TEST)</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500" data-i18n="effekttariffHeader">⚡ EFFEKTTARIFF (TEST)</div>
         <div id="effekt-container" style="background:var(--bg-surface);border-radius:8px;padding:10px;">
           <div style="color:var(--text-tertiary);font-size:12px" data-i18n="waitingData">Waiting for data...</div>
         </div>
@@ -350,8 +350,8 @@
           </div>
           <div class="control">
             <select id="s-profile">
-              <option value="normal">Normal</option>
-              <option value="strict">Strict</option>
+              <option value="normal" data-i18n="profileNormal">Normal</option>
+              <option value="strict" data-i18n="profileStrict">Strict</option>
             </select>
           </div>
         </div>
@@ -552,19 +552,19 @@
           <h2 data-i18n="supportedHardware">Supported Hardware</h2>
           <table style="width:100%;font-size:12px;border-collapse:collapse;">
             <tr style="border-bottom:1px solid var(--border-light);">
-              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">EV Charger</td>
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;" data-i18n="hwEvCharger">EV Charger</td>
               <td style="padding:6px 0;color:var(--text-muted);">Easee Home/Pro, Zaptec Go/Go2/Home/Pro, Enua Charge E, Futurehome</td>
             </tr>
             <tr style="border-bottom:1px solid var(--border-light);">
-              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">HAN Meter</td>
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;" data-i18n="hwHanMeter">HAN Meter</td>
               <td style="padding:6px 0;color:var(--text-muted);">Frient Smart Reader, Futurehome HAN, Tibber Pulse, Aidon, Kaifa, Easee Equalizer — or any device with measure_power</td>
             </tr>
             <tr style="border-bottom:1px solid var(--border-light);">
-              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">Thermostats</td>
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;" data-i18n="hwThermostats">Thermostats</td>
               <td style="padding:6px 0;color:var(--text-muted);" data-i18n="helpHwThermostats">Any brand — auto-detected</td>
             </tr>
             <tr>
-              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;">Water Heater</td>
+              <td style="padding:6px 8px 6px 0;font-weight:600;color:var(--text-primary);white-space:nowrap;" data-i18n="hwWaterHeater">Water Heater</td>
               <td style="padding:6px 0;color:var(--text-muted);">Høiax Connected 300 / 200</td>
             </tr>
           </table>
@@ -583,7 +583,7 @@
 
       <div class="card">
         <h2 data-i18n="powerConsumption">Power Consumption by Device</h2>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;line-height:1.5;" data-i18n-html="powerReadOnlyNotice">
           📊 <strong>Read-only monitoring.</strong> This tab shows live power readings from all your Homey devices. It has no effect on the system — nothing here controls or changes any device.
         </div>
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;font-weight:500" data-i18n="filterByType">
@@ -596,17 +596,17 @@
         <table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;">
           <thead style="border-bottom:2px solid var(--border-color);">
             <tr>
-              <th style="text-align:left;padding:8px 0;color:var(--text-muted);font-weight:500;">Device</th>
-              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:72px;">Current</th>
-              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:56px;">Avg</th>
-              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:60px;">Peak</th>
-              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:44px;">Share</th>
+              <th style="text-align:left;padding:8px 0;color:var(--text-muted);font-weight:500;" data-i18n="thDevice">Device</th>
+              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:72px;" data-i18n="thCurrent">Current</th>
+              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:56px;" data-i18n="thAvg">Avg</th>
+              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:60px;" data-i18n="thPeak">Peak</th>
+              <th style="text-align:right;padding:8px 6px;color:var(--text-muted);font-weight:500;white-space:nowrap;width:44px;" data-i18n="thShare">Share</th>
               <th style="width:28px;"></th>
             </tr>
           </thead>
           <tbody id="consumption-table">
             <tr>
-              <td colspan="6" style="text-align:center;padding:24px;color:var(--text-tertiary);">Loading...</td>
+              <td colspan="6" style="text-align:center;padding:24px;color:var(--text-tertiary);" data-i18n="loading">Loading...</td>
             </tr>
           </tbody>
         </table>
@@ -623,7 +623,7 @@
       <div class="card" style="padding-bottom:8px;">
         <div style="margin-bottom:10px;">
           <h2 style="margin:0 0 2px;" data-i18n="thermostats">Thermostats</h2>
-          <div style="font-size:11px;color:var(--text-muted);"><span id="floorheater-count">–</span> found · auto-refreshes</div>
+          <div style="font-size:11px;color:var(--text-muted);"><span id="floorheater-count">–</span> <span data-i18n="foundAutoRefreshes">found · auto-refreshes</span></div>
         </div>
         <div id="floorheater-list" class="heater-list">
           <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;" data-i18n="loadingHeaters">Loading…</div>
@@ -756,15 +756,15 @@
         <div id="price-chart" style="display:flex;align-items:flex-end;gap:2px;height:80px;background:var(--bg-surface);border-radius:8px;padding:8px 8px 0 8px;overflow-x:auto"></div>
         <div id="price-chart-labels" style="display:flex;gap:2px;padding:0 8px;margin-top:2px;overflow-x:hidden;"></div>
         <div id="price-chart-legend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:10px;color:var(--text-muted)">
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#34c759;margin-right:3px"></span>Cheap</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8e8e93;margin-right:3px"></span>Normal</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff9500;margin-right:3px"></span>Expensive</span>
-          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff3b30;margin-right:3px"></span>Extreme</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#34c759;margin-right:3px"></span><span data-i18n="priceCheap">Cheap</span></span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8e8e93;margin-right:3px"></span><span data-i18n="priceNormal">Normal</span></span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff9500;margin-right:3px"></span><span data-i18n="priceExpensive">Expensive</span></span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff3b30;margin-right:3px"></span><span data-i18n="priceExtreme">Extreme</span></span>
         </div>
         <div id="price-stats" style="font-size:11px;color:var(--text-muted);margin-top:10px"></div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
           <div style="font-size:10px;color:var(--text-tertiary)" id="price-updated"></div>
-          <button onclick="triggerPriceRefresh()" style="font-size:11px;padding:3px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);cursor:pointer">↻ Refresh</button>
+          <button onclick="triggerPriceRefresh()" style="font-size:11px;padding:3px 12px;border-radius:6px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-primary);cursor:pointer" data-i18n="refreshPrice">↻ Refresh</button>
         </div>
       </div>
 
@@ -915,13 +915,13 @@
         <span id="ev-burde-lade" style="display:none"></span>
         <span id="ev-mismatch-warn" style="display:none"></span>
 
-        <div id="ev-battery-state-panel" style="background:var(--bg-surface);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;">🔋 <b>Last battery reports:</b> <span style="color:var(--text-muted)">Loading…</span></div>
+        <div id="ev-battery-state-panel" style="background:var(--bg-surface);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;" data-i18n-html="lastBatteryReports">🔋 <b>Last battery reports:</b></div>
 
-        <h2 style="margin:14px 0 8px;">Charging Schedule</h2>
+        <h2 style="margin:14px 0 8px;" data-i18n="chargingSchedule">Charging Schedule</h2>
 
         <div style="background:rgba(0,122,255,0.08);border:1px solid rgba(0,122,255,0.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:1.6;">
-          <div style="font-weight:700;margin-bottom:6px;">⚡ How to set up automatic scheduling</div>
-          <ol style="margin:0;padding-left:18px;">
+          <div style="font-weight:700;margin-bottom:6px;" data-i18n="howToSetupScheduling">⚡ How to set up automatic scheduling</div>
+          <ol style="margin:0;padding-left:18px;" data-i18n-html="evScheduleInstructions">
             <li>In the <b>Devices tab</b> — find your charger and fill in <b>Battery size (kWh)</b> and <b>Charge to (%)</b>.</li>
             <li>In <b>Homey Flows</b> — create a flow:<br>
               <b>WHEN</b> your car app reports battery % changed<br>
@@ -1000,7 +1000,7 @@
           <span id="cache-loading" style="color:var(--text-muted)">⏳ Loading devices...</span>
           <span id="cache-status-text" style="display:none; color:#34c759">✓</span>
           <span id="cache-refresh-btn" style="display:none; margin-left:12px;">
-            <button class="btn-small btn-secondary" onclick="refreshDeviceCache()" style="padding:4px 10px; font-size:11px;">Refresh</button>
+            <button class="btn-small btn-secondary" onclick="refreshDeviceCache()" style="padding:4px 10px; font-size:11px;" data-i18n="refresh">Refresh</button>
           </span>
         </div>
 
@@ -1014,8 +1014,8 @@
 
       <div class="save-row">
         <span id="dev-save-status" style="font-size:12px;color:var(--text-muted);margin-right:auto"></span>
-        <button class="btn-secondary" onclick="loadAll()">Discard</button>
-        <button class="btn-primary"   onclick="saveAll()">Save</button>
+        <button class="btn-secondary" onclick="loadAll()" data-i18n="discard">Discard</button>
+        <button class="btn-primary"   onclick="saveAll()" data-i18n="save">Save</button>
       </div>
 
     </div><!-- /#tab-devices -->
@@ -1173,6 +1173,181 @@
       connectStep1: 'Go to <b>my.homey.app</b> \u2192 your name \u2192 <b>Account</b> \u2192 <b>Security</b> \u2192 <b>Personal Access Tokens</b>',
       connectStep2: 'Create a new token with scope <b>homey:manager:api</b>',
       connectStep3: 'Paste it below (held in memory only for this session).',
+      effekttariffHeader: '⚡ EFFEKTTARIFF (TEST)',
+      profileNormal: 'Normal',
+      profileStrict: 'Strict',
+      noData: 'No data',
+      connected: 'Connected',
+      notConnected: 'Not connected',
+      live: 'Live',
+      sAgo: 's ago',
+      mAgo: ' min ago',
+      events: 'Events',
+      pollingOnly: 'Polling only',
+      eventsPolling: 'Events + Polling',
+      none: 'None',
+      statusLabel: 'Status:',
+      lastReading: 'Last reading:',
+      deviceLabel: 'Device:',
+      brandLabel: 'Brand:',
+      sourceLabel: 'Source:',
+      modeLabel: 'Mode:',
+      eventsLabel: 'Events:',
+      pollsLabel: 'Polls:',
+      spikesFiltered: 'Spikes filtered:',
+      reconnects: 'Reconnects:',
+      capabilities: 'Capabilities:',
+      powerBuffer: 'Power buffer (last ',
+      recentReadings: 'Recent readings (',
+      chargerHeader: 'Charger',
+      phasesHeader: 'Phases',
+      statusHeader: 'Status',
+      onePhase: '1-phase (230V)',
+      threePhase: '3-phase (400V)',
+      chargerAutoHint: '💡 Power Guard adjusts charger current up/down automatically based on available headroom. Phases and max current are auto-detected from live data — configure limits in your charger\'s own app.',
+      rawStatusCollapsed: '▶ Raw status',
+      rawStatusExpanded: '▼ Raw status',
+      testingCharger: '⏳ Testing charger control...',
+      noTestResponse: '⚠ No response from test',
+      chargerWorking: '✅ Charger control is working!',
+      chargerFailed: '❌ Charger control failed — see details above',
+      testFailed: '⚠ Test failed: ',
+      switchingMeter: '⏳ Switching meter...',
+      connectedTo: '✓ Connected to ',
+      noMeterFound: '✗ No meter found',
+      meterConnected: '✓ Meter connected',
+      noMeterConnected: '⚠ No meter connected',
+      hwEvCharger: 'EV Charger',
+      hwHanMeter: 'HAN Meter',
+      hwThermostats: 'Thermostats',
+      hwWaterHeater: 'Water Heater',
+      powerReadOnlyNotice: '📊 <strong>Read-only monitoring.</strong> This tab shows live power readings from all your Homey devices. It has no effect on the system — nothing here controls or changes any device.',
+      thDevice: 'Device',
+      thCurrent: 'Current',
+      thAvg: 'Avg',
+      thPeak: 'Peak',
+      thShare: 'Share',
+      foundAutoRefreshes: 'found · auto-refreshes',
+      set: 'Set',
+      nowLabel: 'Now <b>',
+      offByPg: 'OFF by PG',
+      reducedByPg: '−3°C by PG',
+      failedLoadHeaters: 'Failed to load heaters: ',
+      errorLoadThermostats: 'Error loading thermostats',
+      controlSent: 'Control sent',
+      controlFailed: 'Control failed: ',
+      tempSet: 'Temperature set',
+      failed: 'Failed: ',
+      noLogEntries: 'No log entries',
+      noHanMeter: 'No HAN meter connected',
+      noScanData: 'No mitigation scan data yet (scans run when power exceeds the limit)',
+      thAction: 'Action',
+      thResult: 'Result',
+      uptime: 'Uptime: ',
+      currentPowerLabel: 'Current power: ',
+      powerLimitLabel: 'Power limit: ',
+      overLimitCount: 'Over limit count: ',
+      deviceCache: 'Device cache: ',
+      devicesCount: ' devices',
+      mitigatedLabel: 'Mitigated: ',
+      devicesParens: ' device(s)',
+      settingsLabel: 'Settings:',
+      currentlyMitigated: 'Currently mitigated:',
+      copiedToClipboard: 'Copied to clipboard (',
+      copyFailed: 'Copy failed — please select and copy manually',
+      noDevicesMatching: 'No devices found matching "',
+      driverLabel: 'Driver: ',
+      classLabel: 'Class: ',
+      firmwareLabel: 'Firmware:',
+      hwLabel: 'HW:',
+      allSettings: 'All settings',
+      priceCheap: 'Cheap',
+      priceNormal: 'Normal',
+      priceExpensive: 'Expensive',
+      priceExtreme: 'Extreme',
+      refreshPrice: '↻ Refresh',
+      modeOff: 'Off',
+      modeSlow: 'Slow charge',
+      modeCharging: 'Charging',
+      modeFast: 'Fast charge',
+      hintWaiting: 'waiting for cheap hour',
+      hintNoDeadline: 'no deadline set',
+      hintCheapHour: 'cheap hour',
+      nightRate: 'night rate',
+      norgesprisFlat: 'Norgespris flat rate (spot: ',
+      nextHour: 'Next hour: ',
+      allEqual: 'All equal',
+      now: 'Now',
+      noPriceData: 'No price data',
+      lastUpdatedLabel: 'Last updated ',
+      justNow: 'just now',
+      minAgo: ' min ago',
+      lastBatteryReports: '🔋 <b>Last battery reports:</b>',
+      chargingSchedule: 'Charging Schedule',
+      howToSetupScheduling: '⚡ How to set up automatic scheduling',
+      evScheduleInstructions: '<li>In the <b>Devices tab</b> — find your charger and fill in <b>Battery size (kWh)</b> and <b>Charge to (%)</b>.</li><li>In <b>Homey Flows</b> — create a flow:<br><b>WHEN</b> your car app reports battery % changed<br><b>THEN</b> Power Guard → <i>"Report [battery %] battery for [charger]"</i><br><span style="color:var(--text-muted)">Drag the battery % tag from your car app into the value field.</span></li><li>Set a <b>Finish charging by</b> time below and click <b>Save schedule</b>.</li>',
+      yes: 'Yes',
+      no: 'No',
+      chargingNow: 'Charging now',
+      shouldCharge: 'Should charge',
+      chargeMismatch: '⚠️ Mismatch: should charge but is not (or vice versa).',
+      noEvChargers: 'No EV chargers tracked — add a charger in the Devices tab.',
+      chargerStatusError: 'Could not load charger status.',
+      noBatteryReports: 'No reports yet — trigger your "Report EV battery" Flow to update.',
+      hAgo: ' h ago',
+      hNeeded: ' h needed',
+      capacityNotSet: 'capacity not set',
+      invalidTimeFormat: 'Invalid time format. Use HH:MM (e.g. 07:00).',
+      saved: 'Saved ✓',
+      saveFailed: 'Save failed: ',
+      noManagedDevices: 'No managed devices yet. Add devices in the Devices tab first.',
+      noActiveDevices: 'No active devices.',
+      noEvChargersManaged: 'No EV chargers managed. Add an EV charger in the Devices tab first.',
+      actionOnOff: 'On/Off',
+      actionDim: 'Dim',
+      actionThermostat: 'Thermostat',
+      actionEvCharger: 'EV Charger',
+      actionWaterHeater: 'Water Heater',
+      dotOn: '● ON',
+      on: 'On',
+      off: 'Off',
+      high: 'High',
+      med: 'Med',
+      low: 'Low',
+      allow: 'Allow',
+      pause: 'Pause',
+      pgOverride: '⚡ PG override',
+      managedSection: 'Managed — turned off first to last',
+      notManaged: 'Not managed',
+      availableDevices: 'Available devices — toggle on to manage',
+      toggleToManage: 'Toggle devices on to manage them.',
+      noDevicesCacheLoading: 'No devices found. The cache is loading — this will update automatically.',
+      batterySchedule: '🔋 Battery schedule',
+      size: 'Size',
+      chargeTo: 'Charge to',
+      car: 'Car',
+      shedHeatersWhenCharging: '⚡ Shed heaters when charging',
+      active: 'ACTIVE',
+      actionTurnOff: 'Turn off',
+      actionLowerThermostat: 'Lower thermostat',
+      actionPauseEv: 'Pause EV charging (Zaptec/Enua)',
+      actionDynamicCharging: 'Dynamic charging (Easee/Zaptec/Enua)',
+      actionSteppedPower: 'Stepped power (Høiax)',
+      priorityShed: 'Priority shed',
+      devicesLoaded: ' devices loaded',
+      devicesUpdated: ' devices (updated ',
+      cacheReady: 'Cache ready (0 devices)',
+      cacheLoading: 'Cache loading...',
+      refreshing: 'Refreshing...',
+      refreshFailed: 'Refresh failed',
+      charsSuffix: ' chars)',
+      no2: 'No',
+      chargerModeLabel: 'Charger mode',
+      monthlyMetric: 'Monthly metric (TOP3 avg)',
+      currentTier: 'Current tier',
+      thisHour: 'This hour: ',
+      todayPeak: 'Today peak: ',
+      testModeNotice: 'Test mode — Display only. Not affecting limits or mitigation.',
     },
     no: {
       subtitle: 'Sanntids effektoverv\u00e5kning via HAN-m\u00e5ler.<br>Styrer enheter automatisk for \u00e5 holde seg under nettgrensen.',
@@ -1306,6 +1481,181 @@
       connectStep1: 'G\u00e5 til <b>my.homey.app</b> \u2192 ditt navn \u2192 <b>Konto</b> \u2192 <b>Sikkerhet</b> \u2192 <b>Personlige tilgangstokener</b>',
       connectStep2: 'Opprett et nytt token med omfang <b>homey:manager:api</b>',
       connectStep3: 'Lim det inn nedenfor (lagres kun i minnet for denne \u00f8kten).',
+      effekttariffHeader: '⚡ EFFEKTTARIFF (TEST)',
+      profileNormal: 'Normal',
+      profileStrict: 'Streng',
+      noData: 'Ingen data',
+      connected: 'Tilkoblet',
+      notConnected: 'Ikke tilkoblet',
+      live: 'Direkte',
+      sAgo: 's siden',
+      mAgo: ' min siden',
+      events: 'Hendelser',
+      pollingOnly: 'Polling bare',
+      eventsPolling: 'Hendelser + polling',
+      none: 'Ingen',
+      statusLabel: 'Status:',
+      lastReading: 'Siste avlesning:',
+      deviceLabel: 'Enhet:',
+      brandLabel: 'Merke:',
+      sourceLabel: 'Kilde:',
+      modeLabel: 'Modus:',
+      eventsLabel: 'Hendelser:',
+      pollsLabel: 'Polls:',
+      spikesFiltered: 'Pigger filtrert:',
+      reconnects: 'Tilkoblinger p\u00e5 nytt:',
+      capabilities: 'Egenskaper:',
+      powerBuffer: 'Effektbuffer (siste ',
+      recentReadings: 'Siste avlesninger (',
+      chargerHeader: 'Lader',
+      phasesHeader: 'Faser',
+      statusHeader: 'Status',
+      onePhase: '1-fase (230V)',
+      threePhase: '3-fase (400V)',
+      chargerAutoHint: '💡 Power Guard justerer laderstr\u00f8m opp/ned automatisk basert p\u00e5 tilgjengelig kapasitet. Faser og maks str\u00f8m detekteres automatisk fra live data — konfigurer grenser i laderens egen app.',
+      rawStatusCollapsed: '▶ Raw status',
+      rawStatusExpanded: '▼ Raw status',
+      testingCharger: '⏳ Tester laderstyring...',
+      noTestResponse: '⚠ Ingen respons fra test',
+      chargerWorking: '✅ Laderstyring fungerer!',
+      chargerFailed: '❌ Laderstyring feilet — se detaljer ovenfor',
+      testFailed: '⚠ Test feilet: ',
+      switchingMeter: '⏳ Bytter m\u00e5ler...',
+      connectedTo: '✓ Koblet til ',
+      noMeterFound: '✗ Ingen m\u00e5ler funnet',
+      meterConnected: '✓ M\u00e5ler tilkoblet',
+      noMeterConnected: '⚠ Ingen m\u00e5ler tilkoblet',
+      hwEvCharger: 'Elbillader',
+      hwHanMeter: 'HAN-m\u00e5ler',
+      hwThermostats: 'Termostater',
+      hwWaterHeater: 'Varmtvannsbereder',
+      powerReadOnlyNotice: '📊 <strong>Kun overv\u00e5king.</strong> Denne fanen viser live effektavlesninger fra alle Homey-enhetene dine. Det p\u00e5virker ikke systemet — ingenting her styrer eller endrer noen enhet.',
+      thDevice: 'Enhet',
+      thCurrent: 'N\u00e5',
+      thAvg: 'Snitt',
+      thPeak: 'Topp',
+      thShare: 'Andel',
+      foundAutoRefreshes: 'funnet \u00b7 oppdateres automatisk',
+      set: 'Sett',
+      nowLabel: 'N\u00e5 <b>',
+      offByPg: 'AV av PG',
+      reducedByPg: '\u22123\u00b0C av PG',
+      failedLoadHeaters: 'Feilet \u00e5 laste varmere: ',
+      errorLoadThermostats: 'Feil ved lasting av termostater',
+      controlSent: 'Kommando sendt',
+      controlFailed: 'Kommando feilet: ',
+      tempSet: 'Temperatur satt',
+      failed: 'Feilet: ',
+      noLogEntries: 'Ingen loggoppf\u00f8ringer',
+      noHanMeter: 'Ingen HAN-m\u00e5ler tilkoblet',
+      noScanData: 'Ingen skanningsdata enn\u00e5 (skanning kj\u00f8res n\u00e5r effekten overstiger grensen)',
+      thAction: 'Handling',
+      thResult: 'Resultat',
+      uptime: 'Oppetid: ',
+      currentPowerLabel: 'N\u00e5v\u00e6rende effekt: ',
+      powerLimitLabel: 'Effektgrense: ',
+      overLimitCount: 'Antall over grense: ',
+      deviceCache: 'Enhetsbuffer: ',
+      devicesCount: ' enheter',
+      mitigatedLabel: 'Begrenset: ',
+      devicesParens: ' enhet(er)',
+      settingsLabel: 'Innstillinger:',
+      currentlyMitigated: 'For \u00f8yeblikket begrenset:',
+      copiedToClipboard: 'Kopiert til utklippstavle (',
+      copyFailed: 'Kopiering feilet — vennligst velg og kopier manuelt',
+      noDevicesMatching: 'Ingen enheter funnet for "',
+      driverLabel: 'Driver: ',
+      classLabel: 'Klasse: ',
+      firmwareLabel: 'Fastvare:',
+      hwLabel: 'HW:',
+      allSettings: 'Alle innstillinger',
+      priceCheap: 'Billig',
+      priceNormal: 'Normal',
+      priceExpensive: 'Dyrt',
+      priceExtreme: 'Ekstremt',
+      refreshPrice: '↻ Oppdater',
+      modeOff: 'Av',
+      modeSlow: 'Saktlading',
+      modeCharging: 'Lader',
+      modeFast: 'Hurtiglading',
+      hintWaiting: 'venter p\u00e5 billig time',
+      hintNoDeadline: 'ingen frist satt',
+      hintCheapHour: 'billig time',
+      nightRate: 'nattrate',
+      norgesprisFlat: 'Norgespris fastpris (spot: ',
+      nextHour: 'Neste time: ',
+      allEqual: 'Alle like',
+      now: 'N\u00e5',
+      noPriceData: 'Ingen prisdata',
+      lastUpdatedLabel: 'Sist oppdatert ',
+      justNow: 'akkurat n\u00e5',
+      minAgo: ' min siden',
+      lastBatteryReports: '🔋 <b>Siste batterirapporter:</b>',
+      chargingSchedule: 'Ladeplan',
+      howToSetupScheduling: '⚡ Slik setter du opp automatisk ladeplan',
+      evScheduleInstructions: '<li>I <b>Enheter-fanen</b> — finn laderen din og fyll inn <b>Batterist\u00f8rrelse (kWh)</b> og <b>Lad til (%)</b>.</li><li>I <b>Homey Flows</b> — opprett en flyt:<br><b>N\u00c5R</b> bil-appen rapporterer batteri% endret<br><b>S\u00c5</b> Power Guard \u2192 <i>"Rapporter [batteri%] batteri for [lader]"</i><br><span style="color:var(--text-muted)">Dra batteri%-taggen fra bil-appen din inn i verdifelt.</span></li><li>Sett en <b>Ferdig ladet innen</b>-tid nedenfor og klikk <b>Lagre plan</b>.</li>',
+      yes: 'Ja',
+      no: 'Nei',
+      chargingNow: 'Lader n\u00e5',
+      shouldCharge: 'B\u00f8r lade',
+      chargeMismatch: '⚠️ Feil: b\u00f8r lade men gj\u00f8r det ikke (eller omvendt).',
+      noEvChargers: 'Ingen elbilladere sporet — legg til en lader i Enheter-fanen.',
+      chargerStatusError: 'Kunne ikke laste laderstatus.',
+      noBatteryReports: 'Ingen rapporter enn\u00e5 — kj\u00f8r "Rapporter EV-batteri" Flow for \u00e5 oppdatere.',
+      hAgo: ' t siden',
+      hNeeded: ' t n\u00f8dvendig',
+      capacityNotSet: 'kapasitet ikke satt',
+      invalidTimeFormat: 'Ugyldig tidsformat. Bruk TT:MM (f.eks. 07:00).',
+      saved: 'Lagret ✓',
+      saveFailed: 'Lagring feilet: ',
+      noManagedDevices: 'Ingen administrerte enheter enn\u00e5. Legg til enheter i Enheter-fanen f\u00f8rst.',
+      noActiveDevices: 'Ingen aktive enheter.',
+      noEvChargersManaged: 'Ingen elbilladere administrert. Legg til en elbillader i Enheter-fanen f\u00f8rst.',
+      actionOnOff: 'P\u00e5/Av',
+      actionDim: 'Dim',
+      actionThermostat: 'Termostat',
+      actionEvCharger: 'Elbillader',
+      actionWaterHeater: 'Varmtvannsbereder',
+      dotOn: '● P\u00c5',
+      on: 'P\u00e5',
+      off: 'Av',
+      high: 'H\u00f8y',
+      med: 'Middels',
+      low: 'Lav',
+      allow: 'Tillat',
+      pause: 'Pause',
+      pgOverride: '⚡ PG styring',
+      managedSection: 'Administrert — sl\u00e5s av fra topp til bunn',
+      notManaged: 'Ikke administrert',
+      availableDevices: 'Tilgjengelige enheter — sl\u00e5 p\u00e5 for \u00e5 administrere',
+      toggleToManage: 'Sl\u00e5 p\u00e5 enheter for \u00e5 administrere dem.',
+      noDevicesCacheLoading: 'Ingen enheter funnet. Bufferen laster — oppdateres automatisk.',
+      batterySchedule: '🔋 Ladeplan',
+      size: 'St\u00f8rrelse',
+      chargeTo: 'Lad til',
+      car: 'Bil',
+      shedHeatersWhenCharging: '⚡ Sl\u00e5 av varmere under lading',
+      active: 'AKTIV',
+      actionTurnOff: 'Sl\u00e5 av',
+      actionLowerThermostat: 'Senk termostat',
+      actionPauseEv: 'Pause elbillading (Zaptec/Enua)',
+      actionDynamicCharging: 'Dynamisk lading (Easee/Zaptec/Enua)',
+      actionSteppedPower: 'Trinnvis effekt (H\u00f8iax)',
+      priorityShed: 'Prioritetsstyring',
+      devicesLoaded: ' enheter lastet',
+      devicesUpdated: ' enheter (oppdatert ',
+      cacheReady: 'Buffer klar (0 enheter)',
+      cacheLoading: 'Buffer laster...',
+      refreshing: 'Oppdaterer...',
+      refreshFailed: 'Oppdatering feilet',
+      charsSuffix: ' tegn)',
+      no2: 'Nei',
+      chargerModeLabel: 'Ladermodus',
+      monthlyMetric: 'M\u00e5nedlig metrikk (TOP3 snitt)',
+      currentTier: 'N\u00e5v\u00e6rende trinn',
+      thisHour: 'Denne timen: ',
+      todayPeak: 'Dagens topp: ',
+      testModeNotice: 'Testmodus \u2014 kun visning. P\u00e5virker ikke grenser eller tiltak.',
     }
   };
   function t(key) {
@@ -1847,14 +2197,14 @@
 
   function changeMeterDevice(deviceId) {
     var statusEl = document.getElementById('meter-status');
-    if (statusEl) statusEl.innerHTML = '<span style=\"color:#ff9500\">⏳ Switching meter...</span>';
+    if (statusEl) statusEl.innerHTML = '<span style=\"color:#ff9500\">' + t('switchingMeter') + '</span>';
     hApi('POST', '/set-meter-device', { deviceId: deviceId })
       .then(function(result) {
         _savedMeterDeviceId = deviceId;
         if (result && result.hanConnected) {
-          if (statusEl) statusEl.innerHTML = '<span style=\"color:#34c759\">✓ Connected to ' + escHtml(result.hanDeviceName || 'meter') + '</span>';
+          if (statusEl) statusEl.innerHTML = '<span style=\"color:#34c759\">' + t('connectedTo') + escHtml(result.hanDeviceName || 'meter') + '</span>';
         } else {
-          if (statusEl) statusEl.innerHTML = '<span style=\"color:#ff3b30\">✗ No meter found' + (deviceId === 'auto' ? ' (auto-detect)' : '') + '</span>';
+          if (statusEl) statusEl.innerHTML = '<span style=\"color:#ff3b30\">' + t('noMeterFound') + (deviceId === 'auto' ? ' (auto-detect)' : '') + '</span>';
         }
         dbg('Meter device changed to: ' + deviceId + ', connected: ' + (result && result.hanConnected));
       })
@@ -1870,9 +2220,9 @@
     hApi('GET', '/cache-status', null)
       .then(function(result) {
         if (result && result.hanConnected) {
-          statusEl.innerHTML = '<span style=\"color:#34c759\">✓ Meter connected</span>';
+          statusEl.innerHTML = '<span style=\"color:#34c759\">' + t('meterConnected') + '</span>';
         } else {
-          statusEl.innerHTML = '<span style=\"color:#ff9500\">⚠ No meter connected</span>';
+          statusEl.innerHTML = '<span style=\"color:#ff9500\">' + t('noMeterConnected') + '</span>';
         }
       })
       .catch(function() {});
@@ -1883,36 +2233,36 @@
     if (!el) return;
     hApi('GET', '/han-diagnostic', null)
       .then(function(d) {
-        if (!d) { el.innerHTML = '<span style="color:var(--text-muted)">No data</span>'; return; }
+        if (!d) { el.innerHTML = '<span style="color:var(--text-muted)">' + t('noData') + '</span>'; return; }
         var connColor = d.hanConnected ? '#34c759' : '#ff3b30';
-        var connText = d.hanConnected ? 'Connected' : 'Not connected';
+        var connText = d.hanConnected ? t('connected') : t('notConnected');
         var ageColor = '#636366';
         var ageText = '-';
         if (d.lastReadingAgeSeconds != null) {
           var a = d.lastReadingAgeSeconds;
-          ageText = a < 5 ? 'Live' : a < 60 ? a + 's ago' : Math.round(a / 60) + 'm ago';
+          ageText = a < 5 ? t('live') : a < 60 ? a + t('sAgo') : Math.round(a / 60) + t('mAgo');
           ageColor = a < 10 ? '#34c759' : a < 30 ? '#ff9500' : '#ff3b30';
         }
         var src = d.readingSource || 'none';
-        var srcLabel = src === 'event' ? 'Events' : src === 'poll' ? 'Polling only' : src === 'event+poll' ? 'Events + Polling' : 'None';
+        var srcLabel = src === 'event' ? t('events') : src === 'poll' ? t('pollingOnly') : src === 'event+poll' ? t('eventsPolling') : t('none');
         var srcColor = src === 'none' ? '#ff3b30' : src === 'poll' ? '#ff9500' : '#34c759';
 
         var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px; margin-bottom:10px;">';
-        html += '<div><strong>Status:</strong> <span style="color:' + connColor + '">' + connText + '</span></div>';
-        html += '<div><strong>Last reading:</strong> <span style="color:' + ageColor + '">' + ageText + '</span></div>';
-        html += '<div><strong>Device:</strong> ' + escHtml(d.hanDeviceName || '-') + '</div>';
-        html += '<div><strong>Brand:</strong> ' + escHtml(d.hanBrand || '-') + '</div>';
-        html += '<div><strong>Source:</strong> <span style="color:' + srcColor + '">' + srcLabel + '</span></div>';
-        html += '<div><strong>Mode:</strong> ' + escHtml(d.selectionMode || '-') + '</div>';
-        html += '<div><strong>Events:</strong> ' + (d.eventCount || 0) + '</div>';
-        html += '<div><strong>Polls:</strong> ' + (d.pollCount || 0) + '</div>';
-        html += '<div><strong>Spikes filtered:</strong> ' + (d.spikeFilterCount || 0) + '</div>';
-        html += '<div><strong>Reconnects:</strong> ' + (d.watchdogReconnects || 0) + '</div>';
+        html += '<div><strong>' + t('statusLabel') + '</strong> <span style="color:' + connColor + '">' + connText + '</span></div>';
+        html += '<div><strong>' + t('lastReading') + '</strong> <span style="color:' + ageColor + '">' + ageText + '</span></div>';
+        html += '<div><strong>' + t('deviceLabel') + '</strong> ' + escHtml(d.hanDeviceName || '-') + '</div>';
+        html += '<div><strong>' + t('brandLabel') + '</strong> ' + escHtml(d.hanBrand || '-') + '</div>';
+        html += '<div><strong>' + t('sourceLabel') + '</strong> <span style="color:' + srcColor + '">' + srcLabel + '</span></div>';
+        html += '<div><strong>' + t('modeLabel') + '</strong> ' + escHtml(d.selectionMode || '-') + '</div>';
+        html += '<div><strong>' + t('eventsLabel') + '</strong> ' + (d.eventCount || 0) + '</div>';
+        html += '<div><strong>' + t('pollsLabel') + '</strong> ' + (d.pollCount || 0) + '</div>';
+        html += '<div><strong>' + t('spikesFiltered') + '</strong> ' + (d.spikeFilterCount || 0) + '</div>';
+        html += '<div><strong>' + t('reconnects') + '</strong> ' + (d.watchdogReconnects || 0) + '</div>';
         html += '</div>';
 
         // Capabilities
         if (d.capabilities && d.capabilities.length > 0) {
-          html += '<div style="margin-bottom:8px;"><strong>Capabilities:</strong> <span style="color:var(--text-muted); word-break:break-all;">' + escHtml(d.capabilities.join(', ')) + '</span></div>';
+          html += '<div style="margin-bottom:8px;"><strong>' + t('capabilities') + '</strong> <span style="color:var(--text-muted); word-break:break-all;">' + escHtml(d.capabilities.join(', ')) + '</span></div>';
         }
 
         // Recent raw readings (collapsible)
@@ -1930,8 +2280,8 @@
           }
           html += '<div style="margin-top:6px;">' +
             '<button class="btn-secondary" style="font-size:11px; padding:3px 10px;" ' +
-            'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ Recent readings (' + log.length + ')\': \'▼ Recent readings (' + log.length + ')\';  })(this)">' +
-            '▶ Recent readings (' + log.length + ')</button>' +
+            'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ ' + t('recentReadings') + log.length + ')\': \'▼ ' + t('recentReadings') + log.length + ')\';  })(this)">' +
+            '▶ ' + t('recentReadings') + log.length + ')</button>' +
             '<div style="display:none; max-height:160px; overflow-y:auto; background:var(--bg-surface); border-radius:6px; padding:6px; margin-top:4px; font-family:monospace; font-size:11px;">' +
             logRows +
             '</div></div>';
@@ -1940,7 +2290,7 @@
         // Power buffer
         var buf = d.powerBuffer || [];
         if (buf.length > 0) {
-          html += '<div style="margin-top:6px;"><strong>Power buffer (last ' + buf.length + '):</strong> <span style="color:var(--text-muted)">' + buf.map(function(v) { return Math.round(v); }).join(', ') + ' W</span></div>';
+          html += '<div style="margin-top:6px;"><strong>' + t('powerBuffer') + buf.length + '):</strong> <span style="color:var(--text-muted)">' + buf.map(function(v) { return Math.round(v); }).join(', ') + ' W</span></div>';
         }
 
         el.innerHTML = html;
@@ -2015,9 +2365,9 @@
 
     var html = '<table style="width:100%; border-collapse:collapse;">';
     html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
-            '<th style="text-align:left; padding:8px 4px;">Charger</th>' +
-            '<th style="text-align:center; padding:8px 4px;">Phases</th>' +
-            '<th style="text-align:center; padding:8px 4px;">Status</th>' +
+            '<th style="text-align:left; padding:8px 4px;">' + t('chargerHeader') + '</th>' +
+            '<th style="text-align:center; padding:8px 4px;">' + t('phasesHeader') + '</th>' +
+            '<th style="text-align:center; padding:8px 4px;">' + t('statusHeader') + '</th>' +
             '</tr></thead><tbody>';
 
     chargers.forEach(function(charger, idx) {
@@ -2039,7 +2389,7 @@
                        '➖';
 
       var phases = charger.detectedPhases || liveStatus.detectedPhases || charger.chargerPhases;
-      var phasesLabel = phases === 1 ? '1-phase (230V)' : phases === 3 ? '3-phase (400V)' : '–';
+      var phasesLabel = phases === 1 ? t('onePhase') : phases === 3 ? t('threePhase') : '–';
       var phasesColor = phases ? 'var(--text-muted)' : '#8e8e93';
 
       var bgColor = idx % 2 === 0 ? 'transparent' : 'var(--bg-surface)';
@@ -2060,8 +2410,7 @@
 
     html += '</tbody></table>';
     html += '<div style="font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.5;">' +
-            '💡 Power Guard adjusts charger current up/down automatically based on available headroom. ' +
-            'Phases and max current are auto-detected from live data — configure limits in your charger\'s own app.' +
+            t('chargerAutoHint') +
             '</div>';
 
     // Debug: show raw charger_status values — collapsible
@@ -2087,8 +2436,8 @@
     });
     html += '<div style="margin-top:10px;">' +
             '<button class="btn-secondary" style="font-size:11px; padding:3px 10px;" ' +
-            'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ Raw status\':\'▼ Raw status\';})(this)">' +
-            '▶ Raw status</button>' +
+            'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?' + "''" + '+t(\'rawStatusCollapsed\'):' + "''" + '+t(\'rawStatusExpanded\');})(this)">' +
+            t('rawStatusCollapsed') + '</button>' +
             '<div style="display:none; margin-top:6px; padding:8px; background:var(--bg-surface); border-radius:6px; font-size:11px; font-family:monospace; color:var(--text-muted); line-height:1.6;">' +
             rawRows +
             '</div>' +
@@ -2138,12 +2487,12 @@
   function testChargerControl() {
     var resultDiv = document.getElementById('charger-test-result');
     resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<span style="color:var(--text-muted)">⏳ Testing charger control...</span>';
+    resultDiv.innerHTML = '<span style="color:var(--text-muted)">' + t('testingCharger') + '</span>';
 
     hApi('POST', '/test-charger', {})
       .then(function(data) {
         if (!data || !data.steps) {
-          resultDiv.innerHTML = '<span style="color:#ff3b30">⚠ No response from test</span>';
+          resultDiv.innerHTML = '<span style="color:#ff3b30">' + t('noTestResponse') + '</span>';
           return;
         }
         var html = '';
@@ -2155,14 +2504,14 @@
                   '</div>';
         });
         if (data.success) {
-          html += '<div style="padding:6px 0; color:#34c759; font-weight:600;">✅ Charger control is working!</div>';
+          html += '<div style="padding:6px 0; color:#34c759; font-weight:600;">' + t('chargerWorking') + '</div>';
         } else {
-          html += '<div style="padding:6px 0; color:#ff3b30; font-weight:600;">❌ Charger control failed — see details above</div>';
+          html += '<div style="padding:6px 0; color:#ff3b30; font-weight:600;">' + t('chargerFailed') + '</div>';
         }
         resultDiv.innerHTML = html;
       })
       .catch(function(err) {
-        resultDiv.innerHTML = '<span style="color:#ff3b30">⚠ Test failed: ' + (err.message || err) + '</span>';
+        resultDiv.innerHTML = '<span style="color:#ff3b30">' + t('testFailed') + (err.message || err) + '</span>';
       });
   }
 
@@ -2178,7 +2527,7 @@
     if (!badge) return;
     var selected = document.getElementById('s-voltageSystem').value;
     if (selected === 'auto') {
-      var label = _detectedVoltageSystem === '400v-3phase' ? '3-phase (400V)' : '1-phase (230V)';
+      var label = _detectedVoltageSystem === '400v-3phase' ? t('threePhase') : t('onePhase');
       badge.textContent = 'ℹ️ Auto-detected: ' + label;
       badge.style.color = 'var(--color-success, #34c759)';
     } else {
@@ -2504,24 +2853,24 @@
           }
           var activeLabel = '';
           if (h.mitigated) {
-            var stepText = h.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
+            var stepText = h.mitigationStep === 2 ? t('offByPg') : t('reducedByPg');
             activeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
           }
           // Power sensor present → show watts when > 5W, nothing otherwise (sensor is authoritative)
           // No power sensor → show ● ON when isOn=true (relay closed / mode=heat)
           var pwrLabel = powerW > 5
             ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ' + Math.round(powerW) + 'W</span>'
-            : (!hasPowerData && isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">● ON</span>' : '');
+            : (!hasPowerData && isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">' + t('dotOn') + '</span>' : '');
           var arrow = h.hasTargetTemp ? ' → ' : '';
 
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
             '<span class="h-dot"></span>' +
             '<div class="h-info">' +
               '<div class="h-name">' + escHtml(h.name) + modeLabel + activeLabel + '</div>' +
-              '<div class="h-cur">Now <b>' + cur + '</b>' + (h.hasTargetTemp ? arrow + tgtVal + '°' : '') + pwrLabel + '</div>' +
+              '<div class="h-cur">' + t('nowLabel') + cur + '</b>' + (h.hasTargetTemp ? arrow + tgtVal + '°' : '') + pwrLabel + '</div>' +
             '</div>' +
             '<div class="h-controls">' +
-              (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')" title="Apply temperature">Set</button>' : '') +
+              (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')" title="Apply temperature">' + t('set') + '</button>' : '') +
               (h.hasOnOff ? '<label class="h-toggle"><input type="checkbox"' + chk + ' onchange="controlHeater(\'' + id + '\', this.checked?\'on\':\'off\')" /><span class="h-track"></span><span class="h-thumb"></span></label>' : '') +
             '</div>' +
           '</div>';
@@ -2543,9 +2892,9 @@
         }
       })
       .catch(function(err) {
-        showError('Failed to load heaters: ' + err.message);
+        showError(t('failedLoadHeaters') + err.message);
         var list = document.getElementById('floorheater-list');
-        if (list) list.innerHTML = '<div style="text-align:center;padding:20px;color:#ff3b30;font-size:12px;">Error loading thermostats</div>';
+        if (list) list.innerHTML = '<div style="text-align:center;padding:20px;color:#ff3b30;font-size:12px;">' + t('errorLoadThermostats') + '</div>';
       });
   }
 
@@ -2554,10 +2903,10 @@
     hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: action, value: null })
       .then(function(data) {
         if (data.ok) {
-          showToast(data.message || 'Control sent');
+          showToast(data.message || t('controlSent'));
           setTimeout(loadFloorHeaters, 500);
         } else {
-          showError('Control failed: ' + (data.error || 'Unknown error'));
+          showError(t('controlFailed') + (data.error || 'Unknown error'));
         }
       })
       .catch(function(err) {
@@ -2588,10 +2937,10 @@
       .then(function(data) {
         if (data.ok) {
           delete _heaterDirty[deviceId];
-          showToast(data.message || 'Temperature set');
+          showToast(data.message || t('tempSet'));
           setTimeout(loadFloorHeaters, 500);
         } else {
-          showError('Failed: ' + (data.error || 'Unknown error'));
+          showError(t('failed') + (data.error || 'Unknown error'));
         }
       })
       .catch(function(err) {
@@ -2670,7 +3019,7 @@
     if (managed.length) {
       var lbl1 = document.createElement('div');
       lbl1.className = 'section-label';
-      lbl1.textContent = 'Managed \u2014 turned off first to last';
+      lbl1.textContent = t('managedSection');
       container.appendChild(lbl1);
       var ul = document.createElement('ul');
       ul.className = 'dev-list';
@@ -2684,7 +3033,7 @@
     if (unmanaged.length) {
       var lbl2 = document.createElement('div');
       lbl2.className = 'section-label';
-      lbl2.textContent = managed.length ? 'Not managed' : 'Available devices \u2014 toggle on to manage';
+      lbl2.textContent = managed.length ? t('notManaged') : t('availableDevices');
       container.appendChild(lbl2);
       var groups = {};
       unmanaged.forEach(function(dev) {
@@ -2712,8 +3061,8 @@
       var msg = document.createElement('p');
       msg.style.cssText = 'color:var(--text-tertiary);font-size:13px;padding:16px 0;text-align:center';
       msg.textContent = availableDevices.length
-        ? 'Toggle devices on to manage them.'
-        : 'No devices found. The cache is loading \u2014 this will update automatically.';
+        ? t('toggleToManage')
+        : t('noDevicesCacheLoading');
       container.appendChild(msg);
     }
     applyI18n();
@@ -2745,20 +3094,20 @@
 
     var batterySection = isEV
       ? '<div style="margin-top:5px;padding:5px 8px;background:rgba(0,122,255,0.07);border-radius:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;">' +
-          '<span style="color:var(--brand);font-weight:600;font-size:11px;">🔋 Battery schedule</span>' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">Size' +
+          '<span style="color:var(--brand);font-weight:600;font-size:11px;">' + t('batterySchedule') + '</span>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">' + t('size') +
             '<input type="number" min="1" max="200" step="1" placeholder="–" value="' + capVal + '"' +
               ' style="width:52px;margin-left:4px;" title="Total usable battery capacity in kWh"' +
               ' onchange="updateEvBatteryCapacity(\'' + entry.deviceId + '\',this.value)">' +
             '<span style="color:var(--text-muted)">kWh</span>' +
           '</label>' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">Charge to' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">' + t('chargeTo') +
             '<input type="number" min="10" max="100" step="5" placeholder="80" value="' + tgtVal + '"' +
               ' style="width:46px;margin-left:4px;" title="Target charge level in percent"' +
               ' onchange="updateEvTargetPercent(\'' + entry.deviceId + '\',this.value)">' +
             '<span style="color:var(--text-muted)">%</span>' +
           '</label>' +
-          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">Car' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;">' + t('car') +
             '<select style="margin-left:4px;font-size:11px;" title="Link a car device so Power Guard reads its battery automatically"' +
               ' onchange="updateCarDevice(\'' + entry.deviceId + '\',this.value)">' +
               carSelOptions +
@@ -2766,7 +3115,7 @@
           '</label>' +
           '<label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-left:4px;" title="When ON: heaters and thermostats in the priority list are turned off as soon as this car starts charging, and restored when it stops or is paused by the price engine.">' +
             '<input type="checkbox"' + (entry.chargerPriority ? ' checked' : '') + ' onchange="updateChargerPriority(\'' + entry.deviceId + '\',this.checked)">' +
-            '⚡ Shed heaters when charging' +
+            t('shedHeatersWhenCharging') +
           '</label>' +
         '</div>'
       : '';
@@ -2782,14 +3131,14 @@
           '</button>' +
         '</span>' +
         '<span class="priority-num">' + (idx + 1) + '.</span>' +
-        '<span class="dev-name" style="' + (isControlled ? 'color:#ff9500;font-weight:700;' : '') + '">' + escHtml(entry.name) + (isControlled ? ' <span style="font-size:10px;font-weight:600;background:#ff9500;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;">ACTIVE</span>' : '') + '</span>' +
+        '<span class="dev-name" style="' + (isControlled ? 'color:#ff9500;font-weight:700;' : '') + '">' + escHtml(entry.name) + (isControlled ? ' <span style="font-size:10px;font-weight:600;background:#ff9500;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;">' + t('active') + '</span>' : '') + '</span>' +
         '<select onchange="updateDeviceAction(\'' + entry.deviceId + '\',this.value)">' +
-          '<option value="onoff"'             + selOpt(entry.action,'onoff')             + '>Turn off</option>' +
-          '<option value="dim"'               + selOpt(entry.action,'dim')               + '>Dim</option>' +
-          '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>Lower thermostat</option>' +
-          '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>Pause EV charging (Zaptec/Enua)</option>' +
-          '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>Dynamic charging (Easee/Zaptec/Enua)</option>' +
-          '<option value="hoiax_power"'       + selOpt(entry.action,'hoiax_power')       + '>Stepped power (Høiax)</option>' +
+          '<option value="onoff"'             + selOpt(entry.action,'onoff')             + '>' + t('actionTurnOff') + '</option>' +
+          '<option value="dim"'               + selOpt(entry.action,'dim')               + '>' + t('actionDim') + '</option>' +
+          '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>' + t('actionLowerThermostat') + '</option>' +
+          '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>' + t('actionPauseEv') + '</option>' +
+          '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>' + t('actionDynamicCharging') + '</option>' +
+          '<option value="hoiax_power"'       + selOpt(entry.action,'hoiax_power')       + '>' + t('actionSteppedPower') + '</option>' +
         '</select>' +
         '<label class="toggle" title="Managed \u2014 toggle to remove">' +
           '<input type="checkbox" checked onchange="toggleDevice(\'' + entry.deviceId + '\',this.checked)">' +
@@ -2809,12 +3158,12 @@
       '<span class="priority-num" style="visibility:hidden">0.</span>' +
       '<span class="dev-name">' + escHtml(dev.name) + '</span>' +
       '<select id="def-action-' + dev.id.replace(/[^a-z0-9]/gi,'_') + '">' +
-        '<option value="onoff">Turn off</option>' +
-        '<option value="dim">Dim</option>' +
-        '<option value="target_temperature">Lower thermostat</option>' +
-        '<option value="charge_pause">Pause EV charging (Zaptec/Enua)</option>' +
-        '<option value="dynamic_current">Dynamic charging (Easee/Zaptec/Enua)</option>' +
-        '<option value="hoiax_power">Stepped power (Høiax)</option>' +
+        '<option value="onoff">' + t('actionTurnOff') + '</option>' +
+        '<option value="dim">' + t('actionDim') + '</option>' +
+        '<option value="target_temperature">' + t('actionLowerThermostat') + '</option>' +
+        '<option value="charge_pause">' + t('actionPauseEv') + '</option>' +
+        '<option value="dynamic_current">' + t('actionDynamicCharging') + '</option>' +
+        '<option value="hoiax_power">' + t('actionSteppedPower') + '</option>' +
       '</select>' +
       '<label class="toggle" title="Toggle on to manage this device">' +
         '<input type="checkbox" onchange="toggleDevice(\'' + dev.id + '\',this.checked)">' +
@@ -2987,17 +3336,17 @@
         statusEl.style.display = 'inline';
         refreshEl.style.display = 'inline';
         if (data.cacheReady && data.cacheCount > 0) {
-          statusEl.textContent = data.cacheCount + ' devices (updated ' + data.cacheAgeSeconds + 's ago)';
+          statusEl.textContent = data.cacheCount + t('devicesUpdated') + data.cacheAgeSeconds + t('sAgo') + ')';
           statusEl.style.color = '#34c759';
           if (availableDevices.length === 0) {
             dbg('Cache ready, reloading device list...');
             loadAll();
           }
         } else if (data.cacheReady) {
-          statusEl.textContent = 'Cache ready (0 devices)';
+          statusEl.textContent = t('cacheReady');
           statusEl.style.color = '#ff9500';
         } else {
-          statusEl.textContent = 'Cache loading...';
+          statusEl.textContent = t('cacheLoading');
           statusEl.style.color = 'var(--text-muted)';
         }
       })
@@ -3006,7 +3355,7 @@
           loadingEl.style.display = 'none';
           statusEl.style.display = 'inline';
           refreshEl.style.display = 'inline';
-          statusEl.textContent = availableDevices.length + ' devices loaded';
+          statusEl.textContent = availableDevices.length + t('devicesLoaded');
           statusEl.style.color = '#34c759';
         }
       });
@@ -3014,7 +3363,7 @@
 
   function refreshDeviceCache() {
     var statusEl = document.getElementById('cache-status-text');
-    statusEl.textContent = 'Refreshing...';
+    statusEl.textContent = t('refreshing');
     statusEl.style.color = 'var(--text-muted)';
     hApi('POST', '/device-cache-refresh', null)
       .then(function(data) {
@@ -3022,7 +3371,7 @@
           showCacheStatus();
           setTimeout(loadAll, 500);
         } else {
-          statusEl.textContent = 'Refresh failed';
+          statusEl.textContent = t('refreshFailed');
           statusEl.style.color = '#ff3b30';
         }
       })
@@ -3122,7 +3471,7 @@
           var _s = document.getElementById('cache-status-text');
           var _r = document.getElementById('cache-refresh-btn');
           if (_l) _l.style.display = 'none';
-          if (_s) { _s.style.display = 'inline'; _s.textContent = availableDevices.length + ' devices loaded'; _s.style.color = '#34c759'; }
+          if (_s) { _s.style.display = 'inline'; _s.textContent = availableDevices.length + t('devicesLoaded'); _s.style.color = '#34c759'; }
           if (_r) _r.style.display = 'inline';
         }
 
@@ -3226,7 +3575,7 @@
     hApi('GET', '/firmwareInfo?search=' + encodeURIComponent(search), null)
       .then(function(data) {
         if (!data || data.length === 0) {
-          el.innerHTML = '<span style="color:var(--text-muted);">No devices found matching "' + escHtml(search) + '".</span>';
+          el.innerHTML = '<span style="color:var(--text-muted);">' + t('noDevicesMatching') + escHtml(search) + '".</span>';
           return;
         }
         el.innerHTML = data.map(function(d) {
@@ -3235,9 +3584,9 @@
           }).join('<br>');
           return '<div style="padding:8px 0; border-bottom:1px solid var(--border-light);">' +
             '<div style="font-weight:600; color:var(--text-primary);">' + escHtml(d.name) + '</div>' +
-            '<div style="color:var(--text-muted); font-size:11px; margin-top:2px;">Driver: ' + escHtml(d.driver) + ' &nbsp;|&nbsp; Class: ' + escHtml(d.class || '–') + '</div>' +
-            '<div style="margin-top:4px;"><b>Firmware:</b> ' + escHtml(String(d.firmware ?? '–')) + ' &nbsp; <b>HW:</b> ' + escHtml(String(d.hardwareVersion ?? '–')) + '</div>' +
-            (settings ? '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted);">All settings</summary><div style="font-size:11px;line-height:1.8;padding-top:4px;">' + settings + '</div></details>' : '') +
+            '<div style="color:var(--text-muted); font-size:11px; margin-top:2px;">' + t('driverLabel') + escHtml(d.driver) + ' &nbsp;|&nbsp; ' + t('classLabel') + escHtml(d.class || '–') + '</div>' +
+            '<div style="margin-top:4px;"><b>' + t('firmwareLabel') + '</b> ' + escHtml(String(d.firmware ?? '–')) + ' &nbsp; <b>' + t('hwLabel') + '</b> ' + escHtml(String(d.hardwareVersion ?? '–')) + '</div>' +
+            (settings ? '<details style="margin-top:4px;"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted);">' + t('allSettings') + '</summary><div style="font-size:11px;line-height:1.8;padding-top:4px;">' + settings + '</div></details>' : '') +
             '</div>';
         }).join('');
       })
@@ -3302,7 +3651,7 @@
     }
 
     if (entries.length === 0) {
-      el.innerHTML = '<span style="color:var(--text-muted)">No log entries' +
+      el.innerHTML = '<span style="color:var(--text-muted)">' + t('noLogEntries') +
         (_appLogFilter !== 'all' ? ' for category "' + _appLogFilter + '"' : '') + '</span>';
       return;
     }
@@ -3328,29 +3677,29 @@
     if (!el) return;
 
     if (!han || !han.hanConnected) {
-      el.innerHTML = '<span style="color:var(--text-muted)">No HAN meter connected</span>';
+      el.innerHTML = '<span style="color:var(--text-muted)">' + t('noHanMeter') + '</span>';
       return;
     }
 
-    var lastAge = han.lastReadingAgeSeconds != null ? han.lastReadingAgeSeconds + 's ago' : 'unknown';
+    var lastAge = han.lastReadingAgeSeconds != null ? han.lastReadingAgeSeconds + t('sAgo') : 'unknown';
     var ageColor = (han.lastReadingAgeSeconds != null && han.lastReadingAgeSeconds < 15) ? '#34c759' : '#ff9500';
 
     var html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 16px;">' +
-      '<div>Status: <strong style="color:#34c759">Connected</strong></div>' +
-      '<div>Last reading: <strong style="color:' + ageColor + '">' + lastAge + '</strong></div>' +
-      '<div>Device: <strong>' + (han.hanDeviceName || 'N/A') + '</strong></div>' +
-      '<div>Brand: <strong>' + (han.hanBrand || 'N/A') + '</strong></div>' +
-      '<div>Source: <strong>' + (han.readingSource || 'none') + '</strong></div>' +
-      '<div>Mode: <strong>' + (han.selectionMode || 'auto') + '</strong></div>' +
-      '<div>Events: <strong>' + (han.eventCount || 0) + '</strong></div>' +
-      '<div>Polls: <strong>' + (han.pollCount || 0) + '</strong></div>' +
-      '<div>Spikes filtered: <strong>' + (han.spikeFilterCount || 0) + '</strong></div>' +
-      '<div>Reconnects: <strong>' + (han.watchdogReconnects || 0) + '</strong></div>' +
+      '<div><strong>' + t('statusLabel') + '</strong> <span style="color:#34c759">' + t('connected') + '</span></div>' +
+      '<div><strong>' + t('lastReading') + '</strong> <span style="color:' + ageColor + '">' + lastAge + '</span></div>' +
+      '<div><strong>' + t('deviceLabel') + '</strong> ' + (han.hanDeviceName || 'N/A') + '</div>' +
+      '<div><strong>' + t('brandLabel') + '</strong> ' + (han.hanBrand || 'N/A') + '</div>' +
+      '<div><strong>' + t('sourceLabel') + '</strong> ' + (han.readingSource || 'none') + '</div>' +
+      '<div><strong>' + t('modeLabel') + '</strong> ' + (han.selectionMode || 'auto') + '</div>' +
+      '<div><strong>' + t('eventsLabel') + '</strong> ' + (han.eventCount || 0) + '</div>' +
+      '<div><strong>' + t('pollsLabel') + '</strong> ' + (han.pollCount || 0) + '</div>' +
+      '<div><strong>' + t('spikesFiltered') + '</strong> ' + (han.spikeFilterCount || 0) + '</div>' +
+      '<div><strong>' + t('reconnects') + '</strong> ' + (han.watchdogReconnects || 0) + '</div>' +
       '</div>';
 
     // Capabilities
     if (han.capabilities && han.capabilities.length > 0) {
-      html += '<div style="margin-top:8px; color:var(--text-muted);">Capabilities: ' +
+      html += '<div style="margin-top:8px; color:var(--text-muted);">' + t('capabilities') + ' ' +
         han.capabilities.join(', ') + '</div>';
     }
 
@@ -3359,15 +3708,15 @@
       var sumLogRows = '';
       han.rawLog.slice().reverse().forEach(function(r) {
         var srcColor = r.source === 'event' ? '#34c759' : r.source === 'poll' ? '#ff9500' : r.source === 'spike-filtered' ? '#ff3b30' : '#8e8e93';
-        var t = r.time ? r.time.replace('T', ' ').substring(0, 19) : '??';
-        sumLogRows += '<div><span style="color:var(--text-muted)">' + t + '</span> ' +
+        var ts = r.time ? r.time.replace('T', ' ').substring(0, 19) : '??';
+        sumLogRows += '<div><span style="color:var(--text-muted)">' + ts + '</span> ' +
           '<span style="color:' + srcColor + '">[' + (r.source || '?') + ']</span> ' +
           '<strong>' + r.value + 'W</strong></div>';
       });
       html += '<div style="margin-top:8px;">' +
         '<button class="btn-secondary" style="font-size:11px; padding:3px 10px;" ' +
-        'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ Recent readings (' + han.rawLog.length + ')\': \'▼ Recent readings (' + han.rawLog.length + ')\';  })(this)">' +
-        '▶ Recent readings (' + han.rawLog.length + ')</button>' +
+        'onclick="(function(btn){var d=btn.nextElementSibling;var open=d.style.display!==\'none\';d.style.display=open?\'none\':\'block\';btn.textContent=open?\'▶ \' + t(\'recentReadings\') + \'' + han.rawLog.length + ')\': \'▼ \' + t(\'recentReadings\') + \'' + han.rawLog.length + ')\';  })(this)">' +
+        '▶ ' + t('recentReadings') + han.rawLog.length + ')</button>' +
         '<div style="display:none; font-family:monospace; font-size:10px; background:var(--bg-surface); padding:6px; border-radius:6px; max-height:120px; overflow-y:auto; margin-top:4px;">' +
         sumLogRows +
         '</div></div>';
@@ -3375,7 +3724,7 @@
 
     // Power buffer
     if (han.powerBuffer && han.powerBuffer.length > 0) {
-      html += '<div style="margin-top:6px; color:var(--text-muted); font-size:10px;">Power buffer (last ' +
+      html += '<div style="margin-top:6px; color:var(--text-muted); font-size:10px;">' + t('powerBuffer') +
         han.powerBuffer.length + '): ' + han.powerBuffer.map(function(v) { return Math.round(v); }).join(', ') + '</div>';
     }
 
@@ -3388,12 +3737,12 @@
     if (!el) return;
 
     if (!scan || scan.length === 0) {
-      el.innerHTML = '<span style="color:var(--text-muted)">No mitigation scan data yet (scans run when power exceeds the limit)</span>';
+      el.innerHTML = '<span style="color:var(--text-muted)">' + t('noScanData') + '</span>';
       return;
     }
 
     var html = '<table style="width:100%; font-size:11px; border-collapse:collapse;">' +
-      '<tr style="border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:4px;">Device</th><th style="text-align:left; padding:4px;">Action</th><th style="text-align:left; padding:4px;">Result</th></tr>';
+      '<tr style="border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:4px;">' + t('thDevice') + '</th><th style="text-align:left; padding:4px;">' + t('thAction') + '</th><th style="text-align:left; padding:4px;">' + t('thResult') + '</th></tr>';
     scan.forEach(function(s) {
       var color = s.result === 'SUCCESS' ? '#34c759' :
                   s.result && s.result.indexOf('error') >= 0 ? '#ff3b30' :
@@ -4048,7 +4397,7 @@
     var el = document.getElementById('modes-dev-' + mode);
     if (!el) return;
     if (!_modesData || !_modesData.priorityList || !_modesData.priorityList.length) {
-      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No managed devices yet. Add devices in the Devices tab first.</div>';
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">' + t('noManagedDevices') + '</div>';
       return;
     }
     var devicePrefs = (_modesData.modeSettings.devicePrefs || {});
@@ -4061,7 +4410,7 @@
       rows.push(buildModeDeviceRow(entry, modePref, mode));
     });
     if (!rows.length) {
-      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No active devices.</div>';
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">' + t('noActiveDevices') + '</div>';
     } else {
       el.innerHTML = rows.join('');
     }
@@ -4072,7 +4421,7 @@
     var el = document.getElementById('ev-dev-' + mode);
     if (!el) return;
     if (!_modesData || !_modesData.priorityList || !_modesData.priorityList.length) {
-      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No managed devices yet. Add devices in the Devices tab first.</div>';
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">' + t('noManagedDevices') + '</div>';
       return;
     }
     var devicePrefs = (_modesData.modeSettings.devicePrefs || {});
@@ -4085,7 +4434,7 @@
       rows.push(buildModeDeviceRow(entry, modePref, mode));
     });
     if (!rows.length) {
-      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">No EV chargers managed. Add an EV charger in the Devices tab first.</div>';
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px;padding:12px 0;">' + t('noEvChargersManaged') + '</div>';
     } else {
       el.innerHTML = rows.join('');
     }
@@ -4125,11 +4474,11 @@
   function buildModeDeviceRow(entry, modePref, mode) {
     var action = entry.action || 'onoff';
     var actionLabel = {
-      onoff: 'On/Off', dim: 'Dim',
-      target_temperature: 'Thermostat',
-      charge_pause: 'EV Charger',
-      dynamic_current: 'EV Charger',
-      hoiax_power: 'Water Heater'
+      onoff: t('actionOnOff'), dim: t('actionDim'),
+      target_temperature: t('actionThermostat'),
+      charge_pause: t('actionEvCharger'),
+      dynamic_current: t('actionEvCharger'),
+      hoiax_power: t('actionWaterHeater')
     }[action] || action;
     var safeId = entry.deviceId.replace(/[^a-z0-9]/gi, '_');
 
@@ -4142,19 +4491,19 @@
       drawing = hasPowerData ? powerW > 5 : !!lt.isOn;
       pwrLabel = powerW > 5
         ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">&#9679; ' + Math.round(powerW) + 'W</span>'
-        : (!hasPowerData && lt.isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">&#9679; ON</span>' : '');
+        : (!hasPowerData && lt.isOn ? ' <span style="font-size:10px;color:var(--orange);font-weight:600;">' + t('dotOn') + '</span>' : '');
       if (lt.thermostatMode) {
         var isHeat = lt.thermostatMode === 'heat';
         modeLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;background:' + (isHeat ? 'rgba(249,115,22,.15)' : 'rgba(0,0,0,.06)') + ';color:' + (isHeat ? 'var(--orange)' : 'var(--text-muted)') + ';letter-spacing:.03em;white-space:nowrap;">' + escHtml(lt.thermostatMode) + '</span>';
       }
       if (lt.mitigated) {
-        var stepText = lt.mitigationStep === 2 ? 'OFF by PG' : '−3°C by PG';
+        var stepText = lt.mitigationStep === 2 ? t('offByPg') : t('reducedByPg');
         mitigLabel = ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(249,115,22,.18);color:var(--orange);letter-spacing:.03em;white-space:nowrap;">&#9646; ' + stepText + '</span>';
       }
       if (action === 'target_temperature' && lt.currentMeasure != null) {
         var nowStr = Number(lt.currentMeasure).toFixed(1) + '°';
         var tgtStr = lt.currentTarget != null ? ' → ' + Number(lt.currentTarget).toFixed(1) + '°' : '';
-        liveTempStr = '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Now <b>' + nowStr + '</b>' + tgtStr + pwrLabel + '</div>';
+        liveTempStr = '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;">' + t('nowLabel') + nowStr + '</b>' + tgtStr + pwrLabel + '</div>';
       }
     }
 
@@ -4181,8 +4530,8 @@
       var selDash= 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
       // On/Off/— group
       row += '<div style="display:flex;gap:4px;align-items:center;">';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',' + val + ')" style="padding:3px 10px;font-size:12px;' + (isOn ? selOn : '') + '">On</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\',' + val + ')" style="padding:3px 10px;font-size:12px;' + (isOff ? selOff : '') + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',' + val + ')" style="padding:3px 10px;font-size:12px;' + (isOn ? selOn : '') + '">' + t('on') + '</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\',' + val + ')" style="padding:3px 10px;font-size:12px;' + (isOff ? selOff : '') + '">' + t('off') + '</button>';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:12px;' + (v == null ? selDash : '') + '">—</button>';
       row += '</div>';
       // Temperature stepper (dimmed when Off/—, always clickable — clicking also sets On)
@@ -4195,31 +4544,31 @@
       var v = modePref.value;
       var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
       var defStyle = '';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'high_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'high_power' ? selStyle : defStyle) + '">High</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'medium_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'medium_power' ? selStyle : defStyle) + '">Med</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'low_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'low_power' ? selStyle : defStyle) + '">Low</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 8px;font-size:11px;' + (v === 'off' ? selStyle : defStyle) + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'high_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'high_power' ? selStyle : defStyle) + '">' + t('high') + '</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'medium_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'medium_power' ? selStyle : defStyle) + '">' + t('med') + '</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'low_power\')" style="padding:3px 8px;font-size:11px;' + (v === 'low_power' ? selStyle : defStyle) + '">' + t('low') + '</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 8px;font-size:11px;' + (v === 'off' ? selStyle : defStyle) + '">' + t('off') + '</button>';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:11px;' + (v == null ? selStyle : defStyle) + '">—</button>';
     } else if (action === 'onoff') {
       var v = modePref.value;
       var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
       var defStyle = '';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;' + (v === 'on' ? selStyle : defStyle) + '">On</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (v === 'off' ? selStyle : defStyle) + '">Off</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;' + (v === 'on' ? selStyle : defStyle) + '">' + t('on') + '</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (v === 'off' ? selStyle : defStyle) + '">' + t('off') + '</button>';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 10px;font-size:12px;' + (v == null ? selStyle : defStyle) + '">—</button>';
     } else if (action === 'charge_pause' || action === 'dynamic_current') {
       var v = modePref.value;
       var selStyle = 'background:rgba(255,149,0,0.15);border-color:#ff9500;color:#ff9500;font-weight:700;';
       var defStyle = '';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;' + (v === 'on' ? selStyle : defStyle) + '">Allow</button>';
-      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (v === 'off' ? selStyle : defStyle) + '">Pause</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'on\')" style="padding:3px 10px;font-size:12px;' + (v === 'on' ? selStyle : defStyle) + '">' + t('allow') + '</button>';
+      row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',\'off\')" style="padding:3px 10px;font-size:12px;' + (v === 'off' ? selStyle : defStyle) + '">' + t('pause') + '</button>';
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 10px;font-size:12px;' + (v == null ? selStyle : defStyle) + '">—</button>';
     } else {
       row += '<span style="font-size:12px;color:var(--text-muted);">—</span>';
     }
     row += '</div>'; // close buttons inner div
     if (pgOverride) {
-      row += '<span style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.02em;">&#9889; PG override</span>';
+      row += '<span style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.02em;">' + t('pgOverride') + '</span>';
     }
     row += '</div></div>'; // close column wrapper + row right side
     return row;
@@ -4240,7 +4589,7 @@
       hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'on', value: null })
         .then(function() {
           hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: nv })
-            .then(function(d) { if (d.ok) showToast(d.message || 'Temperature set'); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
+            .then(function(d) { if (d.ok) showToast(d.message || t('tempSet')); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
             .catch(function() {});
         })
         .catch(function() {});
@@ -4262,7 +4611,7 @@
         .then(function(d) {
           if (d.ok) {
             hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: value })
-              .then(function(d2) { if (d2.ok) showToast(d2.message || 'Temperature set'); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
+              .then(function(d2) { if (d2.ok) showToast(d2.message || t('tempSet')); setTimeout(function() { _refreshModeLiveTempFor(deviceId, mode); }, 800); })
               .catch(function() {});
           }
         })
