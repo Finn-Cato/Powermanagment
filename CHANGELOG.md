@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.8.46 (2026-03-23)
+- Fix: charger pause/resume ping-pong — 30s resume immunity window + 5s pre-ON delay prevents immediate re-pause from Easee ON-sequence power spike
+- Fix: step oscillation (7↔8A) — 15s step-down cooldown prevents rapid back-and-forth when power hovers near limit
+- Fix: confirmation timing for Easee — 8s minimum wait + 40s timeout accounts for delayed `measure_current.offered` updates
+- Fix: false learned-max disabled when using `target_charger_current` (delayed confirm driver)
+- Fix: HAN poll fallback log spam — only logs on enter/exit of fallback mode, not every 10s
+- Fix: HAN diagnostics crash (t is not a function) — renamed shadowed variable
+- Easee Test Lab: new diagnostic panel on System tab to view and test all charger capabilities with live read/write
+- Devices tab: collapsible priority help with example list showing how to prioritise EV charging
+- Devices tab: description updated from "Drag ☰" to "Use ↑↓ arrows" to match actual UI
+- Translations: Modi→Modus (correct Norwegian), action names cleaned (removed brand names), smart charging logic section translated
+- Removed unused Dim action from device dropdown
+
 ## v0.8.34 (2026-03-16)
 - Fix: Charger Mode in Price tab now shows — when no car is connected or all connected cars are fully charged (was incorrectly showing Fast charge)
 - Fix: chargeMode suppression now checks all entries with a linked car device, not just priceControlled entries — covers setups where chargers are managed without priceControlled flag
