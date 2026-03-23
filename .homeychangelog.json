@@ -240,5 +240,8 @@
   "0.8.36": {
     "en": "Fix: thermostats and heaters are no longer turned off when the EV charger is paused by the price engine (ekstremt dyr / Mode=av) � proactive load shedding now skips devices when the charger has no intention of running. Fix: auto-detected charger phase (1-phase / 3-phase) is now persisted across restarts so it shows immediately without waiting for new readings. Fix: phase detection now requires 3 consistent readings before confirming, preventing false 1-phase detection during charger ramp-up.",
     "no": "Fiks: termostater og varmere sl�s ikke lenger av n�r EV-laderen er satt p� pause av prismotoren (ekstremt dyr / Modus=av) � proaktiv lastavlastning hopper n� over enheter n�r laderen ikke har til hensikt � kj�re. Fiks: automatisk oppdaget laderfase (1-fase / 3-fase) lagres n� p� tvers av omstarter slik at den vises umiddelbart uten � vente p� nye avlesninger. Fiks: fasedeteksjon krever n� 3 konsistente avlesninger f�r bekreftelse, for � hindre feil 1-fase-deteksjon under oppramping av lader."
+  },
+  "0.8.46": {
+    "en": "Fix charger control stability, add Easee Test Lab, improve translations and UI help"
   }
 }
