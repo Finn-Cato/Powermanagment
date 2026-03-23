@@ -469,21 +469,6 @@
         </div>
       </div>
 
-      <!-- Easee Test Lab -->
-      <div class="card" id="easee-testlab-card" style="display:none;">
-        <h2>Easee Test Lab</h2>
-        <p style="font-size:11px; color:var(--text-muted); margin:0 0 12px;">
-          Live view of all charger capabilities. <b>Bold</b> = capability Power Guard uses for current control.
-        </p>
-        <div id="easee-testlab-select" style="margin-bottom:10px;"></div>
-        <div id="easee-testlab-content" style="font-size:12px;">
-          <span style="color:var(--text-muted)">Select a charger above</span>
-        </div>
-        <div style="margin-top:10px; display:flex; gap:8px;">
-          <button class="btn-secondary" onclick="loadTestLab()" style="font-size:12px; padding:5px 14px;">Refresh</button>
-        </div>
-      </div>
-
       <div class="save-row">
         <button class="btn-secondary" onclick="loadAll()" data-i18n="discard">Discard</button>
         <button class="btn-primary"   onclick="saveAll()" data-i18n="save">Save</button>
@@ -2617,164 +2602,6 @@
       });
   }
 
-  // ── Easee Test Lab ─────────────────────────────────────────────────────
-  var _testLabDeviceId = null;
-
-  function initTestLab() {
-    var card = document.getElementById('easee-testlab-card');
-    if (!card) return;
-    var chargers = (priorityList || []).filter(function(e) {
-      return (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false;
-    });
-    if (chargers.length === 0) { card.style.display = 'none'; return; }
-    card.style.display = '';
-
-    var sel = document.getElementById('easee-testlab-select');
-    var html = '<select id="testlab-device" style="font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-surface); color:var(--text-primary);" onchange="_testLabDeviceId=this.value; loadTestLab();">';
-    chargers.forEach(function(c, i) {
-      html += '<option value="' + c.deviceId + '"' + (i === 0 ? ' selected' : '') + '>' + escHtml(c.name) + '</option>';
-    });
-    html += '</select>';
-    sel.innerHTML = html;
-    _testLabDeviceId = chargers[0].deviceId;
-    loadTestLab();
-  }
-
-  function loadTestLab() {
-    if (!_testLabDeviceId) return;
-    var container = document.getElementById('easee-testlab-content');
-    container.innerHTML = '<span style="color:var(--text-muted)">Loading capabilities...</span>';
-
-    hApi('POST', '/read-charger-caps', { deviceId: _testLabDeviceId })
-      .then(function(data) {
-        if (!data || data.error) {
-          container.innerHTML = '<span style="color:#ff3b30">' + (data ? data.error : 'No response') + '</span>';
-          return;
-        }
-        renderTestLab(data);
-      })
-      .catch(function(err) {
-        container.innerHTML = '<span style="color:#ff3b30">Error: ' + (err.message || err) + '</span>';
-      });
-  }
-
-  function renderTestLab(data) {
-    var container = document.getElementById('easee-testlab-content');
-    var pgCap = data.pgCurrentCap;
-
-    // Group capabilities: current-related first, then others
-    var currentCaps = [];
-    var otherCaps = [];
-    data.caps.forEach(function(c) {
-      if (c.id.indexOf('current') >= 0 || c.id.indexOf('Current') >= 0) {
-        currentCaps.push(c);
-      } else {
-        otherCaps.push(c);
-      }
-    });
-
-    var html = '<div style="margin-bottom:8px; font-size:11px; color:var(--text-muted);">Device: <b>' + escHtml(data.name) + '</b></div>';
-
-    // Power Guard info box
-    html += '<div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; padding:8px 10px; margin-bottom:12px; font-size:11px;">';
-    html += 'Power Guard uses: <b style="color:' + (pgCap === 'target_charger_current' ? '#ff9500' : '#34c759') + ';">' + (pgCap || 'none found') + '</b>';
-    if (pgCap === 'target_charger_current') {
-      html += ' <span style="color:#ff9500;">⚠ Slow/FLASH — consider updating Easee app</span>';
-    } else if (pgCap && pgCap !== 'target_charger_current') {
-      html += ' <span style="color:#34c759;">✓ Fast/volatile</span>';
-    }
-    html += '</div>';
-
-    // Current-related capabilities
-    if (currentCaps.length > 0) {
-      html += '<div style="font-weight:600; margin-bottom:6px; font-size:12px;">Current capabilities</div>';
-      html += '<table style="width:100%; border-collapse:collapse; margin-bottom:12px;">';
-      html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
-              '<th style="text-align:left; padding:4px;">Capability</th>' +
-              '<th style="text-align:center; padding:4px;">Value</th>' +
-              '<th style="text-align:center; padding:4px;">Set</th>' +
-              '</tr></thead><tbody>';
-      currentCaps.forEach(function(c) {
-        var isPG = c.id === pgCap;
-        var bold = isPG ? 'font-weight:700;' : '';
-        var bg = isPG ? 'background:rgba(0,122,255,0.08);' : '';
-        var valDisplay = c.value != null ? c.value + (c.units ? ' ' + c.units : '') : 'N/A';
-        html += '<tr style="border-bottom:1px solid var(--border-color); ' + bg + '">' +
-                '<td style="padding:6px 4px; ' + bold + ' font-size:11px;">' + escHtml(c.id) + (isPG ? ' ⚡PG' : '') + '</td>' +
-                '<td id="tl-val-' + c.id.replace(/\./g, '_') + '" style="text-align:center; padding:6px 4px; font-family:monospace; ' + bold + '">' + valDisplay + '</td>' +
-                '<td style="text-align:center; padding:6px 4px;">';
-        if (c.setable && typeof c.value === 'number') {
-          var min = c.min != null ? c.min : 0;
-          var max = c.max != null ? c.max : 32;
-          var step = c.step != null ? c.step : 1;
-          html += '<div style="display:flex; align-items:center; gap:4px; justify-content:center;">' +
-                  '<input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + (c.value || 0) + '" ' +
-                  'id="tl-slider-' + c.id.replace(/\./g, '_') + '" ' +
-                  'oninput="document.getElementById(\'tl-num-' + c.id.replace(/\./g, '_') + '\').value=this.value" ' +
-                  'style="width:80px; accent-color:#007aff;">' +
-                  '<input type="number" min="' + min + '" max="' + max + '" step="' + step + '" value="' + (c.value || 0) + '" ' +
-                  'id="tl-num-' + c.id.replace(/\./g, '_') + '" ' +
-                  'oninput="document.getElementById(\'tl-slider-' + c.id.replace(/\./g, '_') + '\').value=this.value" ' +
-                  'style="width:45px; font-size:11px; padding:2px 4px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-surface); color:var(--text-primary); text-align:center;">' +
-                  '<button onclick="writeTestLabCap(\'' + c.id + '\', parseFloat(document.getElementById(\'tl-num-' + c.id.replace(/\./g, '_') + '\').value))" ' +
-                  'style="font-size:10px; padding:3px 8px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-surface); color:#007aff; cursor:pointer;">Write</button>' +
-                  '</div>';
-        } else {
-          html += '<span style="color:var(--text-muted); font-size:10px;">' + (c.setable ? 'N/A' : 'read-only') + '</span>';
-        }
-        html += '</td></tr>';
-      });
-      html += '</tbody></table>';
-    }
-
-    // Other capabilities
-    if (otherCaps.length > 0) {
-      html += '<details style="margin-top:8px;">';
-      html += '<summary style="cursor:pointer; font-weight:600; font-size:12px; color:var(--text-muted);">Other capabilities (' + otherCaps.length + ')</summary>';
-      html += '<table style="width:100%; border-collapse:collapse; margin-top:6px;">';
-      html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
-              '<th style="text-align:left; padding:4px; font-size:11px;">Capability</th>' +
-              '<th style="text-align:center; padding:4px; font-size:11px;">Value</th>' +
-              '<th style="text-align:center; padding:4px; font-size:11px;">Setable</th>' +
-              '</tr></thead><tbody>';
-      otherCaps.forEach(function(c) {
-        var valDisplay = c.value != null ? String(c.value) + (c.units ? ' ' + c.units : '') : 'N/A';
-        if (valDisplay.length > 30) valDisplay = valDisplay.substring(0, 27) + '...';
-        html += '<tr style="border-bottom:1px solid var(--border-color);">' +
-                '<td style="padding:4px; font-size:11px;">' + escHtml(c.id) + '</td>' +
-                '<td style="text-align:center; padding:4px; font-family:monospace; font-size:11px;">' + escHtml(valDisplay) + '</td>' +
-                '<td style="text-align:center; padding:4px; font-size:11px; color:var(--text-muted);">' + (c.setable ? '✓' : '–') + '</td>' +
-                '</tr>';
-      });
-      html += '</tbody></table></details>';
-    }
-
-    // Write result feedback
-    html += '<div id="testlab-write-result" style="margin-top:8px; font-size:11px; display:none;"></div>';
-
-    container.innerHTML = html;
-  }
-
-  function writeTestLabCap(capId, value) {
-    var resultDiv = document.getElementById('testlab-write-result');
-    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<span style="color:var(--text-muted)">Writing ' + capId + ' = ' + value + '...</span>'; }
-
-    hApi('POST', '/write-charger-cap', { deviceId: _testLabDeviceId, capabilityId: capId, value: value })
-      .then(function(data) {
-        if (data && data.ok) {
-          if (resultDiv) resultDiv.innerHTML = '<span style="color:#34c759">✓ ' + capId + ' = ' + value + ' → confirmed: ' + data.newValue + '</span>';
-          // Update displayed value
-          var valCell = document.getElementById('tl-val-' + capId.replace(/\./g, '_'));
-          if (valCell) valCell.textContent = data.newValue != null ? data.newValue : '?';
-        } else {
-          if (resultDiv) resultDiv.innerHTML = '<span style="color:#ff3b30">✗ ' + (data ? data.error : 'No response') + '</span>';
-        }
-      })
-      .catch(function(err) {
-        if (resultDiv) resultDiv.innerHTML = '<span style="color:#ff3b30">✗ Error: ' + (err.message || err) + '</span>';
-      });
-  }
-
   // Returns the active voltageSystem string, resolving 'auto' via server detection
   function _resolveVoltageSystem() {
     var selected = document.getElementById('s-voltageSystem').value;
@@ -2843,7 +2670,6 @@
         renderAllDevices();
         renderChargerDetails();  // Refresh charger details after loading
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
-        initTestLab();  // Initialize Easee Test Lab
         loadMeterDevices();  // Load meter device dropdown
         loadHanDiagnostic();  // Load HAN diagnostic info
         // Load car devices for battery picker
@@ -3733,7 +3559,6 @@
         renderAllDevices();
         renderChargerDetails();  // Initial render of charger power details
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
-        initTestLab();  // Initialize Easee Test Lab
         dbg('Initial load: ' + availableDevices.length + ' devices');
 
         // Immediately update cache status bar since devices are loaded

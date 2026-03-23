@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.8.46",
+  "version": "0.8.47",
   "compatibility": ">=8.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -222,14 +222,6 @@
     "getCarDevices": {
       "method": "GET",
       "path": "/car-devices"
-    },
-    "readChargerCaps": {
-      "method": "POST",
-      "path": "/read-charger-caps"
-    },
-    "writeChargerCap": {
-      "method": "POST",
-      "path": "/write-charger-cap"
     }
   },
   "flow": {

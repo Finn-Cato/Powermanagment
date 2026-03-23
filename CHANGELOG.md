@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.8.47 (2026-03-23)
+- Removed Easee Test Lab diagnostic panel (served its purpose during charger debugging)
+
 ## v0.8.46 (2026-03-23)
 - Fix: charger pause/resume ping-pong — 30s resume immunity window + 5s pre-ON delay prevents immediate re-pause from Easee ON-sequence power spike
 - Fix: step oscillation (7↔8A) — 15s step-down cooldown prevents rapid back-and-forth when power hovers near limit
