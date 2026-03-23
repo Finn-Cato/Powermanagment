@@ -82,6 +82,7 @@ class PowerGuardApp extends Homey.App {
     this._hanEventCount = 0;
     this._hanPollCount = 0;
     this._hanSpikeCount = 0;
+    this._hanInFallbackMode = false;
     this._hanWatchdogCount = 0;
     this._hanRawLog = [];         // Ring buffer: last 20 raw readings {time, value, source}
     this._phaseCurrents = {};    // Latest per-phase amps from HAN: {capId: amps}
@@ -715,6 +716,10 @@ class PowerGuardApp extends Homey.App {
     // makeCapabilityInstance is the correct homey-api v3 way to subscribe to capability changes
     this._hanCapabilityInstance = hanDevice.makeCapabilityInstance('measure_power', (value) => {
       this._hanEventCount++;
+      if (this._hanInFallbackMode) {
+        this._hanInFallbackMode = false;
+        this._appLogEntry('han', `Events resumed: ${value}W`);
+      }
       this._pushHanRawLog(value, 'event');
       this._onPowerReading(value);
     });
@@ -784,10 +789,14 @@ class PowerGuardApp extends Homey.App {
         // Only process if we haven't had an event-based reading in the last 8 seconds
         // This avoids double-processing when events ARE working
         if (timeSinceLastReading > 8000) {
+          // Only log to appLog when entering fallback mode (not every poll cycle)
+          if (!this._hanInFallbackMode) {
+            this._hanInFallbackMode = true;
+            this._appLogEntry('han', `Poll fallback active: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
+          }
           this.log(`[HAN Poll] Fallback reading: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
           this._hanPollCount++;
           this._pushHanRawLog(value, 'poll');
-          this._appLogEntry('han', `Poll fallback: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
           this._onPowerReading(value);
         }
 
@@ -1302,7 +1311,7 @@ class PowerGuardApp extends Homey.App {
             // fall through — stepped re-mitigation handled below
           } else {
             // Check if the stored action still matches the priority-list action.
-            // If the user changed the action (e.g. "dim" → "target_temperature") the
+            // If the user changed the action (e.g. "onoff" → "target_temperature") the
             // persisted entry is stale: drop it so we can re-mitigate with the new action.
             const existingAction = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId)?.action;
             if (existingAction && existingAction !== entry.action) {
@@ -2453,13 +2462,18 @@ class PowerGuardApp extends Homey.App {
     const now = Date.now();
     const elapsed = now - (state.commandTime || 0);
 
+    // Easee chargers briefly offer full power (16A) when turning ON before enforcing
+    // the dynamic limit. measure_current.offered updates with ~5-8s delay after a command.
+    // Require minimum elapsed time before accepting confirmation to avoid matching stale values.
+    const minConfirmMs = state.delayedConfirm ? 8000 : 0;
+
     // Check if offered current matches commanded current (within 1A)
-    if (state.lastCommandA != null && Math.abs(evData.offeredCurrent - state.lastCommandA) <= 1) {
+    if (state.lastCommandA != null && elapsed >= minConfirmMs && Math.abs(evData.offeredCurrent - state.lastCommandA) <= 1) {
       state.confirmed = true;
       state.reliability = (state.reliability ?? 0.5) * 0.99 + 0.01;  // Success → nudge up
       this.log(`[EV] \u2713 Confirmed: ${evData.name} → ${evData.offeredCurrent}A (commanded ${state.lastCommandA}A, took ${Math.round(elapsed / 1000)}s, reliability=${(state.reliability * 100).toFixed(1)}%)`);
       this._appLogEntry('charger', `Confirmed: ${evData.name} → ${evData.offeredCurrent}A (commanded ${state.lastCommandA}A, ${Math.round(elapsed / 1000)}s)`);
-    } else if (elapsed > CHARGER_DEFAULTS.confirmationTimeoutMs) {
+    } else if (elapsed > (state.delayedConfirm ? 40000 : CHARGER_DEFAULTS.confirmationTimeoutMs)) {
       // Timed out waiting for confirmation
       state.reliability = (state.reliability ?? 0.5) * 0.99;  // Failure → nudge down
       state.timedOut = true;  // Stop re-checking until next command
@@ -2469,7 +2483,9 @@ class PowerGuardApp extends Homey.App {
       // If the charger settled below what was commanded, learn that as its effective max.
       // This handles any charger whose hardware or firmware cap is lower than the configured
       // circuitLimitA — next budget calculation will respect the real ceiling automatically.
-      if (evData.offeredCurrent < state.lastCommandA - 1 && evData.offeredCurrent >= CHARGER_DEFAULTS.minCurrent) {
+      // Skip when offered current has delayed confirmation — the stale reading
+      // doesn't reflect the actual command, leading to false max learning.
+      if (!state.delayedConfirm && evData.offeredCurrent < state.lastCommandA - 1 && evData.offeredCurrent >= CHARGER_DEFAULTS.minCurrent) {
         const prev = state.learnedMaxA ?? state.lastCommandA;
         state.learnedMaxA = Math.min(prev, Math.round(evData.offeredCurrent));
         this._appLogEntry('charger', `${evData.name} learned max: ${state.learnedMaxA}A (settled at ${evData.offeredCurrent}A, commanded ${state.lastCommandA}A)`);
@@ -2913,17 +2929,38 @@ class PowerGuardApp extends Homey.App {
       const headroomW = limit - smoothedPower; // positive = under limit, negative = over
 
       let targetCurrent;
+      // Resume immunity: after turning ON, the Easee charger briefly offers full power
+      // (e.g. 16A) before enforcing the dynamic limit. Don't re-pause during this window.
+      const resumeImmune = cState.resumeImmunityUntil && now < cState.resumeImmunityUntil;
+
+      // Step-down cooldown: after stepping down, wait before stepping down again
+      // to let the charger and HAN meter settle. Prevents rapid oscillation (7→8→7→8...).
+      const STEP_DOWN_COOLDOWN = 15000; // 15s between step-downs
+      const stepDownReady = !cState.lastStepDownTime || (now - cState.lastStepDownTime) >= STEP_DOWN_COOLDOWN;
+
       if (priceCap <= 0) {
         // Price engine wants charger fully off → pause
         targetCurrent = null;
       } else if (householdAloneExceedsLimit) {
         // Household alone (without charger) exceeds limit → pause charger
         targetCurrent = null;
+      } else if (overLimit && resumeImmune) {
+        // Over limit but inside resume immunity window — hold current, don't pause
+        targetCurrent = currentTargetA;
+        this.log(`[EV] Resume immunity: ${entry.name} — holding ${currentTargetA}A (${Math.round((cState.resumeImmunityUntil - now) / 1000)}s remaining)`);
       } else if (overLimit) {
         // Total power over limit → step down 1A immediately, or pause if at minimum
-        targetCurrent = isPaused ? null
-          : currentTargetA <= CHARGER_DEFAULTS.minCurrent ? null
-          : currentTargetA - 1;
+        if (isPaused) {
+          targetCurrent = null;
+        } else if (currentTargetA <= CHARGER_DEFAULTS.minCurrent) {
+          targetCurrent = null; // at minimum, must pause
+        } else if (stepDownReady) {
+          targetCurrent = currentTargetA - 1;
+          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+          this._chargerState[entry.deviceId].lastStepDownTime = now;
+        } else {
+          targetCurrent = currentTargetA; // step-down cooldown active, hold
+        }
       } else if (isPaused) {
         // Resume from pause when enough headroom — always start at 6A
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
@@ -3608,10 +3645,10 @@ class PowerGuardApp extends Homey.App {
                 device.setCapabilityValue({ capabilityId: dynCap, value: resumeCurrent }),
                 10000, `setStartCurrent(${deviceId})`
               );
-              // Wait for Easee to apply the dynamic limit before the car gets the ON signal.
-              // Without this delay the car draws at hardware max (16A) for 2-3s before the
-              // pilot signal updates, causing a spike that immediately triggers a new pause.
-              await new Promise(r => setTimeout(r, 2000));
+              // Wait for the Easee to enforce the dynamic limit before turning ON.
+              // The charger needs time to update its pilot signal — without sufficient
+              // delay the car draws at hardware max (16A) for several seconds after ON.
+              await new Promise(r => setTimeout(r, 5000));
             }
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'onoff', value: true }),
@@ -3620,8 +3657,13 @@ class PowerGuardApp extends Homey.App {
             this._addLog(`Easee resumed: ${device.name} → ${resumeCurrent}A (next cycle will optimize to ${currentA}A)`);
             this._appLogEntry('charger', `Easee resumed: ${device.name} → ${resumeCurrent}A (target=${currentA}A, will ramp up)`);
             // Record command for confirmation tracking
+            const delayedConfirm = dynCap === 'target_charger_current';
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
-            Object.assign(this._chargerState[deviceId], { lastCommandA: resumeCurrent, commandTime: Date.now(), confirmed: false, timedOut: false });
+            Object.assign(this._chargerState[deviceId], {
+              lastCommandA: resumeCurrent, commandTime: Date.now(), confirmed: false, timedOut: false,
+              delayedConfirm, resumeImmunityUntil: Date.now() + 30000,
+            });
+            this.log(`[Easee] Resume via ${dynCap} — 30s immunity window active`);
             delete this._pendingChargerCommands[deviceId];
             return true;
           }
@@ -3636,11 +3678,11 @@ class PowerGuardApp extends Homey.App {
             device.setCapabilityValue({ capabilityId: dynCap, value: currentA }),
             10000, `setCurrent(${deviceId})`
           );
-          this._addLog(`Easee ${dynCap === 'target_charger_current' ? 'Ladegrense' : 'Midlertidig'}: ${device.name} → ${currentA}A`);
+          this._addLog(`Easee dynamic: ${device.name} → ${currentA}A`);
           this._appLogEntry('charger', `Easee current: ${device.name} → ${currentA}A (${dynCap})`);
           // Record command for confirmation tracking
           if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
-          Object.assign(this._chargerState[deviceId], { lastCommandA: currentA, commandTime: Date.now(), confirmed: false, timedOut: false });
+          Object.assign(this._chargerState[deviceId], { lastCommandA: currentA, commandTime: Date.now(), confirmed: false, timedOut: false, delayedConfirm: dynCap === 'target_charger_current' });
           delete this._pendingChargerCommands[deviceId];
           return true;
         }

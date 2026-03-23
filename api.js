@@ -271,6 +271,59 @@ module.exports = {
     return limits;
   },
 
+  // ── Easee Test Lab: read all capabilities for a charger device ──────────
+  async readChargerCaps({ homey, body }) {
+    const app = homey.app;
+    if (!app._api) return { error: 'API not ready' };
+    const deviceId = body?.deviceId;
+    if (!deviceId) return { error: 'Missing deviceId' };
+    try {
+      const device = await app._api.devices.getDevice({ id: deviceId });
+      if (!device) return { error: 'Device not found' };
+      const caps = device.capabilities || [];
+      const obj = device.capabilitiesObj || {};
+      const result = [];
+      for (const cap of caps) {
+        const co = obj[cap] || {};
+        result.push({
+          id: cap,
+          value: co.value ?? null,
+          type: co.type || null,
+          min: co.min ?? null,
+          max: co.max ?? null,
+          step: co.step ?? null,
+          units: co.units || null,
+          setable: co.setable !== false,
+          title: co.title || cap,
+        });
+      }
+      // Mark which cap Power Guard uses for current control
+      const pgCap = ['dynamic_charger_current', 'dynamicChargerCurrent', 'dynamicCircuitCurrentP1', 'target_charger_current']
+        .find(c => caps.includes(c)) || null;
+      return { deviceId, name: device.name, caps: result, pgCurrentCap: pgCap };
+    } catch (err) {
+      return { error: err.message || String(err) };
+    }
+  },
+
+  // ── Easee Test Lab: write a single capability ──────────────────────────
+  async writeChargerCap({ homey, body }) {
+    const app = homey.app;
+    if (!app._api) return { ok: false, error: 'API not ready' };
+    if (!body || !body.deviceId || !body.capabilityId) return { ok: false, error: 'Missing deviceId or capabilityId' };
+    try {
+      const device = await app._api.devices.getDevice({ id: body.deviceId });
+      if (!device) return { ok: false, error: 'Device not found' };
+      await device.setCapabilityValue({ capabilityId: body.capabilityId, value: body.value });
+      // Re-read to get the confirmed value
+      const refreshed = await app._api.devices.getDevice({ id: body.deviceId });
+      const co = refreshed?.capabilitiesObj?.[body.capabilityId];
+      return { ok: true, newValue: co?.value ?? null };
+    } catch (err) {
+      return { ok: false, error: err.message || String(err) };
+    }
+  },
+
   async getMeterDevices({ homey }) {
     return homey.app.getMeterDevices();
   },

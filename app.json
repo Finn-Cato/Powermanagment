@@ -222,6 +222,14 @@
     "getCarDevices": {
       "method": "GET",
       "path": "/car-devices"
+    },
+    "readChargerCaps": {
+      "method": "POST",
+      "path": "/read-charger-caps"
+    },
+    "writeChargerCap": {
+      "method": "POST",
+      "path": "/write-charger-cap"
     }
   },
   "flow": {

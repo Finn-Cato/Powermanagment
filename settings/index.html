@@ -469,6 +469,21 @@
         </div>
       </div>
 
+      <!-- Easee Test Lab -->
+      <div class="card" id="easee-testlab-card" style="display:none;">
+        <h2>Easee Test Lab</h2>
+        <p style="font-size:11px; color:var(--text-muted); margin:0 0 12px;">
+          Live view of all charger capabilities. <b>Bold</b> = capability Power Guard uses for current control.
+        </p>
+        <div id="easee-testlab-select" style="margin-bottom:10px;"></div>
+        <div id="easee-testlab-content" style="font-size:12px;">
+          <span style="color:var(--text-muted)">Select a charger above</span>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="loadTestLab()" style="font-size:12px; padding:5px 14px;">Refresh</button>
+        </div>
+      </div>
+
       <div class="save-row">
         <button class="btn-secondary" onclick="loadAll()" data-i18n="discard">Discard</button>
         <button class="btn-primary"   onclick="saveAll()" data-i18n="save">Save</button>
@@ -483,7 +498,7 @@
           <h2 data-i18n="gettingStarted">Getting Started</h2>
           <ol style="font-size:13px;color:var(--text-primary);line-height:1.8;margin:0;padding-left:18px;" data-i18n-html="helpGettingStartedList">
             <li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li>
-            <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>top</b> are turned off first.</li>
+            <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Use the <b>↑↓ arrows</b> to set priority order — devices at the <b>top</b> are turned off first.</li>
             <li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>
           </ol>
         </div>
@@ -931,8 +946,8 @@
             <li>Set a <b>Finish charging by</b> time below and click <b>Save schedule</b>.</li>
           </ol>
           <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,122,255,0.2);">
-            <div style="font-weight:600;margin-bottom:4px;">How the smart charging logic works:</div>
-            <div style="color:var(--text-muted);">
+            <div style="font-weight:600;margin-bottom:4px;" data-i18n="smartChargingLogicTitle">How the smart charging logic works:</div>
+            <div style="color:var(--text-muted);" data-i18n-html="smartChargingLogicDesc">
               Power Guard picks the <b>N cheapest hours before your deadline</b> and charges at maximum only during those hours. All other hours the charger is off.
               <ul style="margin:6px 0 0 0;padding-left:16px;">
                 <li><b>Cheapest hours selected</b> — charger runs at maximum to fill the battery as fast as possible during the cheapest electricity.</li>
@@ -1006,9 +1021,26 @@
 
         <h2 data-i18n="devicePriority">Device priority</h2>
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;line-height:1.5" data-i18n-html="devicePriorityDesc">
-          Toggle a device <b>on</b> to let Power Guard control it. Drag &#9776; to set the order —
+          Toggle a device <b>on</b> to let Power Guard control it. Use the <b>↑↓ arrows</b> to set the order —
           devices higher in the list are turned off first.
         </p>
+        <details style="margin-bottom:10px;">
+          <summary style="font-size:12px;color:var(--text-link,#007aff);cursor:pointer;padding:4px 0;" data-i18n="priorityHelpToggle">How does priority order work?</summary>
+          <div style="background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:6px;" data-i18n-html="helpEvPriorityOrder">
+            <b>Priority list order — how to prioritise EV charging:</b><br>
+            Devices at the <b>top</b> of the priority list are shed <b>first</b> when power exceeds the limit. Devices at the <b>bottom</b> are shed last. To prioritise your car charging, move EV chargers to the <b>bottom</b> of the list — this way heaters and water heaters are reduced before the charger is touched.<br><br>
+            <b>Example priority list (chargers prioritised):</b>
+            <table style="width:100%;margin-top:6px;font-size:11px;border-collapse:collapse;">
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">1</td><td style="padding:3px 6px;">🔥 Water heater</td><td style="padding:3px 6px;color:#ff3b30;font-style:italic;">← shed first</td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">2</td><td style="padding:3px 6px;">🌡️ Floor heating — Bathroom</td><td></td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">3</td><td style="padding:3px 6px;">🌡️ Floor heating — Hallway</td><td></td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">4</td><td style="padding:3px 6px;">🌡️ Panel heater — Living room</td><td></td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">5</td><td style="padding:3px 6px;">🌡️ Panel heater — Bedroom</td><td></td></tr>
+              <tr><td style="padding:3px 6px;color:var(--text-muted);">6</td><td style="padding:3px 6px;">🔌 EV Charger</td><td style="padding:3px 6px;color:#34c759;font-style:italic;">← shed last</td></tr>
+            </table>
+            <div style="margin-top:6px;font-size:11px;">If you want heaters to stay on and the charger to be reduced first, move the charger to the <b>top</b> instead.</div>
+          </div>
+        </details>
         <div id="devices-list"></div>
       </div>
 
@@ -1099,7 +1131,7 @@
       supportedHardware: 'Supported Hardware',
       bugReport: 'Found a bug or have a question?',
       bugReportLink: 'Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
-      helpGettingStartedList: '<li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li><li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Drag them into priority order — devices at the <b>top</b> are turned off first.</li><li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>',
+      helpGettingStartedList: '<li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li><li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Use the <b>↑↓ arrows</b> to set priority order — devices at the <b>top</b> are turned off first.</li><li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>',
       helpCoreDesc: 'Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.',
       helpCoreList: '<li><b>Normal profile</b> — acts at 100% of your limit.</li><li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li><li><b>Solar-friendly profile</b> — relaxed limits to allow solar production to offset consumption.</li><li><b>Phase limits</b> — set per-phase ampere limits (L1/L2/L3) in Advanced settings.</li><li><b>Smart restore</b> — devices are only turned back on when there is confirmed headroom; charger ramping power is accounted for before restoring heating devices.</li>',
       helpEvIntro: 'Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:',
@@ -1109,6 +1141,7 @@
       helpEvStepping: '<b>Current stepping:</b><br>Power Guard uses simple 1A steps to control charger current. It steps down immediately on every HAN reading when consumption is over the limit. It steps up a maximum of 1A every 60 seconds — giving the meter time to confirm each increase before the next. On restart, the charger always resumes from 6A so high-current chargers are stepped down right away if needed.<br><br><b>Charging complete detection:</b><br>When a car finishes charging (session completed, power drops below 100W) but stays plugged in, Power Guard recognises the session as done — no mismatch alerts are raised and heating devices are not shed on behalf of a charger that is no longer actively charging.',
       helpEvChargerMode: '<b>What the Charger Mode label means:</b><br><span style="color:#34c759;">⚡ Fast charge</span> <i>cheap hour</i> — this is one of the cheapest hours, charging at full speed<br><span style="color:#ff3b30;">⏸ Off</span> <i>waiting for cheap hour</i> — not a cheap hour, charger is paused to save money<br><span style="color:#ff9500;">🐢 Slow charge</span> <i>no deadline set</i> — no deadline configured, charging at reduced speed regardless of price<br><span style="color:#8e8e93;">▶ Charging</span> — no deadline set, price is normal, charging without restriction',
       helpEvPriorityShed: '<b>Charger priority shed:</b><br>Each charger in the <b>📱 Devices</b> tab has a <b>Priority shed</b> toggle. When enabled, the charger is treated like any other device in the priority list — Power Guard can pause it to protect the grid limit. On/off type chargers are shed even when they are reporting 0W (e.g. idle between steps).',
+      helpEvPriorityOrder: '<b>Priority list order — how to prioritise EV charging:</b><br>Devices at the <b>top</b> of the priority list are shed <b>first</b> when power exceeds the limit. Devices at the <b>bottom</b> are shed last. To prioritise your car charging, move EV chargers to the <b>bottom</b> of the list — this way heaters and water heaters are reduced before the charger is touched.<br><br><b>Example priority list (chargers prioritised):</b><table style="width:100%;margin-top:6px;font-size:11px;border-collapse:collapse;"><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">1</td><td style="padding:3px 6px;">🔥 Water heater</td><td style="padding:3px 6px;color:#ff3b30;font-style:italic;">← shed first</td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">2</td><td style="padding:3px 6px;">🌡️ Floor heating — Bathroom</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">3</td><td style="padding:3px 6px;">🌡️ Floor heating — Hallway</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">4</td><td style="padding:3px 6px;">🌡️ Panel heater — Living room</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">5</td><td style="padding:3px 6px;">🌡️ Panel heater — Bedroom</td><td></td></tr><tr><td style="padding:3px 6px;color:var(--text-muted);">6</td><td style="padding:3px 6px;">🔌 EV Charger</td><td style="padding:3px 6px;color:#34c759;font-style:italic;">← shed last</td></tr></table><div style="margin-top:6px;font-size:11px;">If you want heaters to stay on and the charger to be reduced first, move the charger to the <b>top</b> instead.</div>',
       helpModesDesc: 'Find modes under <b>🧠 Smart → Modes</b> (when Smart Price Control is ON) or <b>🌡️ Heaters</b> tab (when OFF). Each mode lets you set per-device preferences:',
       helpModesList: '<li><b>Switches</b> — On / Off</li><li><b>Thermostats</b> — target temperature</li><li><b>EV chargers</b> — Allow / Pause</li><li><b>Høiax water heaters</b> — High / Medium / Low / Off</li>',
       helpModesNight: 'Set a <b>Night schedule</b> to automatically switch between Home and Night at chosen times. Power Guard never restores a device that is currently being throttled — safety always takes priority.',
@@ -1162,7 +1195,8 @@
       finishChargingByHint: 'e.g. 07:00. Power Guard picks the N cheapest hours before this time and charges at max only during those. Leave empty to use price-only mode.',
       saveSchedule: 'Save schedule',
       devicePriority: 'Device priority',
-      devicePriorityDesc: 'Toggle a device <b>on</b> to let Power Guard control it. Drag \u2630 to set the order \u2014 devices higher in the list are turned off first.',
+      priorityHelpToggle: 'How does priority order work?',
+      devicePriorityDesc: 'Toggle a device <b>on</b> to let Power Guard control it. Use the <b>\u2191\u2193 arrows</b> to set the order \u2014 devices higher in the list are turned off first.',
       settingsSaved: 'Settings saved!',
       noDevicesFound: 'No devices with power data found',
       noThermostatsFound: 'No thermostats found',
@@ -1201,6 +1235,7 @@
       recentReadings: 'Recent readings (',
       chargerHeader: 'Charger',
       phasesHeader: 'Phases',
+      currentHeader: 'Current',
       statusHeader: 'Status',
       onePhase: '1-phase (230V)',
       threePhase: '3-phase (400V)',
@@ -1290,6 +1325,8 @@
       chargingSchedule: 'Charging Schedule',
       howToSetupScheduling: '⚡ How to set up automatic scheduling',
       evScheduleInstructions: '<li>In the <b>Devices tab</b> — find your charger and fill in <b>Battery size (kWh)</b> and <b>Charge to (%)</b>.</li><li>In <b>Homey Flows</b> — create a flow:<br><b>WHEN</b> your car app reports battery % changed<br><b>THEN</b> Power Guard → <i>"Report [battery %] battery for [charger]"</i><br><span style="color:var(--text-muted)">Drag the battery % tag from your car app into the value field.</span></li><li>Set a <b>Finish charging by</b> time below and click <b>Save schedule</b>.</li>',
+      smartChargingLogicTitle: 'How the smart charging logic works:',
+      smartChargingLogicDesc: 'Power Guard picks the <b>N cheapest hours before your deadline</b> and charges at maximum only during those hours. All other hours the charger is off.<ul style="margin:6px 0 0 0;padding-left:16px;"><li><b>Cheapest hours selected</b> — charger runs at maximum to fill the battery as fast as possible during the cheapest electricity.</li><li><b>All other hours</b> — charger is off, regardless of price level.</li><li>When fewer than <b>(hours needed + 1h buffer)</b> remain before the deadline — charging switches to maximum regardless of price to guarantee the car is ready.</li></ul>',
       yes: 'Yes',
       no: 'No',
       chargingNow: 'Charging now',
@@ -1320,7 +1357,6 @@
       noActiveDevices: 'No active devices.',
       noEvChargersManaged: 'No EV chargers managed. Add an EV charger in the Devices tab first.',
       actionOnOff: 'On/Off',
-      actionDim: 'Dim',
       actionThermostat: 'Thermostat',
       actionEvCharger: 'EV Charger',
       actionWaterHeater: 'Water Heater',
@@ -1346,9 +1382,9 @@
       active: 'ACTIVE',
       actionTurnOff: 'Turn off',
       actionLowerThermostat: 'Lower thermostat',
-      actionPauseEv: 'Pause EV charging (Zaptec/Enua)',
-      actionDynamicCharging: 'Dynamic charging (Easee/Zaptec/Enua)',
-      actionSteppedPower: 'Stepped power (Høiax)',
+      actionPauseEv: 'Pause charging',
+      actionDynamicCharging: 'Dynamic charging',
+      actionSteppedPower: 'Adjust water heater',
       priorityShed: 'Priority shed',
       devicesLoaded: ' devices loaded',
       devicesUpdated: ' devices (updated ',
@@ -1394,7 +1430,7 @@
       smartPriceTitle: 'Smart priskontroll',
       smartPriceDescription: 'Justerer automatisk elbilladerhastigheten og andre styrbare laster basert p\u00e5 gjeldende spotpris p\u00e5 str\u00f8m \u2014 lader raskt n\u00e5r str\u00f8m er billig, bremser ned n\u00e5r den er dyr. Power Guards harde sikkerhetsgrense har alltid prioritet.',
       advancedModeActive: 'Avansert modus aktiv',
-      advancedModeDesc: 'Smart priskontroll aktiverer et avansert grensesnitt for finjustering av elbilladeroppf\u00f8rsel, enhetsmodi og dynamiske prisplaner. S\u00f8rg for at du forst\u00e5r hver innstilling f\u00f8r du gj\u00f8r endringer.<br><br>Fanen <b>\uD83C\uDF21\uFE0F Varmere</b> er erstattet av fanen <b>\uD83E\uDDE0 Smart</b>, som gir tilgang til prisinnstillinger, modi og elbillader-styring.',
+      advancedModeDesc: 'Smart priskontroll aktiverer et avansert grensesnitt for finjustering av elbilladeroppf\u00f8rsel, enhetsmodus og dynamiske prisplaner. S\u00f8rg for at du forst\u00e5r hver innstilling f\u00f8r du gj\u00f8r endringer.<br><br>Fanen <b>\uD83C\uDF21\uFE0F Varmere</b> er erstattet av fanen <b>\uD83E\uDDE0 Smart</b>, som gir tilgang til prisinnstillinger, modus og elbillader-styring.',
       powerLimit: 'Effektgrense', maximumPower: 'Maks effekt (W)',
       maximumPowerHint: 'Din nettilkoblingsgrense. Typisk: 10\u202f000\u202fW (10\u202fkW) eller 15\u202f000\u202fW (15\u202fkW).',
       advancedSettings: 'Avanserte innstillinger',
@@ -1419,11 +1455,11 @@
       gettingStarted: 'Kom i gang',
       powerGuardCore: 'Power Guard (kjerne)',
       smartEvCharging: 'Smart elbillading',
-      modesTitle: 'Modi (Hjem / Natt / Borte / Ferie)',
+      modesTitle: 'Modus (Hjem / Natt / Borte / Ferie)',
       supportedHardware: 'St\u00f8ttet maskinvare',
       bugReport: 'Funnet en feil eller har du sp\u00f8rsm\u00e5l?',
       bugReportLink: 'Rapporter det p\u00e5 GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
-      helpGettingStartedList: '<li>G\u00e5 til <b>\u2699\ufe0f Innstillinger</b> og sett <b>Maks effekt (W)</b> \u2014 dette er din nettforbindelses grense (f.eks. 10\u202f000 W).</li><li>G\u00e5 til <b>\ud83d\udcf1 Enheter</b>-fanen og aktiver enhetene du vil at Power Guard skal styre. Dra dem i prioritert rekkefl\u00f8lge \u2014 enheter \u00f8verst sl\u00e5s av f\u00f8rst.</li><li>Sl\u00e5 p\u00e5 <b>Vakt aktiv</b> i <b>\u2699\ufe0f Innstillinger</b>.</li>',
+      helpGettingStartedList: '<li>G\u00e5 til <b>\u2699\ufe0f Innstillinger</b> og sett <b>Maks effekt (W)</b> \u2014 dette er din nettforbindelses grense (f.eks. 10\u202f000 W).</li><li>G\u00e5 til <b>\ud83d\udcf1 Enheter</b>-fanen og aktiver enhetene du vil at Power Guard skal styre. Bruk <b>\u2191\u2193 pilene</b> for \u00e5 angi prioritetsrekkef\u00f8lge \u2014 enheter \u00f8verst sl\u00e5s av f\u00f8rst.</li><li>Sl\u00e5 p\u00e5 <b>Vakt aktiv</b> i <b>\u2699\ufe0f Innstillinger</b>.</li>',
       helpCoreDesc: 'Power Guard leser din HAN-str\u00f8mm\u00e5ler i sanntid. N\u00e5r totalforbruket n\u00e6rmer seg nettgrensen, sl\u00e5r den av eller reduserer enheter \u2014 fra toppen av prioritetslisten. N\u00e5r effekten faller tilbake, gjenopprettes enhetene automatisk.',
       helpCoreList: '<li><b>Normal profil</b> \u2014 virker ved 100% av grensen din.</li><li><b>Streng profil</b> \u2014 virker ved 95% av grensen for ekstra sikkerhetsmargin.</li><li><b>Sol-vennlig profil</b> \u2014 avslappede grenser for \u00e5 tillate solproduksjon \u00e5 motvirke forbruket.</li><li><b>Fasegrenser</b> \u2014 sett per-fase ampere-grenser (L1/L2/L3) i Avanserte innstillinger.</li><li><b>Smart gjenoppretting</b> \u2014 enheter sl\u00e5s bare p\u00e5 igjen n\u00e5r det er bekreftet plass; laderens opptrappingseffekt tas h\u00f8yde for f\u00f8r varmeenheter gjenopprettes.</li>',
       helpEvIntro: 'Aktiver <b>Smart priskontroll</b> i Innstillinger for \u00e5 aktivere smart elbillading. Alle ladere deler samme billigste-timer-vindu \u2014 bilen som trenger mest tid setter vinduets st\u00f8rrelse, og tilgjengelig effekt fordeles likt mellom ladere i disse timene. Sett opp hver lader i 4 trinn:',
@@ -1433,7 +1469,8 @@
       helpEvStepping: '<b>Str\u00f8mtrapping:</b><br>Power Guard bruker enkle 1A-trinn for \u00e5 styre laderstr\u00f8m. Trapper ned umiddelbart p\u00e5 hver HAN-avlesning n\u00e5r forbruket er over grensen. Trapper opp maks 1A hvert 60. sekund \u2014 gir m\u00e5leren tid til \u00e5 bekrefte hver \u00f8kning f\u00f8r neste. Ved omstart starter laderen alltid fra 6A slik at ladere p\u00e5 h\u00f8y str\u00f8m trappes ned umiddelbart.<br><br><b>Deteksjon av fulladt bil:</b><br>N\u00e5r en bil er ferdigladet (\u00f8kt fullf\u00f8rt, effekt faller under 100W) men fortsatt er tilkoblet, gjenkjenner Power Guard \u00f8kten som ferdig \u2014 ingen misforhold-varsler utl\u00f8ses og varmeenheter settes ikke p\u00e5 pause for en lader som ikke lenger lader aktivt.',
       helpEvChargerMode: '<b>Hva Ladermodus-etiketten betyr:</b><br><span style=\'color:#34c759;\'>\u26a1 Hurtiglading</span> <i>billig time</i> \u2014 dette er en av de billigste timene, lader p\u00e5 full hastighet<br><span style=\'color:#ff3b30;\'>\u23f8 Av</span> <i>venter p\u00e5 billig time</i> \u2014 ikke en billig time, laderen er satt p\u00e5 pause for \u00e5 spare penger<br><span style=\'color:#ff9500;\'>\ud83d\udc22 Saktlading</span> <i>ingen frist satt</i> \u2014 ingen frist konfigurert, lader p\u00e5 redusert hastighet uavhengig av pris<br><span style=\'color:#8e8e93;\'>\u25b6 Lader</span> \u2014 ingen frist satt, prisen er normal, lading uten begrensning',
       helpEvPriorityShed: '<b>Laderprioritetsstyring:</b><br>Hver lader i <b>\ud83d\udcf1 Enheter</b>-fanen har en <b>Prioritetsstyring</b>-bryter. N\u00e5r aktivert, behandles laderen som enhver annen enhet i prioritetslisten \u2014 Power Guard kan sette den p\u00e5 pause for \u00e5 beskytte nettgrensen. P\u00e5/av-type ladere prioritetsstyres selv n\u00e5r de rapporterer 0W (f.eks. inaktive mellom trinn).',
-      helpModesDesc: 'Finn modi under <b>\ud83e\udde0 Smart \u2192 Modi</b> (n\u00e5r Smart priskontroll er P\u00c5) eller <b>\ud83c\udf21\ufe0f Varmere</b>-fanen (n\u00e5r AV). Hvert modus lar deg sette per-enhet-preferanser:',
+      helpEvPriorityOrder: '<b>Prioritetsliste — slik prioriterer du elbillading:</b><br>Enheter <b>\u00f8verst</b> i prioritetslisten sl\u00e5s av <b>f\u00f8rst</b> n\u00e5r effekten overstiger grensen. Enheter <b>nederst</b> sl\u00e5s av sist. For \u00e5 prioritere billading, flytt elbilladere til <b>bunnen</b> av listen \u2014 da reduseres varmeovner og varmtvannsbereder f\u00f8r laderen ber\u00f8res.<br><br><b>Eksempel prioritetsliste (ladere prioritert):</b><table style="width:100%;margin-top:6px;font-size:11px;border-collapse:collapse;"><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">1</td><td style="padding:3px 6px;">\ud83d\udd25 Varmtvannsbereder</td><td style="padding:3px 6px;color:#ff3b30;font-style:italic;">\u2190 sl\u00e5s av f\u00f8rst</td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">2</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Gulvvarme \u2014 Bad</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">3</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Gulvvarme \u2014 Gang</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">4</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Panelovn \u2014 Stue</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">5</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Panelovn \u2014 Soverom</td><td></td></tr><tr><td style="padding:3px 6px;color:var(--text-muted);">6</td><td style="padding:3px 6px;">\ud83d\udd0c Elbillader</td><td style="padding:3px 6px;color:#34c759;font-style:italic;">\u2190 sl\u00e5s av sist</td></tr></table><div style="margin-top:6px;font-size:11px;">Hvis du vil at varmere skal forbli p\u00e5 og laderen reduseres f\u00f8rst, flytt laderen til <b>toppen</b> i stedet.</div>',
+      helpModesDesc: 'Finn modus under <b>\ud83e\udde0 Smart \u2192 Modus</b> (n\u00e5r Smart priskontroll er P\u00c5) eller <b>\ud83c\udf21\ufe0f Varmere</b>-fanen (n\u00e5r AV). Hvert modus lar deg sette per-enhet-preferanser:',
       helpModesList: '<li><b>Brytere</b> \u2014 P\u00e5 / Av</li><li><b>Termostater</b> \u2014 m\u00e5ltemperatur</li><li><b>Elbilladere</b> \u2014 Tillat / Pause</li><li><b>H\u00f8iax varmtvannsberedere</b> \u2014 H\u00f8y / Middels / Lav / Av</li>',
       helpModesNight: 'Sett en <b>Nattplan</b> for \u00e5 automatisk bytte mellom Hjem og Natt p\u00e5 valgte tider. Power Guard gjenoppretter aldri en enhet som for \u00f8yeblikket begrenses \u2014 sikkerhet har alltid prioritet.',
       helpHwThermostats: 'Alle merker \u2014 auto-detektert',
@@ -1456,7 +1493,7 @@
       copyHanDiagnosticJSON: 'Kopier HAN diagnostikk-JSON',
       copyMitigationScanJSON: 'Kopier tildelingsskanning-JSON',
       copySystemInfoJSON: 'Kopier systeminformasjon-JSON',
-      smartPriceTab: '\uD83D\uDCB0 Pris', smartModesTab: '\uD83C\uDFE0 Modi', smartEvTab: '\uD83D\uDD0C EV',
+      smartPriceTab: '\uD83D\uDCB0 Pris', smartModesTab: '\uD83C\uDFE0 Modus', smartEvTab: '\uD83D\uDD0C EV',
       spotPriceNow: 'Spotpris n\u00e5', priceLevel: 'Prisniv\u00e5', chargerMode: 'Ladermodus',
       nextCheapHour: 'Neste billige time', nextExpensiveHour: 'Neste dyre time',
       priceTimeline: '18-TIMERS PRISTIDSLINJE',
@@ -1486,7 +1523,8 @@
       finishChargingByHint: 'f.eks. 07:00. Power Guard velger de N billigste timene f\u00f8r dette tidspunktet og lader maksimalt kun i disse. La st\u00e5 tomt for \u00e5 bruke prismodus.',
       saveSchedule: 'Lagre plan',
       devicePriority: 'Enhets prioritet',
-      devicePriorityDesc: 'Sl\u00e5 p\u00e5 en enhet for \u00e5 la Power Guard styre den. Dra \u2630 for \u00e5 angi rekkef\u00f8lge \u2014 enheter h\u00f8yt oppe sl\u00e5s av f\u00f8rst.',
+      priorityHelpToggle: 'Hvordan fungerer prioritetsrekkef\u00f8lgen?',
+      devicePriorityDesc: 'Sl\u00e5 p\u00e5 en enhet for \u00e5 la Power Guard styre den. Bruk <b>\u2191\u2193 pilene</b> for \u00e5 angi rekkef\u00f8lge \u2014 enheter h\u00f8yt oppe sl\u00e5s av f\u00f8rst.',
       settingsSaved: 'Innstillinger lagret!',
       noDevicesFound: 'Ingen enheter med effektdata funnet',
       noThermostatsFound: 'Ingen termostater funnet',
@@ -1525,6 +1563,7 @@
       recentReadings: 'Siste avlesninger (',
       chargerHeader: 'Lader',
       phasesHeader: 'Faser',
+      currentHeader: 'Strøm',
       statusHeader: 'Status',
       onePhase: '1-fase (230V)',
       threePhase: '3-fase (400V)',
@@ -1614,6 +1653,8 @@
       chargingSchedule: 'Ladeplan',
       howToSetupScheduling: '⚡ Slik setter du opp automatisk ladeplan',
       evScheduleInstructions: '<li>I <b>Enheter-fanen</b> — finn laderen din og fyll inn <b>Batterist\u00f8rrelse (kWh)</b> og <b>Lad til (%)</b>.</li><li>I <b>Homey Flows</b> — opprett en flyt:<br><b>N\u00c5R</b> bil-appen rapporterer batteri% endret<br><b>S\u00c5</b> Power Guard \u2192 <i>"Rapporter [batteri%] batteri for [lader]"</i><br><span style="color:var(--text-muted)">Dra batteri%-taggen fra bil-appen din inn i verdifelt.</span></li><li>Sett en <b>Ferdig ladet innen</b>-tid nedenfor og klikk <b>Lagre plan</b>.</li>',
+      smartChargingLogicTitle: 'Slik fungerer smart ladelogikk:',
+      smartChargingLogicDesc: 'Power Guard velger de <b>N billigste timene f\u00f8r fristen din</b> og lader p\u00e5 maksimum kun i disse timene. Alle andre timer er laderen av.<ul style="margin:6px 0 0 0;padding-left:16px;"><li><b>Billigste timer valgt</b> \u2014 laderen kj\u00f8rer p\u00e5 maksimum for \u00e5 fylle batteriet s\u00e5 raskt som mulig n\u00e5r str\u00f8mmen er billigst.</li><li><b>Alle andre timer</b> \u2014 laderen er av, uavhengig av prisniv\u00e5.</li><li>N\u00e5r det er f\u00e6rre enn <b>(timer n\u00f8dvendig + 1t buffer)</b> igjen f\u00f8r fristen \u2014 lading g\u00e5r p\u00e5 maksimum uansett pris for \u00e5 garantere at bilen er klar.</li></ul>',
       yes: 'Ja',
       no: 'Nei',
       chargingNow: 'Lader n\u00e5',
@@ -1644,7 +1685,6 @@
       noActiveDevices: 'Ingen aktive enheter.',
       noEvChargersManaged: 'Ingen elbilladere administrert. Legg til en elbillader i Enheter-fanen f\u00f8rst.',
       actionOnOff: 'P\u00e5/Av',
-      actionDim: 'Dim',
       actionThermostat: 'Termostat',
       actionEvCharger: 'Elbillader',
       actionWaterHeater: 'Varmtvannsbereder',
@@ -1670,9 +1710,9 @@
       active: 'AKTIV',
       actionTurnOff: 'Sl\u00e5 av',
       actionLowerThermostat: 'Senk termostat',
-      actionPauseEv: 'Pause elbillading (Zaptec/Enua)',
-      actionDynamicCharging: 'Dynamisk lading (Easee/Zaptec/Enua)',
-      actionSteppedPower: 'Trinnvis effekt (H\u00f8iax)',
+      actionPauseEv: 'Pause lading',
+      actionDynamicCharging: 'Dynamisk lading',
+      actionSteppedPower: 'Juster varmtvannsbereder',
       priorityShed: 'Prioritetsstyring',
       devicesLoaded: ' enheter lastet',
       devicesUpdated: ' enheter (oppdatert ',
@@ -2004,6 +2044,19 @@
             phasesBadge.style.color = 'var(--text-muted)';
           }
         }
+        // Live-update the current column (dynamic → offered)
+        var currentBadge = document.getElementById('charger-current-' + c.deviceId);
+        if (currentBadge) {
+          var lim = _lastChargerLimits[c.deviceId];
+          var dynA = lim && lim.dynamic_charger_current != null ? lim.dynamic_charger_current : null;
+          var offA = c.offeredCurrent != null ? c.offeredCurrent : null;
+          var curText = '';
+          if (dynA != null && offA != null) { curText = dynA + 'A → ' + Math.round(offA) + 'A'; }
+          else if (dynA != null) { curText = dynA + 'A'; }
+          else if (offA != null) { curText = Math.round(offA) + 'A'; }
+          else { curText = '–'; }
+          currentBadge.textContent = curText;
+        }
       }
     });
     var evSection = document.getElementById('ev-section');
@@ -2303,12 +2356,12 @@
           var logRows = '';
           for (var i = log.length - 1; i >= 0; i--) {
             var entry = log[i];
-            var t = entry.time ? entry.time.substring(11, 19) : '?';
+            var ts = entry.time ? entry.time.substring(11, 19) : '?';
             var srcBadge = entry.source === 'event' ? '<span style="color:#34c759">evt</span>'
                          : entry.source === 'poll' ? '<span style="color:#ff9500">poll</span>'
                          : entry.source === 'spike-filtered' ? '<span style="color:#ff3b30">spike</span>'
                          : '<span style="color:#007aff">' + escHtml(entry.source) + '</span>';
-            logRows += '<div>' + t + '  ' + String(entry.value).padStart(7) + ' W  ' + srcBadge + '</div>';
+            logRows += '<div>' + ts + '  ' + String(entry.value).padStart(7) + ' W  ' + srcBadge + '</div>';
           }
           html += '<div style="margin-top:6px;">' +
             '<button class="btn-secondary" style="font-size:11px; padding:3px 10px;" ' +
@@ -2399,6 +2452,7 @@
     html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
             '<th style="text-align:left; padding:8px 4px;">' + t('chargerHeader') + '</th>' +
             '<th style="text-align:center; padding:8px 4px;">' + t('phasesHeader') + '</th>' +
+            '<th style="text-align:center; padding:8px 4px;">' + t('currentHeader') + '</th>' +
             '<th style="text-align:center; padding:8px 4px;">' + t('statusHeader') + '</th>' +
             '</tr></thead><tbody>';
 
@@ -2424,11 +2478,28 @@
       var phasesLabel = phases === 1 ? t('onePhase') : phases === 3 ? t('threePhase') : '–';
       var phasesColor = phases ? 'var(--text-muted)' : '#8e8e93';
 
+      // Build current display: dynamic (PG command) / offered (car receives)
+      var lim = _lastChargerLimits[charger.deviceId];
+      var dynA = lim && lim.dynamic_charger_current != null ? lim.dynamic_charger_current : null;
+      var offA = liveStatus.offeredCurrent != null ? liveStatus.offeredCurrent : null;
+      var currentLabel = '';
+      if (dynA != null && offA != null) {
+        currentLabel = dynA + 'A → ' + Math.round(offA) + 'A';
+      } else if (dynA != null) {
+        currentLabel = dynA + 'A';
+      } else if (offA != null) {
+        currentLabel = Math.round(offA) + 'A';
+      } else {
+        currentLabel = '–';
+      }
+
       var bgColor = idx % 2 === 0 ? 'transparent' : 'var(--bg-surface)';
       html += '<tr style="background:' + bgColor + '; border-bottom:1px solid var(--border-color);">' +
               '<td style="padding:8px 4px;">' + escHtml(charger.name) + '</td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<span id="charger-phases-' + charger.deviceId + '" style="font-size:11px; color:' + phasesColor + ';">' + phasesLabel + '</span></td>' +
+              '<td style="text-align:center; padding:8px 4px;">' +
+              '<span id="charger-current-' + charger.deviceId + '" style="font-size:11px; font-weight:600; color:var(--text-muted); white-space:nowrap;">' + currentLabel + '</span></td>' +
               '<td style="text-align:center; padding:8px 4px;">' +
               '<span id="charger-status-' + charger.deviceId + '" style="font-size:11px; font-weight:600; color:' + statusColor + '; white-space:nowrap;">' +
               statusIcon + ' ' + escHtml(liveStatus.statusLabel) + '</span></td>' +
@@ -2437,7 +2508,7 @@
 
     // Total summary row
     html += '<tr style="border-top:2px solid var(--border-color); font-weight:bold;">' +
-            '<td colspan="2" style="padding:8px 4px;">Total (' + chargers.length + ' charger' + (chargers.length > 1 ? 's' : '') + ')</td>' +
+            '<td colspan="3" style="padding:8px 4px;">Total (' + chargers.length + ' charger' + (chargers.length > 1 ? 's' : '') + ')</td>' +
             '</tr>';
 
     html += '</tbody></table>';
@@ -2456,8 +2527,7 @@
               ' | label=' + (live.statusLabel || '?') +
               ' | power=' + (live.powerW || 0) + 'W' +
               ' | offered=' + (live.offeredCurrent != null ? live.offeredCurrent + 'A' : 'N/A') +
-              ' | <b>ID47 Ladergrense=' + (lim && lim.maxCurrent != null ? lim.maxCurrent + 'A' : 'N/A') + (lim && lim.mitigated ? ' ⚡snapshot' : '') + '</b>' +
-              (lim && lim.dynamic_charger_current != null ? ' | ID48 Midlertidig=' + lim.dynamic_charger_current + 'A' : '') +
+              ' | <b>dynamic=' + (lim && lim.maxCurrent != null ? lim.maxCurrent + 'A' : 'N/A') + (lim && lim.mitigated ? ' ⚡snapshot' : '') + '</b>' +
               (lim && lim.circuit_current         != null ? ' | circuit='          + lim.circuit_current         + 'A' : '') +
               (lim && lim.allValues && Object.keys(lim.allValues).length ? ' | <i>caps: ' + Object.entries(lim.allValues).map(function(kv){return kv[0]+'='+kv[1];}).join(', ') + '</i>' : '') +
               ' | phases=' + (live.detectedPhases != null ? live.detectedPhases + '-phase' : 'detecting...') +
@@ -2547,6 +2617,164 @@
       });
   }
 
+  // ── Easee Test Lab ─────────────────────────────────────────────────────
+  var _testLabDeviceId = null;
+
+  function initTestLab() {
+    var card = document.getElementById('easee-testlab-card');
+    if (!card) return;
+    var chargers = (priorityList || []).filter(function(e) {
+      return (e.action === 'dynamic_current' || e.action === 'charge_pause') && e.enabled !== false;
+    });
+    if (chargers.length === 0) { card.style.display = 'none'; return; }
+    card.style.display = '';
+
+    var sel = document.getElementById('easee-testlab-select');
+    var html = '<select id="testlab-device" style="font-size:12px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-color); background:var(--bg-surface); color:var(--text-primary);" onchange="_testLabDeviceId=this.value; loadTestLab();">';
+    chargers.forEach(function(c, i) {
+      html += '<option value="' + c.deviceId + '"' + (i === 0 ? ' selected' : '') + '>' + escHtml(c.name) + '</option>';
+    });
+    html += '</select>';
+    sel.innerHTML = html;
+    _testLabDeviceId = chargers[0].deviceId;
+    loadTestLab();
+  }
+
+  function loadTestLab() {
+    if (!_testLabDeviceId) return;
+    var container = document.getElementById('easee-testlab-content');
+    container.innerHTML = '<span style="color:var(--text-muted)">Loading capabilities...</span>';
+
+    hApi('POST', '/read-charger-caps', { deviceId: _testLabDeviceId })
+      .then(function(data) {
+        if (!data || data.error) {
+          container.innerHTML = '<span style="color:#ff3b30">' + (data ? data.error : 'No response') + '</span>';
+          return;
+        }
+        renderTestLab(data);
+      })
+      .catch(function(err) {
+        container.innerHTML = '<span style="color:#ff3b30">Error: ' + (err.message || err) + '</span>';
+      });
+  }
+
+  function renderTestLab(data) {
+    var container = document.getElementById('easee-testlab-content');
+    var pgCap = data.pgCurrentCap;
+
+    // Group capabilities: current-related first, then others
+    var currentCaps = [];
+    var otherCaps = [];
+    data.caps.forEach(function(c) {
+      if (c.id.indexOf('current') >= 0 || c.id.indexOf('Current') >= 0) {
+        currentCaps.push(c);
+      } else {
+        otherCaps.push(c);
+      }
+    });
+
+    var html = '<div style="margin-bottom:8px; font-size:11px; color:var(--text-muted);">Device: <b>' + escHtml(data.name) + '</b></div>';
+
+    // Power Guard info box
+    html += '<div style="background:var(--bg-surface); border:1px solid var(--border-color); border-radius:6px; padding:8px 10px; margin-bottom:12px; font-size:11px;">';
+    html += 'Power Guard uses: <b style="color:' + (pgCap === 'target_charger_current' ? '#ff9500' : '#34c759') + ';">' + (pgCap || 'none found') + '</b>';
+    if (pgCap === 'target_charger_current') {
+      html += ' <span style="color:#ff9500;">⚠ Slow/FLASH — consider updating Easee app</span>';
+    } else if (pgCap && pgCap !== 'target_charger_current') {
+      html += ' <span style="color:#34c759;">✓ Fast/volatile</span>';
+    }
+    html += '</div>';
+
+    // Current-related capabilities
+    if (currentCaps.length > 0) {
+      html += '<div style="font-weight:600; margin-bottom:6px; font-size:12px;">Current capabilities</div>';
+      html += '<table style="width:100%; border-collapse:collapse; margin-bottom:12px;">';
+      html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
+              '<th style="text-align:left; padding:4px;">Capability</th>' +
+              '<th style="text-align:center; padding:4px;">Value</th>' +
+              '<th style="text-align:center; padding:4px;">Set</th>' +
+              '</tr></thead><tbody>';
+      currentCaps.forEach(function(c) {
+        var isPG = c.id === pgCap;
+        var bold = isPG ? 'font-weight:700;' : '';
+        var bg = isPG ? 'background:rgba(0,122,255,0.08);' : '';
+        var valDisplay = c.value != null ? c.value + (c.units ? ' ' + c.units : '') : 'N/A';
+        html += '<tr style="border-bottom:1px solid var(--border-color); ' + bg + '">' +
+                '<td style="padding:6px 4px; ' + bold + ' font-size:11px;">' + escHtml(c.id) + (isPG ? ' ⚡PG' : '') + '</td>' +
+                '<td id="tl-val-' + c.id.replace(/\./g, '_') + '" style="text-align:center; padding:6px 4px; font-family:monospace; ' + bold + '">' + valDisplay + '</td>' +
+                '<td style="text-align:center; padding:6px 4px;">';
+        if (c.setable && typeof c.value === 'number') {
+          var min = c.min != null ? c.min : 0;
+          var max = c.max != null ? c.max : 32;
+          var step = c.step != null ? c.step : 1;
+          html += '<div style="display:flex; align-items:center; gap:4px; justify-content:center;">' +
+                  '<input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + (c.value || 0) + '" ' +
+                  'id="tl-slider-' + c.id.replace(/\./g, '_') + '" ' +
+                  'oninput="document.getElementById(\'tl-num-' + c.id.replace(/\./g, '_') + '\').value=this.value" ' +
+                  'style="width:80px; accent-color:#007aff;">' +
+                  '<input type="number" min="' + min + '" max="' + max + '" step="' + step + '" value="' + (c.value || 0) + '" ' +
+                  'id="tl-num-' + c.id.replace(/\./g, '_') + '" ' +
+                  'oninput="document.getElementById(\'tl-slider-' + c.id.replace(/\./g, '_') + '\').value=this.value" ' +
+                  'style="width:45px; font-size:11px; padding:2px 4px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-surface); color:var(--text-primary); text-align:center;">' +
+                  '<button onclick="writeTestLabCap(\'' + c.id + '\', parseFloat(document.getElementById(\'tl-num-' + c.id.replace(/\./g, '_') + '\').value))" ' +
+                  'style="font-size:10px; padding:3px 8px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-surface); color:#007aff; cursor:pointer;">Write</button>' +
+                  '</div>';
+        } else {
+          html += '<span style="color:var(--text-muted); font-size:10px;">' + (c.setable ? 'N/A' : 'read-only') + '</span>';
+        }
+        html += '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+
+    // Other capabilities
+    if (otherCaps.length > 0) {
+      html += '<details style="margin-top:8px;">';
+      html += '<summary style="cursor:pointer; font-weight:600; font-size:12px; color:var(--text-muted);">Other capabilities (' + otherCaps.length + ')</summary>';
+      html += '<table style="width:100%; border-collapse:collapse; margin-top:6px;">';
+      html += '<thead><tr style="border-bottom:2px solid var(--border-color);">' +
+              '<th style="text-align:left; padding:4px; font-size:11px;">Capability</th>' +
+              '<th style="text-align:center; padding:4px; font-size:11px;">Value</th>' +
+              '<th style="text-align:center; padding:4px; font-size:11px;">Setable</th>' +
+              '</tr></thead><tbody>';
+      otherCaps.forEach(function(c) {
+        var valDisplay = c.value != null ? String(c.value) + (c.units ? ' ' + c.units : '') : 'N/A';
+        if (valDisplay.length > 30) valDisplay = valDisplay.substring(0, 27) + '...';
+        html += '<tr style="border-bottom:1px solid var(--border-color);">' +
+                '<td style="padding:4px; font-size:11px;">' + escHtml(c.id) + '</td>' +
+                '<td style="text-align:center; padding:4px; font-family:monospace; font-size:11px;">' + escHtml(valDisplay) + '</td>' +
+                '<td style="text-align:center; padding:4px; font-size:11px; color:var(--text-muted);">' + (c.setable ? '✓' : '–') + '</td>' +
+                '</tr>';
+      });
+      html += '</tbody></table></details>';
+    }
+
+    // Write result feedback
+    html += '<div id="testlab-write-result" style="margin-top:8px; font-size:11px; display:none;"></div>';
+
+    container.innerHTML = html;
+  }
+
+  function writeTestLabCap(capId, value) {
+    var resultDiv = document.getElementById('testlab-write-result');
+    if (resultDiv) { resultDiv.style.display = 'block'; resultDiv.innerHTML = '<span style="color:var(--text-muted)">Writing ' + capId + ' = ' + value + '...</span>'; }
+
+    hApi('POST', '/write-charger-cap', { deviceId: _testLabDeviceId, capabilityId: capId, value: value })
+      .then(function(data) {
+        if (data && data.ok) {
+          if (resultDiv) resultDiv.innerHTML = '<span style="color:#34c759">✓ ' + capId + ' = ' + value + ' → confirmed: ' + data.newValue + '</span>';
+          // Update displayed value
+          var valCell = document.getElementById('tl-val-' + capId.replace(/\./g, '_'));
+          if (valCell) valCell.textContent = data.newValue != null ? data.newValue : '?';
+        } else {
+          if (resultDiv) resultDiv.innerHTML = '<span style="color:#ff3b30">✗ ' + (data ? data.error : 'No response') + '</span>';
+        }
+      })
+      .catch(function(err) {
+        if (resultDiv) resultDiv.innerHTML = '<span style="color:#ff3b30">✗ Error: ' + (err.message || err) + '</span>';
+      });
+  }
+
   // Returns the active voltageSystem string, resolving 'auto' via server detection
   function _resolveVoltageSystem() {
     var selected = document.getElementById('s-voltageSystem').value;
@@ -2615,6 +2843,7 @@
         renderAllDevices();
         renderChargerDetails();  // Refresh charger details after loading
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
+        initTestLab();  // Initialize Easee Test Lab
         loadMeterDevices();  // Load meter device dropdown
         loadHanDiagnostic();  // Load HAN diagnostic info
         // Load car devices for battery picker
@@ -3166,7 +3395,6 @@
         '<span class="dev-name" style="' + (isControlled ? 'color:#ff9500;font-weight:700;' : '') + '">' + escHtml(entry.name) + (isControlled ? ' <span style="font-size:10px;font-weight:600;background:#ff9500;color:#fff;border-radius:3px;padding:1px 5px;margin-left:4px;">' + t('active') + '</span>' : '') + '</span>' +
         '<select onchange="updateDeviceAction(\'' + entry.deviceId + '\',this.value)">' +
           '<option value="onoff"'             + selOpt(entry.action,'onoff')             + '>' + t('actionTurnOff') + '</option>' +
-          '<option value="dim"'               + selOpt(entry.action,'dim')               + '>' + t('actionDim') + '</option>' +
           '<option value="target_temperature"'+ selOpt(entry.action,'target_temperature')+ '>' + t('actionLowerThermostat') + '</option>' +
           '<option value="charge_pause"'      + selOpt(entry.action,'charge_pause')      + '>' + t('actionPauseEv') + '</option>' +
           '<option value="dynamic_current"'   + selOpt(entry.action,'dynamic_current')   + '>' + t('actionDynamicCharging') + '</option>' +
@@ -3191,7 +3419,6 @@
       '<span class="dev-name">' + escHtml(dev.name) + '</span>' +
       '<select id="def-action-' + dev.id.replace(/[^a-z0-9]/gi,'_') + '">' +
         '<option value="onoff">' + t('actionTurnOff') + '</option>' +
-        '<option value="dim">' + t('actionDim') + '</option>' +
         '<option value="target_temperature">' + t('actionLowerThermostat') + '</option>' +
         '<option value="charge_pause">' + t('actionPauseEv') + '</option>' +
         '<option value="dynamic_current">' + t('actionDynamicCharging') + '</option>' +
@@ -3506,6 +3733,7 @@
         renderAllDevices();
         renderChargerDetails();  // Initial render of charger power details
         syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
+        initTestLab();  // Initialize Easee Test Lab
         dbg('Initial load: ' + availableDevices.length + ' devices');
 
         // Immediately update cache status bar since devices are loaded
@@ -4526,7 +4754,7 @@
   function buildModeDeviceRow(entry, modePref, mode) {
     var action = entry.action || 'onoff';
     var actionLabel = {
-      onoff: t('actionOnOff'), dim: t('actionDim'),
+      onoff: t('actionOnOff'),
       target_temperature: t('actionThermostat'),
       charge_pause: t('actionEvCharger'),
       dynamic_current: t('actionEvCharger'),
