@@ -248,6 +248,7 @@
     "en": "Remove Easee Test Lab, clean up unused code"
   },
   "0.8.48": {
-    "en": "Fix Easee charger ping-pong loop caused by resume immunity window expiring before charger enforced current limit"
+    "en": "Fix Easee charger ping-pong loop caused by resume immunity window expiring before charger enforced current limit",
+    "no": "Fiks for Easee-lader ping-pong-løkke der immunity-vinduet utløp før laderen overholdt strømgrensen"
   }
 }
