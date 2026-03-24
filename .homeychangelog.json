@@ -243,5 +243,8 @@
   },
   "0.8.46": {
     "en": "Fix charger control stability, add Easee Test Lab, improve translations and UI help"
+  },
+  "0.8.47": {
+    "en": "Remove Easee Test Lab, clean up unused code"
   }
 }

@@ -3661,9 +3661,9 @@ class PowerGuardApp extends Homey.App {
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], {
               lastCommandA: resumeCurrent, commandTime: Date.now(), confirmed: false, timedOut: false,
-              delayedConfirm, resumeImmunityUntil: Date.now() + 30000,
+              delayedConfirm, resumeImmunityUntil: Date.now() + (delayedConfirm ? 90000 : 30000),
             });
-            this.log(`[Easee] Resume via ${dynCap} — 30s immunity window active`);
+            this.log(`[Easee] Resume via ${dynCap} — ${delayedConfirm ? '90s' : '30s'} immunity window active`);
             delete this._pendingChargerCommands[deviceId];
             return true;
           }
