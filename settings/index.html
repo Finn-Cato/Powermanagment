@@ -2213,8 +2213,27 @@
         var maxKWhD = limitKW;
         for (var dmi = 0; dmi < hourEntries.length; dmi++) { if (hourEntries[dmi].kWh > maxKWhD) maxKWhD = hourEntries[dmi].kWh; }
         var limitPctD = (limitKW / maxKWhD * 100).toFixed(1);
-        html += '<div style="position:relative;height:60px;margin-bottom:4px">';
+        // Find peak hour for label
+        var peakEntryD = hourEntries.reduce(function(best, h) { return (h.kWh > best.kWh && !h.future) ? h : best; }, {hour:-1, kWh:0});
+
+        html += '<div style="display:flex;gap:3px;align-items:stretch">';
+        // Y-axis column
+        html += '<div style="width:22px;position:relative;flex-shrink:0">';
+        html += '<div style="position:absolute;top:0;right:0;font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + '</div>';
+        html += '<div style="position:absolute;bottom:0;right:0;font-size:8px;color:var(--text-muted);line-height:1">0</div>';
+        html += '</div>';
+        // Chart area
+        html += '<div style="flex:1;position:relative;height:60px;margin-bottom:4px">';
+        // Limit line + label
         html += '<div style="position:absolute;left:0;right:0;bottom:' + limitPctD + '%;height:0;border-top:1px dashed rgba(255,149,0,0.7);pointer-events:none"></div>';
+        html += '<div style="position:absolute;right:0;bottom:calc(' + limitPctD + '% + 2px);font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + ' kWh</div>';
+        // Peak bar label
+        if (peakEntryD.kWh > 0) {
+          var peakPctD = (peakEntryD.kWh / maxKWhD * 100).toFixed(1);
+          var peakBarLeft = (peakEntryD.hour / 24 * 100).toFixed(1);
+          html += '<div style="position:absolute;left:' + peakBarLeft + '%;bottom:calc(' + peakPctD + '% + 3px);font-size:8px;color:var(--text-secondary);white-space:nowrap;transform:translateX(-20%);">' + peakEntryD.kWh.toFixed(1) + '</div>';
+        }
+        // Bars
         html += '<div style="position:absolute;inset:0;display:flex;align-items:flex-end;gap:1px">';
         for (var bdi = 0; bdi < 24; bdi++) {
           var he2 = hourEntries[bdi];
@@ -2230,8 +2249,9 @@
         }
         html += '</div>';
         html += '</div>';
-        // X-axis (00, 06, 12, 18, 23)
-        html += '<div style="display:flex;font-size:8px;color:var(--text-muted)">';
+        html += '</div>'; // end flex row
+        // X-axis
+        html += '<div style="display:flex;font-size:8px;color:var(--text-muted);padding-left:25px">';
         html += '<div style="flex:1;text-align:left">00</div>';
         html += '<div style="flex:1;text-align:center">06</div>';
         html += '<div style="flex:1;text-align:center">12</div>';
@@ -2249,34 +2269,53 @@
           var dStr2 = dObj.toISOString().slice(0, 10);
           var wfound = null;
           for (var wpi = 0; wpi < wpkAll.length; wpi++) { if (wpkAll[wpi].date === dStr2) { wfound = wpkAll[wpi]; break; } }
-          weekRows.push({date:dStr2, kw:wfound?wfound.kw:null, isTop3:top3Dts.indexOf(dStr2)>=0, isToday:wdoff===0, dow:dObj.getDay()});
+          weekRows.push({date:dStr2, kw:wfound?wfound.kw:null, isTop3:top3Dts.indexOf(dStr2)>=0, isToday:wdoff===0, dow:dObj.getDay(), dayNum:dObj.getDate()});
         }
         var maxKWW = limitKW;
         for (var wmi = 0; wmi < weekRows.length; wmi++) { if (weekRows[wmi].kw!==null && weekRows[wmi].kw>maxKWW) maxKWW = weekRows[wmi].kw; }
         var limitPctW = (limitKW / maxKWW * 100).toFixed(1);
         var dowNm = ['Su','Mo','Tu','We','Th','Fr','Sa'];
-        html += '<div style="position:relative;height:60px;margin-bottom:4px">';
+
+        html += '<div style="display:flex;gap:3px;align-items:stretch">';
+        // Y-axis column
+        html += '<div style="width:22px;position:relative;flex-shrink:0">';
+        html += '<div style="position:absolute;top:0;right:0;font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + '</div>';
+        html += '<div style="position:absolute;bottom:0;right:0;font-size:8px;color:var(--text-muted);line-height:1">0</div>';
+        html += '</div>';
+        // Chart area
+        html += '<div style="flex:1;position:relative;height:60px;margin-bottom:4px">';
         html += '<div style="position:absolute;left:0;right:0;bottom:' + limitPctW + '%;height:0;border-top:1px dashed rgba(255,149,0,0.7);pointer-events:none"></div>';
+        html += '<div style="position:absolute;right:0;bottom:calc(' + limitPctW + '% + 2px);font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + ' kW</div>';
         html += '<div style="position:absolute;inset:0;display:flex;align-items:flex-end;gap:3px">';
         for (var wbi2 = 0; wbi2 < weekRows.length; wbi2++) {
           var wr = weekRows[wbi2];
           var wbh = wr.kw!==null && wr.kw>0 ? Math.min((wr.kw/maxKWW)*100,100).toFixed(1) : '0';
           var wbc;
-          if (wr.kw===null)           wbc = 'var(--bg-body)';
-          else if (wr.isTop3)         wbc = '#ff9500';
-          else if (wr.kw>=limitKW)    wbc = '#ff3b30';
+          if (wr.kw===null)            wbc = 'var(--bg-body)';
+          else if (wr.isTop3)          wbc = '#ff9500';
+          else if (wr.kw>=limitKW)     wbc = '#ff3b30';
           else if (wr.kw>=limitKW*0.8) wbc = '#ff9500';
-          else                        wbc = '#34c759';
+          else                         wbc = '#34c759';
           var wextra = wr.isToday ? ';outline:1px solid var(--brand);outline-offset:-1px' : '';
           html += '<div style="flex:1;height:' + wbh + '%;min-height:' + (parseFloat(wbh)>0?'3':'0') + 'px;background:' + wbc + ';border-radius:2px 2px 0 0' + wextra + '"></div>';
         }
         html += '</div>';
         html += '</div>';
-        // Day labels
-        html += '<div style="display:flex;gap:3px;font-size:9px">';
+        html += '</div>'; // end flex row
+        // kW values row
+        html += '<div style="display:flex;gap:3px;font-size:8px;padding-left:25px;margin-bottom:1px">';
+        for (var wvi = 0; wvi < weekRows.length; wvi++) {
+          var wv = weekRows[wvi];
+          html += '<div style="flex:1;text-align:center;color:' + (wv.isTop3?'#ff9500':wv.isToday?'var(--brand)':'var(--text-muted)') + ';font-weight:' + (wv.isTop3||wv.isToday?'600':'400') + '">' + (wv.kw!==null ? wv.kw.toFixed(1) : '–') + '</div>';
+        }
+        html += '</div>';
+        // Day + date labels
+        html += '<div style="display:flex;gap:3px;font-size:9px;padding-left:25px">';
         for (var wli2 = 0; wli2 < weekRows.length; wli2++) {
           var wl = weekRows[wli2];
-          html += '<div style="flex:1;text-align:center;color:' + (wl.isToday?'var(--brand)':wl.isTop3?'#ff9500':'var(--text-muted)') + ';font-weight:' + (wl.isTop3||wl.isToday?'600':'400') + '">' + dowNm[wl.dow] + '</div>';
+          html += '<div style="flex:1;text-align:center;color:' + (wl.isToday?'var(--brand)':'var(--text-muted)') + ';font-weight:' + (wl.isToday?'600':'400') + ';line-height:1.3">';
+          html += dowNm[wl.dow] + '<br><span style="font-size:8px">' + wl.dayNum + '.</span>';
+          html += '</div>';
         }
         html += '</div>';
 
