@@ -250,5 +250,9 @@
   "0.8.48": {
     "en": "Fix Easee charger ping-pong loop caused by resume immunity window expiring before charger enforced current limit",
     "no": "Fiks for Easee-lader ping-pong-løkke der immunity-vinduet utløp før laderen overholdt strømgrensen"
+  },
+  "0.8.49": {
+    "en": "New: visual hourly budget bar in the effekttariff card — shows kWh used, remaining, time cursor, dynamic kW limit, and minutes left in the hour. New: dynamic hourly budget toggle (Advanced settings) — allows higher power mid-hour when quota allows it; only activates after the first clean hour rollover (startup protection). Fix: EV priority shed now only fires when the budget is actually insufficient — thermostats stay on when the charger has plenty of headroom. Fix: after an EV session, shed devices are restored one at a time with a 60-second stagger to prevent power spikes. Fix: priority-shed devices are only restored when there is confirmed budget headroom.",
+    "no": "Nytt: visuell timebudsjettstolpe i effekttariff-kortet — viser kWh brukt, gjenstående, tidspeker, dynamisk kW-grense og minutter igjen av timen. Nytt: dynamisk timebudsjett-bryter (Avanserte innstillinger) — tillater høyere effekt midt i timen når kvoten tillater det; aktiveres bare etter første fullstendige timegjenrulling (oppstartsbeskyttelse). Fiks: EV-prioritetsstyring slår nå bare av varmere når budsjettet faktisk er utilstrekkelig — termostater forblir på når laderen har nok rom. Fiks: etter en EV-økt gjenopprettes avslåtte enheter én om gangen med 60 sekunder mellom for å forhindre effekttopper. Fiks: prioritertsstyrte enheter gjenopprettes bare når det er bekreftet budsjettrom."
   }
 }
