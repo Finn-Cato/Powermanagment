@@ -29,7 +29,7 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 - **Resume threshold** — resumes from pause at 11A (not 6A) to ensure a reliable charger restart
 - **Smooth current stepping** — ramps charger current in 1A steps so each change is small enough for the HAN meter to confirm before the next step; ramp always completes before other devices are restored
 - **Anti-oscillation** — a shared 30-second settling window blocks all chargers from ramping after any one ramps, giving the HAN meter time to confirm the change; decreases apply to all chargers immediately in emergencies
-- **Proactive load coordination** — when EV budget is tight, heating devices are shed before the charger needs to pause, preventing charger and thermostats from repeatedly cycling against each other; the shed threshold is phase-aware (1-phase charger = 1380W minimum, 3-phase = 4140W) so heating devices are not shed unnecessarily on 1-phase setups; shedding is skipped entirely when the charger is paused by the price engine (ekstremt dyr / Mode=av) so thermostats are never turned off for a charger that isn't running
+- **Proactive load coordination** — when EV budget is tight, heating devices are shed before the charger needs to pause; **priority shed now only fires when the budget is actually insufficient** — if household load is low and the charger has headroom, thermostats stay on; the shed threshold is phase-aware (1-phase = 1380W minimum, 3-phase = 4140W); shedding is skipped when the charger is paused by the price engine; when the session ends, shed devices are **restored one at a time with a 60-second stagger** so the system can observe the grid impact before the next restore; restores are also blocked if power would exceed the limit after restoring
 - **Grace window** — 2-minute grace period after confirmed charging before flagging a mismatch
 - **Confirmation tracking** — verifies commands by reading `measure_current.offered`, with per-charger reliability scoring
 - **Retry with backoff** — retries failed commands up to 2 times with increasing delays
@@ -63,7 +63,8 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 - Records the highest hourly average (kW) per day
 - Calculates the monthly capacity metric: **average of the 3 highest daily peaks (TOP3)**
 - Maps to Norwegian grid tariff tiers: 0–2, 2–5, 5–10, 10–15, 15–20, 20–25, ≥25 kW
-- Displays current-hour running average, projected end-of-hour kWh, today's peak, top-3 daily peaks with medals, and current tier
+- **Visual hourly budget bar** — shows kWh used vs the hour's budget, a time cursor for where you are in the hour, remaining kWh, and minutes left; warns when the current hour would set a new daily peak
+- **Dynamic hourly budget** (opt-in toggle) — if you've used little power early in the hour, Power Guard temporarily allows higher power using the remaining quota. `dynamicLimit = remainingWh ÷ fractionOfHourLeft`. Capped at min 50% of base limit, 2× base limit, and physical circuit max. Only activates after the first complete hour rollover on startup (startup protection via `hourStartKnown` flag).
 
 ### HAN Meter / Power Meter
 - Auto-detects HAN meters by device class, name, or driver ID
@@ -213,6 +214,7 @@ On the **Overview → Settings** sub-tab, make sure **Guard active** is turned o
 | Safety buffer | 0% | Reduce effective limit by this % for extra headroom |
 | Missing data timeout | 120 s | Force mitigation if no HAN reading for this long (0 = off) |
 | Dynamic restore guard | On | Wait 1–5 min before restoring — longer when more of the hour remains |
+| Dynamic hourly budget | Off | Allow higher power mid-hour when the hourly kWh budget allows it; activates only after the first full hour since startup |
 
 ---
 

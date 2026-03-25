@@ -290,7 +290,7 @@
 
       <!-- Effekttariff (Capacity Tariff) Section -->
       <div class="card" id="effekt-section">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500" data-i18n="effekttariffHeader">⚡ EFFEKTTARIFF (TEST)</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500" data-i18n="effekttariffHeader">⚡ EFFEKTTARIFF</div>
         <div id="effekt-container" style="background:var(--bg-surface);border-radius:8px;padding:10px;">
           <div style="color:var(--text-tertiary);font-size:12px" data-i18n="waitingData">Waiting for data...</div>
         </div>
@@ -409,6 +409,10 @@
           <div class="row">
             <div class="label-group"><label data-i18n="dynamicRestoreGuard">Dynamic restore guard</label><span class="hint" data-i18n="dynamicRestoreGuardHint">Wait 1–5 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.</span></div>
             <div class="control"><input type="checkbox" id="s-dynamicRestoreGuard" checked></div>
+          </div>
+          <div class="row">
+            <div class="label-group"><label data-i18n="dynamicHourlyBudget">Dynamic hourly budget</label><span class="hint" data-i18n="dynamicHourlyBudgetHint">Allow higher power mid-hour when the hourly kWh budget allows it. Only activates from the start of the next full hour.</span></div>
+            <div class="control"><input type="checkbox" id="s-dynamicHourlyBudget"></div>
           </div>
         </div>
       </div>
@@ -546,6 +550,13 @@
             <li><b>Høiax water heaters</b> — High / Medium / Low / Off</li>
           </ul>
           <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:8px 0 0;" data-i18n-html="helpModesNight">Set a <b>Night schedule</b> to automatically switch between Home and Night at chosen times. Power Guard never restores a device that is currently being throttled — safety always takes priority.</p>
+        </div>
+
+        <div class="card">
+          <h2 data-i18n="helpEffekttariffTitle">Effekttariff &amp; Hourly Budget</h2>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 8px;" data-i18n-html="helpEffekttariffDesc"></p>
+          <ul style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0 0 8px;padding-left:18px;" data-i18n-html="helpEffekttariffList"></ul>
+          <div style="margin-top:8px;background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;" data-i18n-html="helpEffekttariffEV"></div>
         </div>
 
         <div class="card">
@@ -1099,6 +1110,8 @@
       missingDataTimeoutHint: 'Force mitigation if no power reading for this many seconds. 0 = disabled.',
       dynamicRestoreGuard: 'Dynamic restore guard',
       dynamicRestoreGuardHint: 'Wait 1\u20135 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.',
+      dynamicHourlyBudget: 'Dynamic hourly budget',
+      dynamicHourlyBudgetHint: 'Allow higher power mid-hour when the hourly kWh budget allows it. Only activates from the start of the next full hour.',
       powerMeter: 'Power Meter', powerMeterDevice: 'Power meter device',
       powerMeterDeviceHint: 'Select which device to use for live power monitoring. "Auto-detect" finds HAN meters automatically.',
       autoDetect: 'Auto-detect',
@@ -1118,19 +1131,23 @@
       bugReportLink: 'Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
       helpGettingStartedList: '<li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li><li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Use the <b>↑↓ arrows</b> to set priority order — devices at the <b>top</b> are turned off first.</li><li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>',
       helpCoreDesc: 'Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.',
-      helpCoreList: '<li><b>Normal profile</b> — acts at 100% of your limit.</li><li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li><li><b>Solar-friendly profile</b> — relaxed limits to allow solar production to offset consumption.</li><li><b>Phase limits</b> — set per-phase ampere limits (L1/L2/L3) in Advanced settings.</li><li><b>Smart restore</b> — devices are only turned back on when there is confirmed headroom; charger ramping power is accounted for before restoring heating devices.</li>',
+      helpCoreList: '<li><b>Normal profile</b> — acts at 100% of your limit.</li><li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li><li><b>Solar-friendly profile</b> — relaxed limits to allow solar production to offset consumption.</li><li><b>Phase limits</b> — set per-phase ampere limits (L1/L2/L3) in Advanced settings.</li><li><b>Smart restore</b> — devices are only turned back on when there is confirmed headroom; charger ramping power is accounted for before restoring heating devices. After an EV charging session, shed devices are restored one at a time, 60 seconds apart, to prevent power spikes.</li>',
       helpEvIntro: 'Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:',
       helpEvSteps: '<li><b>Devices tab</b> — enable your EV charger and set action to <b>Dynamic Current</b>.</li><li><b>Devices tab</b> — fill in Battery size (kWh), Charge to (%), and link a <b>Car device</b> under the charger row.</li><li><b>📊 System tab</b> — set the circuit breaker limit (A) for the charger.</li><li><b>🧠 Smart → EV tab</b> — set <b>Ready by</b> (deadline). Hours needed is calculated automatically per charger from the linked car\'s battery.</li>',
       helpEvHoursCalc: '<b>How hours are calculated (per charger):</b><br>kWh needed = (target% − current%) ÷ 100 × battery capacity<br>Charger power = circuit limit (A) × 230 V × phases<br>Hours needed = kWh needed ÷ charger power (kW)<br><br><b>Example:</b> 40% → 80%, 77 kWh battery, 16A 1-phase = (80−40)/100 × 77 ÷ 3.7 kW ≈ 8.3 hours',
       helpEvCheapHours: 'When a deadline is set, Power Guard picks the <b>N cheapest hours</b> before the deadline (N = whichever car needs the most hours) and charges all chargers during those hours. All other hours all chargers are Off. If the deadline is imminent, it forces full charging regardless of price. With two chargers, the available current is split equally so both cars charge at the same time.',
       helpEvStepping: '<b>Current stepping:</b><br>Power Guard uses simple 1A steps to control charger current. It steps down immediately on every HAN reading when consumption is over the limit. It steps up a maximum of 1A every 60 seconds — giving the meter time to confirm each increase before the next. On restart, the charger always resumes from 6A so high-current chargers are stepped down right away if needed.<br><br><b>Charging complete detection:</b><br>When a car finishes charging (session completed, power drops below 100W) but stays plugged in, Power Guard recognises the session as done — no mismatch alerts are raised and heating devices are not shed on behalf of a charger that is no longer actively charging.',
       helpEvChargerMode: '<b>What the Charger Mode label means:</b><br><span style="color:#34c759;">⚡ Fast charge</span> <i>cheap hour</i> — this is one of the cheapest hours, charging at full speed<br><span style="color:#ff3b30;">⏸ Off</span> <i>waiting for cheap hour</i> — not a cheap hour, charger is paused to save money<br><span style="color:#ff9500;">🐢 Slow charge</span> <i>no deadline set</i> — no deadline configured, charging at reduced speed regardless of price<br><span style="color:#8e8e93;">▶ Charging</span> — no deadline set, price is normal, charging without restriction',
-      helpEvPriorityShed: '<b>Charger priority shed:</b><br>Each charger in the <b>📱 Devices</b> tab has a <b>Priority shed</b> toggle. When enabled, the charger is treated like any other device in the priority list — Power Guard can pause it to protect the grid limit. On/off type chargers are shed even when they are reporting 0W (e.g. idle between steps).',
+      helpEvPriorityShed: '<b>Shed heaters when charging:</b><br>Each charger in the <b>📱 Devices</b> tab has a <b>Shed heaters when charging</b> toggle. When enabled, Power Guard proactively sheds heating devices from the priority list while the charger is active — <b>but only when the budget is actually insufficient</b>. If the household load is low and the charger has plenty of headroom, thermostats and heaters are left on. After the charging session ends, shed devices are restored one at a time with 60 seconds between each restore, so the system can observe the effect before restoring the next device.',
       helpEvPriorityOrder: '<b>Priority list order — how to prioritise EV charging:</b><br>Devices at the <b>top</b> of the priority list are shed <b>first</b> when power exceeds the limit. Devices at the <b>bottom</b> are shed last. To prioritise your car charging, move EV chargers to the <b>bottom</b> of the list — this way heaters and water heaters are reduced before the charger is touched.<br><br><b>Example priority list (chargers prioritised):</b><table style="width:100%;margin-top:6px;font-size:11px;border-collapse:collapse;"><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">1</td><td style="padding:3px 6px;">🔥 Water heater</td><td style="padding:3px 6px;color:#ff3b30;font-style:italic;">← shed first</td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">2</td><td style="padding:3px 6px;">🌡️ Floor heating — Bathroom</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">3</td><td style="padding:3px 6px;">🌡️ Floor heating — Hallway</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">4</td><td style="padding:3px 6px;">🌡️ Panel heater — Living room</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">5</td><td style="padding:3px 6px;">🌡️ Panel heater — Bedroom</td><td></td></tr><tr><td style="padding:3px 6px;color:var(--text-muted);">6</td><td style="padding:3px 6px;">🔌 EV Charger</td><td style="padding:3px 6px;color:#34c759;font-style:italic;">← shed last</td></tr></table><div style="margin-top:6px;font-size:11px;">If you want heaters to stay on and the charger to be reduced first, move the charger to the <b>top</b> instead.</div>',
       helpModesDesc: 'Find modes under <b>🧠 Smart → Modes</b> (when Smart Price Control is ON) or <b>🌡️ Heaters</b> tab (when OFF). Each mode lets you set per-device preferences:',
       helpModesList: '<li><b>Switches</b> — On / Off</li><li><b>Thermostats</b> — target temperature</li><li><b>EV chargers</b> — Allow / Pause</li><li><b>Høiax water heaters</b> — High / Medium / Low / Off</li>',
       helpModesNight: 'Set a <b>Night schedule</b> to automatically switch between Home and Night at chosen times. Power Guard never restores a device that is currently being throttled — safety always takes priority.',
       helpHwThermostats: 'Any brand — auto-detected',
+      helpEffekttariffTitle: 'Effekttariff &amp; Hourly Budget',
+      helpEffekttariffDesc: 'The Norwegian <b>effekttariff</b> charges based on your <b>3 highest hourly kWh peaks</b> per month. Power Guard tracks your hourly energy and shows a budget bar in the overview so you can see how much of your hour\'s quota is used.',
+      helpEffekttariffList: '<li><b>Budget bar</b> — coloured fill shows kWh used vs the hour\'s budget; white line marks how far through the hour you are; labels show remaining kWh and minutes left.</li><li><b>Dynamic hourly budget</b> (toggle in Advanced settings) — if you\'ve used little power early in the hour, Power Guard temporarily allows higher power using the remaining quota. Capped at 2× base limit and physical circuit max. Only activates after the first complete hour rollover (startup protection).</li><li><b>Monthly metric</b> — your top-3 hourly peaks are tracked. A warning appears when the current hour would set a new daily peak.</li>',
+      helpEffekttariffEV: '<b>EV charging &amp; budget:</b><br><b>Shed heaters when charging</b> only fires when the budget is actually too tight — not just because the charger is plugged in. If the charger and household load together are within the limit, heating devices stay on. When the charger session ends, shed devices are restored one at a time (60s stagger) so the system can observe the impact before the next restore.',
       powerConsumption: 'Power Consumption by Device',
       filterByType: 'Filter by device type', lastUpdated: 'Last updated:',
       thermostats: 'Thermostats', loadingHeaters: 'Loading\u2026',
@@ -1192,7 +1209,7 @@
       connectStep1: 'Go to <b>my.homey.app</b> \u2192 your name \u2192 <b>Account</b> \u2192 <b>Security</b> \u2192 <b>Personal Access Tokens</b>',
       connectStep2: 'Create a new token with scope <b>homey:manager:api</b>',
       connectStep3: 'Paste it below (held in memory only for this session).',
-      effekttariffHeader: '⚡ EFFEKTTARIFF (TEST)',
+      effekttariffHeader: '⚡ EFFEKTTARIFF',
       profileNormal: 'Normal',
       profileStrict: 'Strict',
       noData: 'No data',
@@ -1384,7 +1401,15 @@
       currentTier: 'Current tier',
       thisHour: 'This hour: ',
       todayPeak: 'Today peak: ',
-      testModeNotice: 'Test mode — Display only. Not affecting limits or mitigation.',
+      hourlyBudgetLabel: 'HOURLY BUDGET',
+      minLeftInHour: 'min left',
+      usedLabel: 'Used',
+      leftLabel: 'Left',
+      baseLabel: 'Base',
+      dynamicLabel: 'Dynamic',
+      waitingForFirstHour: 'waiting for first full hour\u2026',
+      dailyPeaksLabel: 'Daily peaks this month',
+      newPeakWarning: '\u26a0 New peak!',
     },
     no: {
       subtitle: 'Sanntids effektoverv\u00e5kning via HAN-m\u00e5ler.<br>Styrer enheter automatisk for \u00e5 holde seg under nettgrensen.',
@@ -1427,6 +1452,8 @@
       missingDataTimeoutHint: 'Tving begrensning hvis ingen effektavlesning i dette antall sekunder. 0 = deaktivert.',
       dynamicRestoreGuard: 'Dynamisk gjenopprettingsvakt',
       dynamicRestoreGuardHint: 'Vent 1\u20135 min etter at en enhet er sl\u00e5tt av f\u00f8r den gjenopprettes. Lengre ventetid n\u00e5r mer av timen gjenst\u00e5r. Forhindrer rask veksling.',
+      dynamicHourlyBudget: 'Dynamisk timebudsjett',
+      dynamicHourlyBudgetHint: 'Tillat h\u00f8yere effekt midt i timen n\u00e5r kWh-budsjettet tillater det. Aktiveres f\u00f8rst fra starten av neste fulle time.',
       powerMeter: 'Effektm\u00e5ler', powerMeterDevice: 'Effektm\u00e5lerenhet',
       powerMeterDeviceHint: 'Velg hvilken enhet som skal brukes til sanntids effektoverv\u00e5kning. "Auto-detekter" finner HAN-m\u00e5lere automatisk.',
       autoDetect: 'Auto-detekter',
@@ -1446,20 +1473,23 @@
       bugReportLink: 'Rapporter det p\u00e5 GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
       helpGettingStartedList: '<li>G\u00e5 til <b>\u2699\ufe0f Innstillinger</b> og sett <b>Maks effekt (W)</b> \u2014 dette er din nettforbindelses grense (f.eks. 10\u202f000 W).</li><li>G\u00e5 til <b>\ud83d\udcf1 Enheter</b>-fanen og aktiver enhetene du vil at Power Guard skal styre. Bruk <b>\u2191\u2193 pilene</b> for \u00e5 angi prioritetsrekkef\u00f8lge \u2014 enheter \u00f8verst sl\u00e5s av f\u00f8rst.</li><li>Sl\u00e5 p\u00e5 <b>Vakt aktiv</b> i <b>\u2699\ufe0f Innstillinger</b>.</li>',
       helpCoreDesc: 'Power Guard leser din HAN-str\u00f8mm\u00e5ler i sanntid. N\u00e5r totalforbruket n\u00e6rmer seg nettgrensen, sl\u00e5r den av eller reduserer enheter \u2014 fra toppen av prioritetslisten. N\u00e5r effekten faller tilbake, gjenopprettes enhetene automatisk.',
-      helpCoreList: '<li><b>Normal profil</b> \u2014 virker ved 100% av grensen din.</li><li><b>Streng profil</b> \u2014 virker ved 95% av grensen for ekstra sikkerhetsmargin.</li><li><b>Sol-vennlig profil</b> \u2014 avslappede grenser for \u00e5 tillate solproduksjon \u00e5 motvirke forbruket.</li><li><b>Fasegrenser</b> \u2014 sett per-fase ampere-grenser (L1/L2/L3) i Avanserte innstillinger.</li><li><b>Smart gjenoppretting</b> \u2014 enheter sl\u00e5s bare p\u00e5 igjen n\u00e5r det er bekreftet plass; laderens opptrappingseffekt tas h\u00f8yde for f\u00f8r varmeenheter gjenopprettes.</li>',
+      helpCoreList: '<li><b>Normal profil</b> \u2014 virker ved 100% av grensen din.</li><li><b>Streng profil</b> \u2014 virker ved 95% av grensen for ekstra sikkerhetsmargin.</li><li><b>Sol-vennlig profil</b> \u2014 avslappede grenser for \u00e5 tillate solproduksjon \u00e5 motvirke forbruket.</li><li><b>Fasegrenser</b> \u2014 sett per-fase ampere-grenser (L1/L2/L3) i Avanserte innstillinger.</li><li><b>Smart gjenoppretting</b> \u2014 enheter sl\u00e5s bare p\u00e5 igjen n\u00e5r det er bekreftet plass; laderens opptrappingseffekt tas h\u00f8yde for f\u00f8r varmeenheter gjenopprettes. Etter en elbillading-\u00f8kt gjenopprettes sl\u00e5tte-av enheter \u00e9n om gangen med 60 sekunder mellom hver, s\u00e5 systemet kan observere effekten f\u00f8r neste enhet gjenopprettes.</li>',
       helpEvIntro: 'Aktiver <b>Smart priskontroll</b> i Innstillinger for \u00e5 aktivere smart elbillading. Alle ladere deler samme billigste-timer-vindu \u2014 bilen som trenger mest tid setter vinduets st\u00f8rrelse, og tilgjengelig effekt fordeles likt mellom ladere i disse timene. Sett opp hver lader i 4 trinn:',
       helpEvSteps: '<li><b>Enheter-fanen</b> \u2014 aktiver elbilladeren og sett handling til <b>Dynamisk str\u00f8m</b>.</li><li><b>Enheter-fanen</b> \u2014 fyll inn batterist\u00f8rrelse (kWh), Lad til (%), og koble til en <b>Bil-enhet</b> under laderraden.</li><li><b>\ud83d\udcca System-fanen</b> \u2014 sett sikringsgrensen (A) for laderen.</li><li><b>\ud83e\udde0 Smart \u2192 EV-fanen</b> \u2014 sett <b>Klar innen</b> (frist). Timer n\u00f8dvendig beregnes automatisk per lader fra tilkoblet bils batteri.</li>',
       helpEvHoursCalc: '<b>Slik beregnes timer n\u00f8dvendig (per lader):</b><br>kWh n\u00f8dvendig = (m\u00e5l% \u2212 n\u00e5v\u00e6rende%) \u00f7 100 \u00d7 batterikapasitet<br>Ladereffekt = sikringsgrense (A) \u00d7 230 V \u00d7 faser<br>Timer n\u00f8dvendig = kWh n\u00f8dvendig \u00f7 ladereffekt (kW)<br><br><b>Eksempel:</b> 40% \u2192 80%, 77 kWh batteri, 16A 1-fase = (80\u221240)/100 \u00d7 77 \u00f7 3,7 kW \u2248 8,3 timer',
       helpEvCheapHours: 'N\u00e5r en frist er satt, velger Power Guard de <b>N billigste timene</b> f\u00f8r fristen (N = bilen som trenger flest timer) og lader alle ladere i disse timene. Alle andre timer er alle ladere Av. Dersom fristen er n\u00e6r, tvinges full lading uavhengig av pris. Med to ladere fordeles tilgjengelig str\u00f8m likt slik at begge biler lader samtidig.',
       helpEvStepping: '<b>Str\u00f8mtrapping:</b><br>Power Guard bruker enkle 1A-trinn for \u00e5 styre laderstr\u00f8m. Trapper ned umiddelbart p\u00e5 hver HAN-avlesning n\u00e5r forbruket er over grensen. Trapper opp maks 1A hvert 60. sekund \u2014 gir m\u00e5leren tid til \u00e5 bekrefte hver \u00f8kning f\u00f8r neste. Ved omstart starter laderen alltid fra 6A slik at ladere p\u00e5 h\u00f8y str\u00f8m trappes ned umiddelbart.<br><br><b>Deteksjon av fulladt bil:</b><br>N\u00e5r en bil er ferdigladet (\u00f8kt fullf\u00f8rt, effekt faller under 100W) men fortsatt er tilkoblet, gjenkjenner Power Guard \u00f8kten som ferdig \u2014 ingen misforhold-varsler utl\u00f8ses og varmeenheter settes ikke p\u00e5 pause for en lader som ikke lenger lader aktivt.',
       helpEvChargerMode: '<b>Hva Ladermodus-etiketten betyr:</b><br><span style=\'color:#34c759;\'>\u26a1 Hurtiglading</span> <i>billig time</i> \u2014 dette er en av de billigste timene, lader p\u00e5 full hastighet<br><span style=\'color:#ff3b30;\'>\u23f8 Av</span> <i>venter p\u00e5 billig time</i> \u2014 ikke en billig time, laderen er satt p\u00e5 pause for \u00e5 spare penger<br><span style=\'color:#ff9500;\'>\ud83d\udc22 Saktlading</span> <i>ingen frist satt</i> \u2014 ingen frist konfigurert, lader p\u00e5 redusert hastighet uavhengig av pris<br><span style=\'color:#8e8e93;\'>\u25b6 Lader</span> \u2014 ingen frist satt, prisen er normal, lading uten begrensning',
-      helpEvPriorityShed: '<b>Laderprioritetsstyring:</b><br>Hver lader i <b>\ud83d\udcf1 Enheter</b>-fanen har en <b>Prioritetsstyring</b>-bryter. N\u00e5r aktivert, behandles laderen som enhver annen enhet i prioritetslisten \u2014 Power Guard kan sette den p\u00e5 pause for \u00e5 beskytte nettgrensen. P\u00e5/av-type ladere prioritetsstyres selv n\u00e5r de rapporterer 0W (f.eks. inaktive mellom trinn).',
+      helpEvPriorityShed: '<b>Sl\u00e5 av varmere under lading:</b><br>Hver lader i <b>\ud83d\udcf1 Enheter</b>-fanen har en <b>Sl\u00e5 av varmere under lading</b>-bryter. N\u00e5r aktivert, sl\u00e5r Power Guard proaktivt av varmeenheter fra prioritetslisten mens laderen er aktiv \u2014 <b>men bare n\u00e5r budsjettet faktisk er utilstrekkelig</b>. Hvis husholdningsforbruket er lavt og laderen har nok rom, f\u00f8rbl\u00e5r termostater og varmere p\u00e5. N\u00e5r lading-\u00f8kten avsluttes, gjenopprettes sl\u00e5tte-av enheter \u00e9n om gangen med 60 sekunder mellom hver, slik at systemet kan observere effekten f\u00f8r neste enhet gjenopprettes.',
       helpEvPriorityOrder: '<b>Prioritetsliste — slik prioriterer du elbillading:</b><br>Enheter <b>\u00f8verst</b> i prioritetslisten sl\u00e5s av <b>f\u00f8rst</b> n\u00e5r effekten overstiger grensen. Enheter <b>nederst</b> sl\u00e5s av sist. For \u00e5 prioritere billading, flytt elbilladere til <b>bunnen</b> av listen \u2014 da reduseres varmeovner og varmtvannsbereder f\u00f8r laderen ber\u00f8res.<br><br><b>Eksempel prioritetsliste (ladere prioritert):</b><table style="width:100%;margin-top:6px;font-size:11px;border-collapse:collapse;"><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">1</td><td style="padding:3px 6px;">\ud83d\udd25 Varmtvannsbereder</td><td style="padding:3px 6px;color:#ff3b30;font-style:italic;">\u2190 sl\u00e5s av f\u00f8rst</td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">2</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Gulvvarme \u2014 Bad</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">3</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Gulvvarme \u2014 Gang</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">4</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Panelovn \u2014 Stue</td><td></td></tr><tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">5</td><td style="padding:3px 6px;">\ud83c\udf21\ufe0f Panelovn \u2014 Soverom</td><td></td></tr><tr><td style="padding:3px 6px;color:var(--text-muted);">6</td><td style="padding:3px 6px;">\ud83d\udd0c Elbillader</td><td style="padding:3px 6px;color:#34c759;font-style:italic;">\u2190 sl\u00e5s av sist</td></tr></table><div style="margin-top:6px;font-size:11px;">Hvis du vil at varmere skal forbli p\u00e5 og laderen reduseres f\u00f8rst, flytt laderen til <b>toppen</b> i stedet.</div>',
       helpModesDesc: 'Finn modus under <b>\ud83e\udde0 Smart \u2192 Modus</b> (n\u00e5r Smart priskontroll er P\u00c5) eller <b>\ud83c\udf21\ufe0f Varmere</b>-fanen (n\u00e5r AV). Hvert modus lar deg sette per-enhet-preferanser:',
       helpModesList: '<li><b>Brytere</b> \u2014 P\u00e5 / Av</li><li><b>Termostater</b> \u2014 m\u00e5ltemperatur</li><li><b>Elbilladere</b> \u2014 Tillat / Pause</li><li><b>H\u00f8iax varmtvannsberedere</b> \u2014 H\u00f8y / Middels / Lav / Av</li>',
       helpModesNight: 'Sett en <b>Nattplan</b> for \u00e5 automatisk bytte mellom Hjem og Natt p\u00e5 valgte tider. Power Guard gjenoppretter aldri en enhet som for \u00f8yeblikket begrenses \u2014 sikkerhet har alltid prioritet.',
       helpHwThermostats: 'Alle merker \u2014 auto-detektert',
-      powerConsumption: 'Effektforbruk per enhet',
+      helpEffekttariffTitle: 'Effekttariff &amp; timebudsjett',
+      helpEffekttariffDesc: 'Den norske <b>effekttariffen</b> beregnes ut fra dine <b>3 h\u00f8yeste timetopper</b> per m\u00e5ned. Power Guard sporer timeforbruket ditt og viser et budsjettm\u00e5ler i oversikten s\u00e5 du kan se hvor mye av timens kvote som er brukt.',
+      helpEffekttariffList: '<li><b>Budsjettm\u00e5ler</b> \u2014 fargelagt fyll viser kWh brukt mot timens budsjett; hvit linje markerer hvor langt i timen du er; etiketter viser gjenst\u00e5ende kWh og minutter igjen.</li><li><b>Dynamisk timebudsjett</b> (bryter i Avanserte innstillinger) \u2014 hvis du har brukt lite str\u00f8m tidlig i timen, tillater Power Guard midlertidig h\u00f8yere effekt ved hjelp av den gjenst\u00e5ende kvoten. Begrenset til 2\u00d7 basisgrensen og fysisk s\u00e5ringsmax. Aktiveres bare etter f\u00f8rste fullstendige timegjenrulling (oppstartsbesk\u00e2yttelse).</li><li><b>M\u00e5nedlig m\u00e5ling</b> \u2014 dine topp-3 timetopper spores. Et varsel vises n\u00e5r inneV\u00e6rende time ville sette en ny dagspeak.</li>',
+      helpEffekttariffEV: '<b>Elbillading &amp; budsjett:</b><br><b>Sl\u00e5 av varmere under lading</b> aktiveres bare n\u00e5r budsjettet faktisk er for trangt \u2014 ikke bare fordi laderen er tilkoblet. Hvis laderen og husholdningsforbruket samlet er innenfor grensen, forblir varmeenheter p\u00e5. N\u00e5r lading-\u00f8kten avsluttes, gjenopprettes sl\u00e5tte-av enheter \u00e9n om gangen (60 sekunder mellom hver) slik at systemet kan observere p\u00e5virkningen f\u00f8r neste gjenoppretting.',
       filterByType: 'Filtrer etter enhetstype', lastUpdated: 'Sist oppdatert:',
       thermostats: 'Termostater', loadingHeaters: 'Laster\u2026',
       diagnosticLog: 'Diagnostisk logg',
@@ -1520,7 +1550,7 @@
       connectStep1: 'G\u00e5 til <b>my.homey.app</b> \u2192 ditt navn \u2192 <b>Konto</b> \u2192 <b>Sikkerhet</b> \u2192 <b>Personlige tilgangstokener</b>',
       connectStep2: 'Opprett et nytt token med omfang <b>homey:manager:api</b>',
       connectStep3: 'Lim det inn nedenfor (lagres kun i minnet for denne \u00f8kten).',
-      effekttariffHeader: '⚡ EFFEKTTARIFF (TEST)',
+      effekttariffHeader: '⚡ EFFEKTTARIFF',
       profileNormal: 'Normal',
       profileStrict: 'Streng',
       noData: 'Ingen data',
@@ -1712,7 +1742,15 @@
       currentTier: 'N\u00e5v\u00e6rende trinn',
       thisHour: 'Denne timen: ',
       todayPeak: 'Dagens topp: ',
-      testModeNotice: 'Testmodus \u2014 kun visning. P\u00e5virker ikke grenser eller tiltak.',
+      hourlyBudgetLabel: 'TIMEBUDSJETT',
+      minLeftInHour: 'min igjen',
+      usedLabel: 'Brukt',
+      leftLabel: 'Igjen',
+      baseLabel: 'Basis',
+      dynamicLabel: 'Dynamisk',
+      waitingForFirstHour: 'venter p\u00e5 f\u00f8rste fulle time\u2026',
+      dailyPeaksLabel: 'Daglige topper denne m\u00e5neden',
+      newPeakWarning: '\u26a0 Ny topp!',
     }
   };
   function t(key) {
@@ -1768,6 +1806,7 @@
   var priorityList    = [];
   var availableDevices = [];
   var _detectedVoltageSystem = '230v-1phase';  // filled from API on load
+  var _storedSettings = {};                     // cached settings for use in updateStatusUI
   var _lastChargerStatus = {};  // deviceId → { status, statusLabel, currentA, powerW }
   var _lastChargerLimits = {};   // deviceId → { maxCurrent (ID47), dynamic_charger_current (ID48), circuit_current, mitigated, allValues }
   var _mitigatedDeviceIds = {};  // deviceId → true when Power Guard is controlling a device
@@ -2073,25 +2112,60 @@
     if (effektEl && effekt) {
       var tierColor = effekt.tierIndex <= 1 ? '#34c759' :
                       effekt.tierIndex <= 3 ? '#ff9500' : '#ff3b30';
-      var peakWarning = effekt.wouldBeNewDailyPeak
-        ? '<span style="color:#ff9500;font-weight:600"> ⚠ New peak!</span>' : '';
       var html = '';
-      // Main metric
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+
+      // ── 1. Hourly budget bar (top) ──────────────────────────────────────────
+      var limitKW   = (_storedSettings.powerLimitW || 10000) / 1000;
+      var usedKWh   = effekt.currentHourKWh || 0;
+      var fracTime  = effekt.fractionOfHour  || 0;
+      var fracUsed  = limitKW > 0 ? Math.min(usedKWh / limitKW, 1) : 0;
+      var minLeft   = Math.round((1 - fracTime) * 60);
+      var isOverPace = effekt.projectedKWh > limitKW;
+      var barColor  = isOverPace ? '#ff9500' : '#34c759';
+      var remainWh  = Math.max(limitKW - usedKWh, 0);
+      var dynamicKW = (fracTime < 0.98 && (1 - fracTime) > 0.02) ? Math.min(remainWh / (1 - fracTime), limitKW * 2) : limitKW;
+      var peakWarning = effekt.wouldBeNewDailyPeak
+        ? '<span style="color:#ff9500;font-weight:600"> ' + t('newPeakWarning') + '</span>' : '';
+      var dynLabel;
+      if (!effekt.hourStartKnown) {
+        dynLabel = '<span style="color:var(--text-muted)">' + t('waitingForFirstHour') + '</span>';
+      } else {
+        dynLabel = dynamicKW > limitKW * 1.01
+          ? '&#9650; <b>' + dynamicKW.toFixed(1) + ' kW</b>'
+          : dynamicKW < limitKW * 0.99
+            ? '&#9660; <b>' + dynamicKW.toFixed(1) + ' kW</b>'
+            : '<b>' + dynamicKW.toFixed(1) + ' kW</b>';
+      }
+
+      html += '<div style="margin-bottom:8px">';
+      html += '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:3px">';
+      html += '<span>' + t('hourlyBudgetLabel') + '</span>';
+      html += '<span>' + minLeft + ' ' + t('minLeftInHour') + '</span>';
+      html += '</div>';
+      html += '<div style="position:relative;height:14px;border-radius:6px;background:var(--bg-body);overflow:hidden">';
+      html += '<div style="position:absolute;left:0;top:0;height:100%;width:' + (fracUsed * 100).toFixed(1) + '%;background:' + barColor + ';border-radius:6px 0 0 6px;transition:width 0.4s"></div>';
+      html += '<div style="position:absolute;top:0;left:' + (fracTime * 100).toFixed(1) + '%;width:2px;height:100%;background:rgba(255,255,255,0.5)"></div>';
+      html += '</div>';
+      html += '<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:3px">';
+      html += '<span>' + t('usedLabel') + ': <b>' + usedKWh.toFixed(2) + ' kWh</b></span>';
+      html += '<span>' + t('leftLabel') + ': <b>' + remainWh.toFixed(2) + ' kWh</b></span>';
+      html += '</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">';
+      html += t('baseLabel') + ': <b>' + limitKW.toFixed(1) + ' kW</b>  &rarr;  ' + t('dynamicLabel') + ': ' + dynLabel + peakWarning;
+      html += '</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + t('todayPeak') + '<b>' + effekt.todayPeakKW.toFixed(2) + ' kW</b></div>';
+      html += '</div>';
+
+      // ── 2. Monthly metric + tier (below budget bar) ─────────────────────────
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border-color);margin-bottom:4px">';
       html += '<div>';
-      html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Monthly metric (TOP3 avg)</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">' + t('monthlyMetric') + '</div>';
       html += '<div style="font-size:22px;font-weight:700;color:var(--text-primary)">' + effekt.monthlyKW.toFixed(1) + ' <span style="font-size:13px;font-weight:400">kW</span></div>';
       html += '</div>';
       html += '<div style="text-align:right">';
-      html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Current tier</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">' + t('currentTier') + '</div>';
       html += '<div style="font-size:16px;font-weight:600;color:' + tierColor + '">' + escHtml(effekt.tierLabel) + '</div>';
       html += '</div>';
-      html += '</div>';
-
-      // Current hour info
-      html += '<div style="display:flex;gap:16px;margin-bottom:8px;padding:6px 0;border-top:1px solid var(--border-color);font-size:12px">';
-      html += '<div>This hour: <b>' + effekt.currentHourKWh.toFixed(2) + ' kWh</b> → projected <b>' + effekt.projectedKWh.toFixed(2) + ' kW</b>' + peakWarning + '</div>';
-      html += '<div>Today peak: <b>' + effekt.todayPeakKW.toFixed(2) + ' kW</b></div>';
       html += '</div>';
 
       // All peaks — monthly calendar (medals embedded in top-3 cells)
@@ -2109,7 +2183,7 @@
         var maxKw = Math.max.apply(null, effekt.allPeaks.map(function(p){return p.kw;}));
         var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         var medals = ['🥇','🥈','🥉'];
-        html += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">Daily peaks this month (' + effekt.dailyPeakCount + ' days)</summary>';
+        html += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">' + t('dailyPeaksLabel') + ' (' + effekt.dailyPeakCount + ' days)</summary>';
         html += '<div style="margin-top:6px">';
         html += '<div style="font-size:10px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:4px">' + monthNames[calMonth] + ' ' + calYear + '</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:9px;text-align:center">';
@@ -2144,10 +2218,6 @@
         html += '</div></details>';
       }
 
-      // Note that this is test mode
-      html += '<div style="margin-top:8px;padding:6px 8px;background:var(--bg-body);border-radius:6px;font-size:11px;color:var(--text-muted)">';
-      html += '🧪 <b>Test mode</b> — Display only. Not affecting limits or mitigation.';
-      html += '</div>';
       var peaksOpen = _peaksOpen || (effektEl.querySelector('details') && effektEl.querySelector('details').open);
       effektEl.innerHTML = html;
       var det = effektEl.querySelector('details');
@@ -2194,6 +2264,8 @@
     setNum('s-missingPowerTimeoutS', s.missingPowerTimeoutS, 120);
     var drgEl = document.getElementById('s-dynamicRestoreGuard');
     if (drgEl) drgEl.checked = (s.dynamicRestoreGuard !== false);
+    var dhbEl = document.getElementById('s-dynamicHourlyBudget');
+    if (dhbEl) dhbEl.checked = (s.dynamicHourlyBudget === true);
     if (s.classFilters && typeof s.classFilters === 'object') {
       _classFilters = s.classFilters;
     }
@@ -2201,6 +2273,7 @@
       _powerExcluded = s.powerExcluded;
     }
     priorityList = Array.isArray(s.priorityList) ? s.priorityList : [];
+    _storedSettings = s || {};
     updatePhaseConfigVisibility();
   }
   function setNum(id, val, fb) {
@@ -2724,6 +2797,7 @@
       errorMarginPercent: 0,
       missingPowerTimeoutS: getNumValue('s-missingPowerTimeoutS', 120),
       dynamicRestoreGuard: (function(){ var e=document.getElementById('s-dynamicRestoreGuard'); return e ? e.checked : true; })(),
+      dynamicHourlyBudget: (function(){ var e=document.getElementById('s-dynamicHourlyBudget'); return e ? e.checked : false; })(),
       voltageSystem:   getStringValue('s-voltageSystem', 'auto'),
       phaseDistribution: getStringValue('s-phaseDistribution', 'balanced'),
       mainCircuitA:    getNumValue('s-mainCircuitA', 25),
@@ -3612,6 +3686,16 @@
       });
       dbg('Registered realtime: priorityList');
     } catch (e) { dbg('Realtime priorityList failed: ' + e.message); }
+
+    try {
+      Homey.on('modeChanged', function(data) {
+        if (!data || !data.mode) return;
+        if (_modesData) _modesData.modeSettings.activeMode = data.mode;
+        renderModesActive(data.mode);
+        updateModeSubTabHighlight(_modesSubTab);
+      });
+      dbg('Registered realtime: modeChanged');
+    } catch (e) { dbg('Realtime modeChanged failed: ' + e.message); }
 
     // Refresh data once when the page becomes visible (e.g. waking from sleep)
     document.addEventListener('visibilitychange', function() {

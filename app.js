@@ -95,6 +95,7 @@ class PowerGuardApp extends Homey.App {
     this.log('[Power Consumption] Data object initialized');
     this._lastEVAdjustTime = 0;
     this._lastProactiveSheddingTime = 0;
+    this._lastProactiveRestoreTime = 0;
     this._pendingChargerCommands = {};  // Track outstanding charger commands {deviceId: timestamp}
     this._chargerState = {};             // Per-charger confirmation & reliability: {deviceId: {lastCommandA, commandTime, confirmed, reliability, lastAdjustTime}}
     this._lastAnyChargerRampUpTime = 0;  // Shared settling timer — blocks all chargers from ramping for 30s after any one ramps
@@ -123,6 +124,7 @@ class PowerGuardApp extends Homey.App {
       lastReadingW: 0,         // Last power reading in watts
       lastReadingTime: null,   // Timestamp of last reading
       history: [],             // Last 24 hours: [{hour, date, kWh}]
+      hourStartKnown: false,   // True only after a full hour rollover since app start
     };
     // Restore hourly energy history from persistent storage
     try {
@@ -187,14 +189,8 @@ class PowerGuardApp extends Homey.App {
     // Migrate settings from older versions (runs once per schema version bump)
     this._migrateSettings();
 
-    // Restore cached devices from previous session
-    try {
-      const saved = this.homey.settings.get('_allDevicesCache');
-      if (Array.isArray(saved) && saved.length > 0) {
-        this._cachedDevices = saved;
-        this.log(`Restored ${saved.length} devices from cache`);
-      }
-    } catch (_) {}
+    // Clean up legacy _allDevicesCache from settings (was storing full API objects for all devices)
+    try { this.homey.settings.unset('_allDevicesCache'); } catch (_) {}
 
     // Reload in-memory settings whenever the settings page writes via H.set().
     // Also re-broadcast priorityList so other open settings pages stay in sync.
@@ -430,6 +426,7 @@ class PowerGuardApp extends Homey.App {
       errorMarginPercent: s.get('errorMarginPercent') ?? DEFAULT_SETTINGS.errorMarginPercent,
       missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? DEFAULT_SETTINGS.missingPowerTimeoutS,
       dynamicRestoreGuard: s.get('dynamicRestoreGuard') ?? DEFAULT_SETTINGS.dynamicRestoreGuard,
+      dynamicHourlyBudget: s.get('dynamicHourlyBudget') ?? DEFAULT_SETTINGS.dynamicHourlyBudget,
       voltageSystem:     s.get('voltageSystem')     ?? DEFAULT_SETTINGS.voltageSystem,
       phaseDistribution: s.get('phaseDistribution') ?? DEFAULT_SETTINGS.phaseDistribution,
       mainCircuitA:      s.get('mainCircuitA')      ?? DEFAULT_SETTINGS.mainCircuitA,
@@ -447,7 +444,30 @@ class PowerGuardApp extends Homey.App {
   _getEffectiveLimit() {
     const factor = PROFILE_LIMIT_FACTOR[this._settings.profile] || 1.0;
     const margin = 1 - ((this._settings.errorMarginPercent || 0) / 100);
-    return this._settings.powerLimitW * factor * margin;
+    const base = this._settings.powerLimitW * factor * margin;
+
+    if (!this._settings.dynamicHourlyBudget) return base;
+
+    // Only activate after a clean hour rollover — never on mid-hour app start
+    if (!this._hourlyEnergy.hourStartKnown) return base;
+
+    // Dynamic: use remaining hourly budget to compute effective limit
+    const msIntoHour = Date.now() % 3600000;
+    const fractionRemaining = 1 - (msIntoHour / 3600000);
+    const accumulatedWh = (this._hourlyEnergy && this._hourlyEnergy.accumulatedWh) || 0;
+    const budgetWh = base; // base W × 1h = base Wh (10kW limit = 10kWh budget/hour)
+    const remainingWh = budgetWh - accumulatedWh;
+
+    // Avoid divide-by-zero near end of hour (< ~1 min left)
+    if (fractionRemaining < 0.02) return base;
+
+    const dynamicLimit = remainingWh / fractionRemaining;
+
+    // Safety caps: never below 50% of base, never above physical circuit max or 2× base
+    const phases = this._detectSystemPhases ? this._detectSystemPhases() : 1;
+    const voltage = (phases > 1) ? 400 : 230;
+    const physicalMax = (this._settings.mainCircuitA || 25) * voltage * phases;
+    return Math.min(Math.max(dynamicLimit, base * 0.5), physicalMax, base * 2);
   }
 
   /**
@@ -1065,6 +1085,7 @@ class PowerGuardApp extends Homey.App {
       this._hourlyEnergy.accumulatedWh = 0;
       this._hourlyEnergy.lastReadingW = powerW;
       this._hourlyEnergy.lastReadingTime = now;
+      this._hourlyEnergy.hourStartKnown = true;  // From here on we know exactly where the hour started
       // Persist fresh state for new hour
       try {
         this.homey.settings.set('_hourlyEnergyState', {
@@ -1204,6 +1225,9 @@ class PowerGuardApp extends Homey.App {
       projectedKWh:   Math.round(projectedKWh * 1000) / 1000,
       todayPeakKW:    Math.round(todayPeak * 1000) / 1000,
       wouldBeNewDailyPeak,
+      accumulatedWh:    Math.round(this._hourlyEnergy.accumulatedWh || 0),
+      fractionOfHour:   Math.round(fractionOfHour * 1000) / 1000,
+      hourStartKnown:   this._hourlyEnergy.hourStartKnown === true,
     };
   }
 
@@ -1965,9 +1989,12 @@ class PowerGuardApp extends Homey.App {
       const devicesList = Object.values(allDevices);
       this.log(`[Cache] Found ${devicesList.length} total devices`);
       
-      // Store all devices for power consumption tracking
-      this._cachedDevices = devicesList;
-      this.homey.settings.set('_allDevicesCache', devicesList);
+      // Only keep devices with measure_power — that is all _cachedDevices is used for.
+      // Storing the full list of all devices was the primary RAM consumer.
+      this._cachedDevices = devicesList.filter(d =>
+        Array.isArray(d.capabilities) && d.capabilities.includes('measure_power')
+      );
+      this.log(`[Cache] Keeping ${this._cachedDevices.length} measure_power devices (was ${devicesList.length} total)`);
 
       // Fetch zones for room grouping — best-effort, non-fatal
       let zoneMap = {};
@@ -2698,11 +2725,15 @@ class PowerGuardApp extends Homey.App {
     let restoredThisCycle = false;
     for (const shed of [...proactivelyShed]) {
       if (restoredThisCycle) break;
+      // Option 3: stagger sequential restores — wait 60s between each device restore while chargers
+      // are still connected. Prevents 3 shed devices all coming back in 15 seconds and causing a spike.
+      if (connectedChargers.length > 0 && now - this._lastProactiveRestoreTime < 60000) break;
       let shouldRestore;
       if (shed.evPriorityChargerId) {
-        // Priority shed: only restore when that charger's session is no longer active
+        // Priority shed: restore when that charger's session ends OR when budget is now sufficient
+        // (Option 1: don't restore into an overload — check headroom even after session ends)
         const sessionActive = activeChargers.some(e => e.deviceId === shed.evPriorityChargerId);
-        shouldRestore = !sessionActive;
+        shouldRestore = !sessionActive && (!connectedChargers.length || budgetSufficient);
       } else {
         // Budget shed: restore when no charger connected or budget now comfortable
         shouldRestore = !connectedChargers.length || budgetSufficient;
@@ -2723,15 +2754,17 @@ class PowerGuardApp extends Homey.App {
         const entry = (this._settings.priorityList || []).find(e => e.deviceId === shed.deviceId);
         this.log(`[EV] Proactive restore: ${entry?.name || shed.deviceId} turned back on`);
         this._addLog(`EV shed restore: ${entry?.name || shed.deviceId} turned back on`);
+        this._lastProactiveRestoreTime = now;
         restoredThisCycle = true;
       }
     }
     if (restoredThisCycle) return;
 
     // ── Priority shed phase ───────────────────────────────────────────────────
-    // For chargers with "Shed heaters when charging" ON: proactively shed all non-EV devices
-    // in the priority list regardless of budget — session-based, not budget-based.
-    if (priorityActiveChargers.length > 0 && now - this._lastProactiveSheddingTime >= 60000) {
+    // For chargers with "Shed heaters when charging" ON: proactively shed non-EV devices
+    // only when the budget is actually insufficient — prevents unnecessary shed when the
+    // household load is low and the charger has plenty of headroom.
+    if (priorityActiveChargers.length > 0 && budget < minBudgetNeeded && now - this._lastProactiveSheddingTime >= 60000) {
       const alreadyMitigated = new Set(this._mitigatedDevices.map(m => m.deviceId));
       const sortedList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
       for (const charger of priorityActiveChargers) {
@@ -2973,8 +3006,9 @@ class PowerGuardApp extends Homey.App {
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
         }
-      } else if (headroomW >= HEADROOM_TO_RAMP && currentTargetA < maxA) {
+      } else if (headroomW >= HEADROOM_TO_RAMP && currentTargetA < maxA && !cState.timedOut) {
         // Under limit with headroom — ramp up 1A if both per-charger 60s and shared 30s settling are satisfied
+        // Skip if last command was unconfirmed (charger is at its hardware limit)
         const lastRampUp    = cState.lastRampUpTime || 0;
         const sinceLastAny  = now - (this._lastAnyChargerRampUpTime || 0);
         if (!madeIncrease && now - lastRampUp >= RAMP_UP_COOLDOWN && sinceLastAny >= SETTLE_WINDOW) {
@@ -5146,6 +5180,7 @@ class PowerGuardApp extends Homey.App {
       this._fireTrigger('mode_changed', { mode });
       this._appLogEntry('system', `Mode changed: ${previous} → ${mode}`);
       this.log(`[Modes] Active mode: ${mode}`);
+      try { this.homey.api.realtime('modeChanged', { mode }); } catch (_) {}
     }
     await this._applyMode(mode);
   }
