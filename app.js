@@ -1228,6 +1228,17 @@ class PowerGuardApp extends Homey.App {
       accumulatedWh:    Math.round(this._hourlyEnergy.accumulatedWh || 0),
       fractionOfHour:   Math.round(fractionOfHour * 1000) / 1000,
       hourStartKnown:   this._hourlyEnergy.hourStartKnown === true,
+      hourlyHistory:    (this._hourlyEnergy.history || []).slice(-24),
+      dailyPeaksByDate: (() => {
+        const cutoff = new Date(now);
+        cutoff.setDate(cutoff.getDate() - 6);
+        cutoff.setHours(0, 0, 0, 0);
+        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        return Object.entries(this._dailyPeaks)
+          .filter(([date]) => date >= cutoffStr)
+          .map(([date, kw]) => ({ date, kw: Math.round(Number(kw) * 1000) / 1000 }))
+          .sort((a, b) => a.date.localeCompare(b.date));
+      })(),
     };
   }
 
