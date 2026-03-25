@@ -1409,6 +1409,7 @@
       dynamicLabel: 'Dynamic',
       waitingForFirstHour: 'waiting for first full hour\u2026',
       dailyPeaksLabel: 'Daily peaks this month',
+      daysRecorded: 'days recorded',
       newPeakWarning: '\u26a0 New peak!',
     },
     no: {
@@ -1750,6 +1751,7 @@
       dynamicLabel: 'Dynamisk',
       waitingForFirstHour: 'venter p\u00e5 f\u00f8rste fulle time\u2026',
       dailyPeaksLabel: 'Daglige topper denne m\u00e5neden',
+      daysRecorded: 'dager registrert',
       newPeakWarning: '\u26a0 Ny topp!',
     }
   };
@@ -2183,8 +2185,9 @@
         var maxKw = Math.max.apply(null, effekt.allPeaks.map(function(p){return p.kw;}));
         var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         var medals = ['🥇','🥈','🥉'];
-        html += '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:11px;color:var(--text-muted)">' + t('dailyPeaksLabel') + ' (' + effekt.dailyPeakCount + ' days)</summary>';
-        html += '<div style="margin-top:6px">';
+        html += '<div style="margin-top:8px;border-top:1px solid var(--border-color);padding-top:6px">';
+        html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">' + t('dailyPeaksLabel') + ' · ' + effekt.dailyPeakCount + ' ' + t('daysRecorded') + '</div>';
+        html += '<div>';
         html += '<div style="font-size:10px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:4px">' + monthNames[calMonth] + ' ' + calYear + '</div>';
         html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:9px;text-align:center">';
         ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(function(d) {
@@ -2215,7 +2218,7 @@
           html += '</div>';
         }
         html += '</div>';
-        html += '</div></details>';
+        html += '</div></div>';
       }
 
       var peaksOpen = _peaksOpen || (effektEl.querySelector('details') && effektEl.querySelector('details').open);
