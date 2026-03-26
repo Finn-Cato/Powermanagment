@@ -117,6 +117,7 @@ class PowerGuardApp extends Homey.App {
 
     // Mode engine state (SECTION 13)
     this._modeSettings = JSON.parse(JSON.stringify(MODES_DEFAULTS));
+    this._nightSetBySchedule = false;  // true only when scheduler activated Night — prevents reverting a manual Night press
     this._modeSchedulerInterval = null;
 
     // Hourly energy tracking
@@ -4376,7 +4377,7 @@ class PowerGuardApp extends Homey.App {
 
   async getDebugLog() {
     try {
-      const entries = (this._appLog || []).filter(e => e.category === 'energy' || e.category === 'cache');
+      const entries = (this._appLog || []).filter(e => e.category === 'energy' || e.category === 'cache' || e.category === 'system');
       const log = entries.map(e => `[${e.time}] ${e.message}`).join('\n');
       return {
         ok: true,
@@ -5153,10 +5154,19 @@ class PowerGuardApp extends Homey.App {
       if (!this._modeSettings.devicePrefs) this._modeSettings.devicePrefs = {};
       if (!this._modeSettings.nightSchedule) this._modeSettings.nightSchedule = JSON.parse(JSON.stringify(MODES_DEFAULTS.nightSchedule));
     }
-    // Apply current mode on startup (deferred so API is ready)
-    setTimeout(() => {
-      this.activateMode(this._modeSettings.activeMode).catch(err =>
-        this.error('[Modes] Startup apply error:', err));
+    // Apply current mode on startup (deferred so API is ready),
+    // then immediately run the night schedule check so the correct
+    // mode is active even if the app restarts mid-night or mid-day.
+    setTimeout(async () => {
+      try {
+        await this.activateMode(this._modeSettings.activeMode);
+        // activateMode() clears _nightSetBySchedule, but on startup the schedule
+        // should always win in both directions (night→home at morning, home→night at night).
+        this._nightSetBySchedule = true;
+        await this._checkNightSchedule();
+      } catch (err) {
+        this.error('[Modes] Startup apply error:', err);
+      }
     }, 5000);
     // Check Night schedule every minute
     this._modeSchedulerInterval = setInterval(() => {
@@ -5167,12 +5177,19 @@ class PowerGuardApp extends Homey.App {
 
   async _checkNightSchedule() {
     const sched = this._modeSettings.nightSchedule || {};
-    if (sched.type !== 'custom') return;
+    if (sched.type !== 'custom') {
+      this._appLogEntry('system', `[NightSched] Skipped — type="${sched.type}" (not custom)`);
+      return;  // 'homey'/'off' = disabled, manual only
+    }
 
-    const now     = new Date();
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const fromMins = (sched.fromHH || 22) * 60 + (sched.fromMM || 0);
-    const toMins   = (sched.toHH  || 7)  * 60 + (sched.toMM  || 0);
+    // Use Homey's configured timezone so times match what the user entered in the UI
+    const tz = this.homey.clock.getTimezone();
+    const now = new Date();
+    const localNow = new Date(now.toLocaleString('en-US', { timeZone: tz }));
+    const nowMins  = localNow.getHours() * 60 + localNow.getMinutes();
+    // Use != null so fromHH/toHH of 0 (midnight) is preserved instead of replaced by default
+    const fromMins = (sched.fromHH != null ? sched.fromHH : 22) * 60 + (sched.fromMM != null ? sched.fromMM : 0);
+    const toMins   = (sched.toHH  != null ? sched.toHH  : 7)  * 60 + (sched.toMM  != null ? sched.toMM  : 0);
 
     // Spans midnight when fromMins > toMins
     const isNightTime = fromMins > toMins
@@ -5180,10 +5197,17 @@ class PowerGuardApp extends Homey.App {
       : nowMins >= fromMins && nowMins < toMins;
 
     const current = this._modeSettings.activeMode;
+    this._appLogEntry('system',
+      `[NightSched] local=${localNow.getHours()}:${String(localNow.getMinutes()).padStart(2,'0')} (${nowMins}min) from=${fromMins}min to=${toMins}min isNight=${isNightTime} mode=${current} bySchedule=${this._nightSetBySchedule}`);
+
     // Only auto-switch between home↔night.  Away/Holiday are always manual.
     if (isNightTime && current === 'home') {
       await this.activateMode('night');
-    } else if (!isNightTime && current === 'night') {
+      this._nightSetBySchedule = true;  // mark scheduler ownership AFTER activateMode clears it
+    } else if (!isNightTime && current === 'night' && this._nightSetBySchedule) {
+      // Only revert to Home if the scheduler originally set Night.
+      // If the user manually pressed Night during the day, _nightSetBySchedule is false → don't override.
+      this._nightSetBySchedule = false;
       await this.activateMode('home');
     }
   }
@@ -5191,6 +5215,7 @@ class PowerGuardApp extends Homey.App {
   async activateMode(mode) {
     const valid = [MODES.HOME, MODES.NIGHT, MODES.AWAY, MODES.HOLIDAY];
     if (!valid.includes(mode)) return;
+    this._nightSetBySchedule = false;  // any external/manual call clears scheduler ownership
     const previous = this._modeSettings.activeMode;
     this._modeSettings.activeMode = mode;
     this.homey.settings.set('modeSettings', this._modeSettings);

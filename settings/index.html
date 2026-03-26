@@ -231,7 +231,7 @@
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label" data-i18n="tabPower">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label" data-i18n="tabHeaters">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label" data-i18n="tabLog">Log</span></button>
-      <button class="tab-btn"        id="tb-smart"       onclick="showTab('smart')"><span class="tab-icon">🧠</span><span class="tab-label" data-i18n="tabSmart">Smart</span></button>
+      <button class="tab-btn"        id="tb-smart"       onclick="showTab('smart')"><span class="tab-icon">🔌</span><span class="tab-label" data-i18n="tabSmart">EV</span></button>
     </div>
 
     <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
@@ -717,7 +717,7 @@
       <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
         <button id="stb-price" onclick="showSmartSubTab('price')" class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartPriceTab">💰 Price</button>
         <button id="stb-modes" onclick="showSmartSubTab('modes')" class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartModesTab">🏠 Modes</button>
-        <button id="stb-ev"    onclick="showSmartSubTab('ev')"    class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartEvTab">🔌 EV</button>
+        <button id="stb-ev"    onclick="showSmartSubTab('ev')"    class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartEvTab">� Charger</button>
       </div>
 
       <!-- ── Price panel ── -->
@@ -847,7 +847,7 @@
             <span style="font-size:11px;color:var(--text-muted);" data-i18n="scheduleType">Schedule type</span>
             <select id="modes-sched-type" onchange="saveNightSchedule()" style="font-size:12px;padding:3px 6px;">
               <option value="custom" data-i18n="customTime">Custom time</option>
-              <option value="homey" data-i18n="homeyNightHours">Use Homey night hours</option>
+              <option value="homey" data-i18n="homeyNightHours">Off (manual only)</option>
             </select>
           </div>
         </div>
@@ -1037,7 +1037,7 @@
       connectStepIntro: 'Power Guard needs a Personal Access Token to read and save settings.',
       connect: 'Connect',
       tabHome: 'Home', tabDevices: 'Devices', tabPower: 'Power',
-      tabHeaters: 'Heaters', tabLog: 'Log', tabSmart: 'Smart',
+      tabHeaters: 'Heaters', tabLog: 'Log', tabSmart: 'EV',
       subOverview: '\uD83C\uDFE0 Overview', subSettings: '\u2699\uFE0F Settings',
       subSystem: '\uD83D\uDCCA System', subHelp: '\u2753 Help',
       activeModeLabel: 'ACTIVE MODE',
@@ -1129,7 +1129,7 @@
       copyHanDiagnosticJSON: 'Copy HAN Diagnostic JSON',
       copyMitigationScanJSON: 'Copy Mitigation Scan JSON',
       copySystemInfoJSON: 'Copy System Info JSON',
-      smartPriceTab: '\uD83D\uDCB0 Price', smartModesTab: '\uD83C\uDFE0 Modes', smartEvTab: '\uD83D\uDD0C EV',
+      smartPriceTab: '\uD83D\uDCB0 Price', smartModesTab: '\uD83C\uDFE0 Modes', smartEvTab: '\uD83D\uDE97 Charger',
       spotPriceNow: 'Spot Price Now', priceLevel: 'Price level', chargerMode: 'Charger mode',
       nextCheapHour: 'Next cheap hour', nextExpensiveHour: 'Next expensive hour',
       priceTimeline: '18-HOUR PRICE TIMELINE',
@@ -1145,7 +1145,8 @@
       flatRateHint: 'The fixed price you pay per kWh incl. VAT. Default 50 \u00f8re. Use 40 \u00f8re if you are in Nordland, Troms or Finnmark (no VAT on electricity).',
       nightSchedule: 'Night Schedule',
       nightScheduleDesc: 'Automatically switches between Home and Night mode at the chosen times.',
-      scheduleType: 'Schedule type', customTime: 'Custom time', homeyNightHours: 'Use Homey night hours',
+      scheduleType: 'Schedule type', customTime: 'Custom time', homeyNightHours: 'Off (manual only)',
+
       devicePreferences: 'Device Preferences',
       devicePreferencesDesc: 'Set the desired state for each managed device in each mode. Power Guard still overrides these during high-power events.',
       smartChargingStatus: 'Smart Charging Status',
@@ -1382,7 +1383,7 @@
       connectStepIntro: 'Power Guard trenger et personlig tilgangstoken for \u00e5 lese og lagre innstillinger.',
       connect: 'Koble til',
       tabHome: 'Hjem', tabDevices: 'Enheter', tabPower: 'Effekt',
-      tabHeaters: 'Varmere', tabLog: 'Logg', tabSmart: 'Smart',
+      tabHeaters: 'Varmere', tabLog: 'Logg', tabSmart: 'EV',
       subOverview: '\uD83C\uDFE0 Oversikt', subSettings: '\u2699\uFE0F Innstillinger',
       subSystem: '\uD83D\uDCCA System', subHelp: '\u2753 Hjelp',
       activeModeLabel: 'AKTIV MODUS',
@@ -1473,7 +1474,7 @@
       copyHanDiagnosticJSON: 'Kopier HAN diagnostikk-JSON',
       copyMitigationScanJSON: 'Kopier tildelingsskanning-JSON',
       copySystemInfoJSON: 'Kopier systeminformasjon-JSON',
-      smartPriceTab: '\uD83D\uDCB0 Pris', smartModesTab: '\uD83C\uDFE0 Modus', smartEvTab: '\uD83D\uDD0C EV',
+      smartPriceTab: '\uD83D\uDCB0 Pris', smartModesTab: '\uD83C\uDFE0 Modus', smartEvTab: '\uD83D\uDE97 Lader',
       spotPriceNow: 'Spotpris n\u00e5', priceLevel: 'Prisniv\u00e5', chargerMode: 'Ladermodus',
       nextCheapHour: 'Neste billige time', nextExpensiveHour: 'Neste dyre time',
       priceTimeline: '18-TIMERS PRISTIDSLINJE',
@@ -1489,7 +1490,7 @@
       flatRateHint: 'Den faste prisen du betaler per kWh inkl. mva. Standard 50 \u00f8re. Bruk 40 \u00f8re hvis du er i Nordland, Troms eller Finnmark (ingen mva. p\u00e5 str\u00f8m).',
       nightSchedule: 'Nattplan',
       nightScheduleDesc: 'Bytter automatisk mellom Hjem- og Natt-modus p\u00e5 de valgte tidspunktene.',
-      scheduleType: 'Plantype', customTime: 'Egendefinert tid', homeyNightHours: 'Bruk Homeys nattetimer',
+      scheduleType: 'Plantype', customTime: 'Egendefinert tid', homeyNightHours: 'Av (kun manuell)',
       devicePreferences: 'Enhetsinnstillinger',
       devicePreferencesDesc: 'Angi \u00f8nsket tilstand for hver administrert enhet i hvert modus. Power Guard overstyrer disse ved h\u00f8yeffekthendelser.',
       smartChargingStatus: 'Smart ladestatus',
