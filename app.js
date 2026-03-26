@@ -5229,7 +5229,7 @@ class PowerGuardApp extends Homey.App {
           // Don't restore a power-guarded device — let Power Guard re-evaluate
           const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
           if (wantOn && isMitigated) continue;
-          await this.controlFloorHeater(entry.deviceId, wantOn ? 'on' : 'off');
+          await this.controlFloorHeater(entry.deviceId, wantOn ? 'on' : 'off', wantOn);
         } else if (action === 'charge_pause' || action === 'dynamic_current') {
           const wantOn = modePref.value === 'on';
           const wantOff = modePref.value === 'off';
@@ -5237,7 +5237,7 @@ class PowerGuardApp extends Homey.App {
           // Don't un-pause a charger that Power Guard is currently throttling
           const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
           if (wantOn && isMitigated) continue;
-          await this.controlFloorHeater(entry.deviceId, wantOn ? 'on' : 'off');
+          await this.controlFloorHeater(entry.deviceId, wantOn ? 'on' : 'off', wantOn);
         }
       } catch (err) {
         this.error(`[Modes] Error applying ${mode} to "${entry.name}":`, err.message);

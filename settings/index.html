@@ -471,7 +471,7 @@
           <ol style="font-size:13px;color:var(--text-primary);line-height:1.8;margin:0;padding-left:18px;" data-i18n-html="helpGettingStartedList">
             <li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li>
             <li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Use the <b>↑↓ arrows</b> to set priority order — devices at the <b>top</b> are turned off first.</li>
-            <li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>
+            <li>Turn on <b>Power Guard</b> in <b>⚙️ Settings</b>.</li>
           </ol>
         </div>
 
@@ -1091,7 +1091,7 @@
       supportedHardware: 'Supported Hardware',
       bugReport: 'Found a bug or have a question?',
       bugReportLink: 'Report it on GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
-      helpGettingStartedList: '<li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li><li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Use the <b>↑↓ arrows</b> to set priority order — devices at the <b>top</b> are turned off first.</li><li>Turn on <b>Guard active</b> in <b>⚙️ Settings</b>.</li>',
+      helpGettingStartedList: '<li>Go to <b>⚙️ Settings</b> and set your <b>Maximum power (W)</b> — this is your grid connection limit (e.g. 10 000 W).</li><li>Go to the <b>📱 Devices</b> tab and toggle on the devices you want Power Guard to control. Use the <b>↑↓ arrows</b> to set priority order — devices at the <b>top</b> are turned off first.</li><li>Turn on <b>Power Guard</b> in <b>⚙️ Settings</b>.</li>',
       helpCoreDesc: 'Power Guard reads your HAN electricity meter in real time. When your total consumption approaches the grid limit, it turns off or reduces devices — starting from the top of the priority list. When power drops back down, devices are automatically restored.',
       helpCoreList: '<li><b>Normal profile</b> — acts at 100% of your limit.</li><li><b>Strict profile</b> — acts at 95% of your limit for extra headroom.</li><li><b>Solar-friendly profile</b> — relaxed limits to allow solar production to offset consumption.</li><li><b>Phase limits</b> — set per-phase ampere limits (L1/L2/L3) in Advanced settings.</li><li><b>Smart restore</b> — devices are only turned back on when there is confirmed headroom; charger ramping power is accounted for before restoring heating devices. After an EV charging session, shed devices are restored one at a time, 60 seconds apart, to prevent power spikes.</li>',
       helpEvIntro: 'Enable <b>Smart Price Control</b> in Settings to activate smart EV charging. All chargers share the same cheapest-hours window — the car that needs the most time sets the window size, and available power is split equally between chargers during those hours. Set up each charger in 4 steps:',
@@ -1108,7 +1108,7 @@
       helpHwThermostats: 'Any brand — auto-detected',
       helpEffekttariffTitle: 'Effekttariff &amp; Hourly Budget',
       helpEffekttariffDesc: 'The Norwegian <b>effekttariff</b> charges based on your <b>3 highest hourly kWh peaks</b> per month. Power Guard tracks your hourly energy and shows a budget bar in the overview so you can see how much of your hour\'s quota is used.',
-      helpEffekttariffList: '<li><b>Budget bar</b> — coloured fill shows kWh used vs the hour\'s budget; white line marks how far through the hour you are; labels show remaining kWh and minutes left.</li><li><b>Dynamic hourly budget</b> (toggle in Advanced settings) — if you\'ve used little power early in the hour, Power Guard temporarily allows higher power using the remaining quota. Capped at 2× base limit and physical circuit max. Only activates after the first complete hour rollover (startup protection).</li><li><b>Monthly metric</b> — your top-3 hourly peaks are tracked. A warning appears when the current hour would set a new daily peak.</li>',
+      helpEffekttariffList: '<li><b>Budget bar</b> — coloured fill shows kWh used vs the hour\'s budget; white line marks how far through the hour you are; labels show remaining kWh and minutes left.</li><li><b>Dynamic hourly budget</b> (toggle on the Hjem tab or in Advanced settings) — if you\'ve used little power early in the hour, Power Guard temporarily allows higher power using the remaining quota. Capped at 2× base limit and physical circuit max. Only activates after the first complete hour rollover (startup protection).</li><li><b>Chart views</b> — the overview shows three tabs: <b>DAG</b> (today\'s 24-hour bars coloured green/orange/red vs budget), <b>UKE</b> (last 7 days daily peaks), and <b>MÅNED</b> (monthly calendar with 🥇🥈🥉 medals for your top-3 peaks).</li><li><b>Monthly metric</b> — your top-3 hourly peaks are tracked. A warning appears when the current hour would set a new daily peak.</li>',
       helpEffekttariffEV: '<b>EV charging &amp; budget:</b><br><b>Shed heaters when charging</b> only fires when the budget is actually too tight — not just because the charger is plugged in. If the charger and household load together are within the limit, heating devices stay on. When the charger session ends, shed devices are restored one at a time (60s stagger) so the system can observe the impact before the next restore.',
       powerConsumption: 'Power Consumption by Device',
       filterByType: 'Filter by device type', lastUpdated: 'Last updated:',
@@ -1166,7 +1166,7 @@
       noThermostatsFound: 'No thermostats found',
       noChargersConfigured: 'No chargers configured',
       enablePowerGuard: 'Enable Power Guard', disablePowerGuard: 'Disable Power Guard',
-      guardActive: 'Guard active',
+      guardActive: 'Power Guard',
       connectTokenIntro: 'Power Guard needs a Personal Access Token to read and save settings.',
       connectStep1: 'Go to <b>my.homey.app</b> \u2192 your name \u2192 <b>Account</b> \u2192 <b>Security</b> \u2192 <b>Personal Access Tokens</b>',
       connectStep2: 'Create a new token with scope <b>homey:manager:api</b>',
@@ -1436,7 +1436,7 @@
       supportedHardware: 'St\u00f8ttet maskinvare',
       bugReport: 'Funnet en feil eller har du sp\u00f8rsm\u00e5l?',
       bugReportLink: 'Rapporter det p\u00e5 GitHub: <b>github.com/Finn-Cato/Powermanagment/issues</b>',
-      helpGettingStartedList: '<li>G\u00e5 til <b>\u2699\ufe0f Innstillinger</b> og sett <b>Maks effekt (W)</b> \u2014 dette er din nettforbindelses grense (f.eks. 10\u202f000 W).</li><li>G\u00e5 til <b>\ud83d\udcf1 Enheter</b>-fanen og aktiver enhetene du vil at Power Guard skal styre. Bruk <b>\u2191\u2193 pilene</b> for \u00e5 angi prioritetsrekkef\u00f8lge \u2014 enheter \u00f8verst sl\u00e5s av f\u00f8rst.</li><li>Sl\u00e5 p\u00e5 <b>Vakt aktiv</b> i <b>\u2699\ufe0f Innstillinger</b>.</li>',
+      helpGettingStartedList: '<li>G\u00e5 til <b>\u2699\ufe0f Innstillinger</b> og sett <b>Maks effekt (W)</b> \u2014 dette er din nettforbindelses grense (f.eks. 10\u202f000 W).</li><li>G\u00e5 til <b>\ud83d\udcf1 Enheter</b>-fanen og aktiver enhetene du vil at Power Guard skal styre. Bruk <b>\u2191\u2193 pilene</b> for \u00e5 angi prioritetsrekkef\u00f8lge \u2014 enheter \u00f8verst sl\u00e5s av f\u00f8rst.</li><li>Sl\u00e5 p\u00e5 <b>Power Guard</b> i <b>\u2699\ufe0f Innstillinger</b>.</li>',
       helpCoreDesc: 'Power Guard leser din HAN-str\u00f8mm\u00e5ler i sanntid. N\u00e5r totalforbruket n\u00e6rmer seg nettgrensen, sl\u00e5r den av eller reduserer enheter \u2014 fra toppen av prioritetslisten. N\u00e5r effekten faller tilbake, gjenopprettes enhetene automatisk.',
       helpCoreList: '<li><b>Normal profil</b> \u2014 virker ved 100% av grensen din.</li><li><b>Streng profil</b> \u2014 virker ved 95% av grensen for ekstra sikkerhetsmargin.</li><li><b>Sol-vennlig profil</b> \u2014 avslappede grenser for \u00e5 tillate solproduksjon \u00e5 motvirke forbruket.</li><li><b>Fasegrenser</b> \u2014 sett per-fase ampere-grenser (L1/L2/L3) i Avanserte innstillinger.</li><li><b>Smart gjenoppretting</b> \u2014 enheter sl\u00e5s bare p\u00e5 igjen n\u00e5r det er bekreftet plass; laderens opptrappingseffekt tas h\u00f8yde for f\u00f8r varmeenheter gjenopprettes. Etter en elbillading-\u00f8kt gjenopprettes sl\u00e5tte-av enheter \u00e9n om gangen med 60 sekunder mellom hver, s\u00e5 systemet kan observere effekten f\u00f8r neste enhet gjenopprettes.</li>',
       helpEvIntro: 'Aktiver <b>Smart priskontroll</b> i Innstillinger for \u00e5 aktivere smart elbillading. Alle ladere deler samme billigste-timer-vindu \u2014 bilen som trenger mest tid setter vinduets st\u00f8rrelse, og tilgjengelig effekt fordeles likt mellom ladere i disse timene. Sett opp hver lader i 4 trinn:',
@@ -1453,7 +1453,7 @@
       helpHwThermostats: 'Alle merker \u2014 auto-detektert',
       helpEffekttariffTitle: 'Effekttariff &amp; timebudsjett',
       helpEffekttariffDesc: 'Den norske <b>effekttariffen</b> beregnes ut fra dine <b>3 h\u00f8yeste timetopper</b> per m\u00e5ned. Power Guard sporer timeforbruket ditt og viser et budsjettm\u00e5ler i oversikten s\u00e5 du kan se hvor mye av timens kvote som er brukt.',
-      helpEffekttariffList: '<li><b>Budsjettm\u00e5ler</b> \u2014 fargelagt fyll viser kWh brukt mot timens budsjett; hvit linje markerer hvor langt i timen du er; etiketter viser gjenst\u00e5ende kWh og minutter igjen.</li><li><b>Dynamisk timebudsjett</b> (bryter i Avanserte innstillinger) \u2014 hvis du har brukt lite str\u00f8m tidlig i timen, tillater Power Guard midlertidig h\u00f8yere effekt ved hjelp av den gjenst\u00e5ende kvoten. Begrenset til 2\u00d7 basisgrensen og fysisk sikringsmax. Aktiveres bare etter f\u00f8rste fullstendige timegjenrulling (oppstartsbeskyttelse).</li><li><b>M\u00e5nedlig m\u00e5ling</b> \u2014 dine topp-3 timetopper spores. Et varsel vises n\u00e5r innev\u00e6rende time ville sette en ny dagspeak.</li>',
+      helpEffekttariffList: '<li><b>Budsjettm\u00e5ler</b> \u2014 fargelagt fyll viser kWh brukt mot timens budsjett; hvit linje markerer hvor langt i timen du er; etiketter viser gjenst\u00e5ende kWh og minutter igjen.</li><li><b>Dynamisk timebudsjett</b> (bryter p\u00e5 Hjem-fanen eller i Avanserte innstillinger) \u2014 hvis du har brukt lite str\u00f8m tidlig i timen, tillater Power Guard midlertidig h\u00f8yere effekt ved hjelp av den gjenst\u00e5ende kvoten. Begrenset til 2\u00d7 basisgrensen og fysisk sikringsmax. Aktiveres bare etter f\u00f8rste fullstendige timegjenrulling (oppstartsbeskyttelse).</li><li><b>Diagramvisninger</b> \u2014 oversikten viser tre faner: <b>DAG</b> (dagens 24-timers stolper farget gr\u00f8nn/oransje/r\u00f8d mot budsjett), <b>UKE</b> (siste 7 dagers daglige topper), og <b>M\u00c5NED</b> (m\u00e5nedlig kalender med \ud83e\udd47\ud83e\udd48\ud83e\udd49 medaljer for dine topp-3 topper).</li><li><b>M\u00e5nedlig m\u00e5ling</b> \u2014 dine topp-3 timetopper spores. Et varsel vises n\u00e5r innev\u00e6rende time ville sette en ny dagspeak.</li>',
       helpEffekttariffEV: '<b>Elbillading &amp; budsjett:</b><br><b>Sl\u00e5 av varmere under lading</b> aktiveres bare n\u00e5r budsjettet faktisk er for trangt \u2014 ikke bare fordi laderen er tilkoblet. Hvis laderen og husholdningsforbruket samlet er innenfor grensen, forblir varmeenheter p\u00e5. N\u00e5r lading-\u00f8kten avsluttes, gjenopprettes sl\u00e5tte-av enheter \u00e9n om gangen (60 sekunder mellom hver) slik at systemet kan observere p\u00e5virkningen f\u00f8r neste gjenoppretting.',
       filterByType: 'Filtrer etter enhetstype', lastUpdated: 'Sist oppdatert:',
       thermostats: 'Termostater', loadingHeaters: 'Laster\u2026',
@@ -1510,7 +1510,7 @@
       noThermostatsFound: 'Ingen termostater funnet',
       noChargersConfigured: 'Ingen ladere konfigurert',
       enablePowerGuard: 'Aktiver Power Guard', disablePowerGuard: 'Deaktiver Power Guard',
-      guardActive: 'Vakt aktiv',
+      guardActive: 'Power Guard',
       connectTokenIntro: 'Power Guard trenger et personlig tilgangstoken for \u00e5 lese og lagre innstillinger.',
       connectStep1: 'G\u00e5 til <b>my.homey.app</b> \u2192 ditt navn \u2192 <b>Konto</b> \u2192 <b>Sikkerhet</b> \u2192 <b>Personlige tilgangstokener</b>',
       connectStep2: 'Opprett et nytt token med omfang <b>homey:manager:api</b>',
@@ -2203,63 +2203,75 @@
         var maxKWhD = limitKW;
         for (var dmi = 0; dmi < hourEntries.length; dmi++) { if (hourEntries[dmi].kWh > maxKWhD) maxKWhD = hourEntries[dmi].kWh; }
         var limitPctD = (limitKW / maxKWhD * 100).toFixed(1);
-        // Find peak hour for label
-        var peakEntryD = hourEntries.reduce(function(best, h) { return (h.kWh > best.kWh && !h.future) ? h : best; }, {hour:-1, kWh:0});
-
         html += '<div style="display:flex;gap:3px;align-items:stretch">';
         // Y-axis column
         html += '<div style="width:22px;position:relative;flex-shrink:0">';
-        html += '<div style="position:absolute;top:0;right:0;font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + '</div>';
-        html += '<div style="position:absolute;bottom:0;right:0;font-size:8px;color:var(--text-muted);line-height:1">0</div>';
+        html += '<div style="position:absolute;top:0;right:0;font-size:10px;color:rgba(255,149,0,0.9);line-height:1;font-weight:600">' + limitKW.toFixed(0) + '</div>';
+        html += '<div style="position:absolute;bottom:0;right:0;font-size:10px;color:var(--text-muted);line-height:1">0</div>';
         html += '</div>';
         // Chart area
-        html += '<div style="flex:1;position:relative;height:60px;margin-bottom:4px">';
-        // Limit line + label
-        html += '<div style="position:absolute;left:0;right:0;bottom:' + limitPctD + '%;height:0;border-top:1px dashed rgba(255,149,0,0.7);pointer-events:none"></div>';
-        html += '<div style="position:absolute;right:0;bottom:calc(' + limitPctD + '% + 2px);font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + ' kWh</div>';
-        // Peak bar label
-        if (peakEntryD.kWh > 0) {
-          var peakPctD = (peakEntryD.kWh / maxKWhD * 100).toFixed(1);
-          var peakBarLeft = (peakEntryD.hour / 24 * 100).toFixed(1);
-          html += '<div style="position:absolute;left:' + peakBarLeft + '%;bottom:calc(' + peakPctD + '% + 3px);font-size:8px;color:var(--text-secondary);white-space:nowrap;transform:translateX(-20%);">' + peakEntryD.kWh.toFixed(1) + '</div>';
+        html += '<div style="flex:1;position:relative;height:110px;margin-bottom:4px">';
+        // Limit line — left side label only, no right duplicate
+        html += '<div style="position:absolute;left:0;right:0;bottom:' + limitPctD + '%;height:0;border-top:1.5px dashed rgba(255,149,0,0.7);pointer-events:none;z-index:1"></div>';
+        // Live bar pill label
+        var liveEntry = hourEntries[curHD];
+        if (liveEntry && liveEntry.live) {
+          var livePct = maxKWhD > 0 ? (liveEntry.kWh / maxKWhD * 100) : 0;
+          var pillLeft = ((curHD + 0.5) / 24 * 100).toFixed(1);
+          var pillBg = liveEntry.kWh >= limitKW ? 'rgba(255,59,48,0.9)' : liveEntry.kWh >= limitKW * 0.75 ? 'rgba(255,149,0,0.9)' : 'rgba(0,0,0,0.72)';
+          html += '<div style="position:absolute;bottom:calc(' + livePct.toFixed(1) + '% + 7px);left:' + pillLeft + '%;transform:translateX(-50%);background:' + pillBg + ';color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:2px 5px;white-space:nowrap;z-index:3;line-height:1.4">' + liveEntry.kWh.toFixed(2) + ' kWh</div>';
         }
         // Bars
         html += '<div style="position:absolute;inset:0;display:flex;align-items:flex-end;gap:1px">';
         for (var bdi = 0; bdi < 24; bdi++) {
           var he2 = hourEntries[bdi];
           var bh = he2.kWh > 0 ? Math.min((he2.kWh / maxKWhD) * 100, 100).toFixed(1) : '0';
-          var bc2;
-          if (he2.future)                bc2 = 'transparent';
-          else if (he2.live)             bc2 = 'rgba(52,199,89,0.5)';
-          else if (he2.kWh >= limitKW)   bc2 = '#ff3b30';
-          else if (he2.kWh >= limitKW*0.9) bc2 = '#ff9500';
-          else if (he2.kWh > 0)          bc2 = '#34c759';
-          else                           bc2 = 'var(--bg-body)';
-          html += '<div style="flex:1;height:' + bh + '%;min-height:' + (parseFloat(bh)>0?'2':'0') + 'px;background:' + bc2 + ';border-radius:1px 1px 0 0"></div>';
+          var barStyle;
+          if (he2.live) {
+            // Current hour: gradient fill, always at least 4% tall
+            var topC = he2.kWh >= limitKW ? '#ff6b4a' : he2.kWh >= limitKW * 0.75 ? '#ffb340' : '#5fdf7a';
+            var botC = he2.kWh >= limitKW ? '#ff3b30' : he2.kWh >= limitKW * 0.75 ? '#ff9500' : '#34c759';
+            bh = Math.max(parseFloat(bh), 4).toFixed(1);
+            barStyle = 'flex:1;height:' + bh + '%;background:linear-gradient(to bottom,' + topC + ',' + botC + ');border-radius:3px 3px 0 0;';
+          } else if (he2.future) {
+            // Future: ghost outline placeholder, full height
+            barStyle = 'flex:1;height:100%;background:transparent;border:1px solid rgba(128,128,128,0.15);border-bottom:none;border-radius:2px 2px 0 0;box-sizing:border-box;';
+          } else if (he2.kWh > 0) {
+            // Past: 70% opacity colored bar
+            var pastC = he2.kWh >= limitKW ? 'rgba(255,59,48,0.7)' : he2.kWh >= limitKW * 0.75 ? 'rgba(255,149,0,0.7)' : 'rgba(52,199,89,0.7)';
+            barStyle = 'flex:1;height:' + bh + '%;background:' + pastC + ';border-radius:3px 3px 0 0;min-height:2px;';
+          } else {
+            // Empty past slot
+            barStyle = 'flex:1;height:2px;background:transparent;';
+          }
+          html += '<div style="' + barStyle + '"></div>';
         }
         html += '</div>';
         html += '</div>';
         html += '</div>'; // end flex row
-        // X-axis
-        html += '<div style="display:flex;font-size:8px;color:var(--text-muted);padding-left:25px">';
+        // X-axis with current-hour triangle marker
+        var markerFraction = ((curHD + 0.5) / 24).toFixed(4);
+        html += '<div style="position:relative;padding-left:25px;margin-bottom:2px">';
+        html += '<div style="position:absolute;top:-5px;left:calc(25px + ' + markerFraction + ' * (100% - 25px));transform:translateX(-50%);width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #34c759"></div>';
+        html += '<div style="display:flex;font-size:9px;color:var(--text-muted)">';
         html += '<div style="flex:1;text-align:left">00</div>';
         html += '<div style="flex:1;text-align:center">06</div>';
         html += '<div style="flex:1;text-align:center">12</div>';
         html += '<div style="flex:1;text-align:center">18</div>';
         html += '<div style="flex:1;text-align:right">23</div>';
         html += '</div>';
+        html += '</div>';
 
       } else if (_effektTab === 'uke') {
         // ── UKE: last 7 days bars ──────────────────────────────────────────────
         var weekRows = [];
-        var top3Dts = effekt.top3 ? effekt.top3.map(function(p){return p.date;}) : [];
         var wpkAll = effekt.dailyPeaksByDate || [];
         for (var wdoff = 6; wdoff >= 0; wdoff--) {
           var dObj = new Date(); dObj.setDate(dObj.getDate() - wdoff);
           var dStr2 = dObj.toISOString().slice(0, 10);
           var wfound = null;
           for (var wpi = 0; wpi < wpkAll.length; wpi++) { if (wpkAll[wpi].date === dStr2) { wfound = wpkAll[wpi]; break; } }
-          weekRows.push({date:dStr2, kw:wfound?wfound.kw:null, isTop3:top3Dts.indexOf(dStr2)>=0, isToday:wdoff===0, dow:dObj.getDay(), dayNum:dObj.getDate()});
+          weekRows.push({date:dStr2, kw:wfound?wfound.kw:null, isToday:wdoff===0, dow:dObj.getDay(), dayNum:dObj.getDate()});
         }
         var maxKWW = limitKW;
         for (var wmi = 0; wmi < weekRows.length; wmi++) { if (weekRows[wmi].kw!==null && weekRows[wmi].kw>maxKWW) maxKWW = weekRows[wmi].kw; }
@@ -2267,43 +2279,45 @@
         var dowNm = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
         html += '<div style="display:flex;gap:3px;align-items:stretch">';
-        // Y-axis column
+        // Y-axis
         html += '<div style="width:22px;position:relative;flex-shrink:0">';
-        html += '<div style="position:absolute;top:0;right:0;font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + '</div>';
-        html += '<div style="position:absolute;bottom:0;right:0;font-size:8px;color:var(--text-muted);line-height:1">0</div>';
+        html += '<div style="position:absolute;top:0;right:0;font-size:10px;color:rgba(255,149,0,0.9);line-height:1;font-weight:600">' + limitKW.toFixed(0) + '</div>';
+        html += '<div style="position:absolute;bottom:0;right:0;font-size:10px;color:var(--text-muted);line-height:1">0</div>';
         html += '</div>';
         // Chart area
-        html += '<div style="flex:1;position:relative;height:60px;margin-bottom:4px">';
-        html += '<div style="position:absolute;left:0;right:0;bottom:' + limitPctW + '%;height:0;border-top:1px dashed rgba(255,149,0,0.7);pointer-events:none"></div>';
-        html += '<div style="position:absolute;right:0;bottom:calc(' + limitPctW + '% + 2px);font-size:8px;color:rgba(255,149,0,0.85);line-height:1">' + limitKW.toFixed(0) + ' kW</div>';
+        html += '<div style="flex:1;position:relative;height:110px;margin-bottom:4px">';
+        // Limit line — left label only
+        html += '<div style="position:absolute;left:0;right:0;bottom:' + limitPctW + '%;height:0;border-top:1.5px dashed rgba(255,149,0,0.7);pointer-events:none;z-index:1"></div>';
+        // Bars (value label embedded at bottom of each bar)
         html += '<div style="position:absolute;inset:0;display:flex;align-items:flex-end;gap:3px">';
         for (var wbi2 = 0; wbi2 < weekRows.length; wbi2++) {
           var wr = weekRows[wbi2];
-          var wbh = wr.kw!==null && wr.kw>0 ? Math.min((wr.kw/maxKWW)*100,100).toFixed(1) : '0';
-          var wbc;
-          if (wr.kw===null)            wbc = 'var(--bg-body)';
-          else if (wr.isTop3)          wbc = '#ff9500';
-          else if (wr.kw>=limitKW)     wbc = '#ff3b30';
-          else if (wr.kw>=limitKW*0.8) wbc = '#ff9500';
-          else                         wbc = '#34c759';
-          var wextra = wr.isToday ? ';outline:1px solid var(--brand);outline-offset:-1px' : '';
-          html += '<div style="flex:1;height:' + wbh + '%;min-height:' + (parseFloat(wbh)>0?'3':'0') + 'px;background:' + wbc + ';border-radius:2px 2px 0 0' + wextra + '"></div>';
+          var wbh = wr.kw !== null && wr.kw > 0 ? Math.min((wr.kw / maxKWW) * 100, 100).toFixed(1) : '0';
+          var wBarStyle;
+          if (wr.isToday) {
+            var wTopC = wr.kw !== null && wr.kw >= limitKW ? '#ff6b4a' : wr.kw !== null && wr.kw >= limitKW * 0.75 ? '#ffb340' : '#5fdf7a';
+            var wBotC = wr.kw !== null && wr.kw >= limitKW ? '#ff3b30' : wr.kw !== null && wr.kw >= limitKW * 0.75 ? '#ff9500' : '#34c759';
+            wBarStyle = 'flex:1;position:relative;height:' + Math.max(parseFloat(wbh), 4).toFixed(1) + '%;background:linear-gradient(to bottom,' + wTopC + ',' + wBotC + ');border-radius:4px 4px 0 0;';
+          } else if (wr.kw !== null && wr.kw > 0) {
+            var wPastC = wr.kw >= limitKW ? 'rgba(255,59,48,0.7)' : wr.kw >= limitKW * 0.75 ? 'rgba(255,149,0,0.7)' : 'rgba(52,199,89,0.7)';
+            wBarStyle = 'flex:1;position:relative;height:' + wbh + '%;background:' + wPastC + ';border-radius:4px 4px 0 0;min-height:2px;';
+          } else {
+            wBarStyle = 'flex:1;height:2px;background:transparent;';
+          }
+          var wValLabel = '';
+          if (wr.kw !== null && wr.kw > 0 && parseFloat(wbh) >= 25) {
+            wValLabel = '<div style="position:absolute;bottom:5px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.55);color:#fff;font-size:9px;font-weight:700;border-radius:8px;padding:2px 5px;white-space:nowrap;line-height:1.4;pointer-events:none">' + wr.kw.toFixed(1) + ' kW</div>';
+          }
+          html += '<div style="' + wBarStyle + '">' + wValLabel + '</div>';
         }
         html += '</div>';
         html += '</div>';
         html += '</div>'; // end flex row
-        // kW values row
-        html += '<div style="display:flex;gap:3px;font-size:8px;padding-left:25px;margin-bottom:1px">';
-        for (var wvi = 0; wvi < weekRows.length; wvi++) {
-          var wv = weekRows[wvi];
-          html += '<div style="flex:1;text-align:center;color:' + (wv.isTop3?'#ff9500':wv.isToday?'var(--brand)':'var(--text-muted)') + ';font-weight:' + (wv.isTop3||wv.isToday?'600':'400') + '">' + (wv.kw!==null ? wv.kw.toFixed(1) : '–') + '</div>';
-        }
-        html += '</div>';
         // Day + date labels
-        html += '<div style="display:flex;gap:3px;font-size:9px;padding-left:25px">';
+        html += '<div style="display:flex;gap:3px;font-size:10px;padding-left:25px">';
         for (var wli2 = 0; wli2 < weekRows.length; wli2++) {
           var wl = weekRows[wli2];
-          html += '<div style="flex:1;text-align:center;color:' + (wl.isToday?'var(--brand)':'var(--text-muted)') + ';font-weight:' + (wl.isToday?'600':'400') + ';line-height:1.3">';
+          html += '<div style="flex:1;text-align:center;color:' + (wl.isToday ? 'var(--brand)' : 'var(--text-muted)') + ';font-weight:' + (wl.isToday ? '700' : '400') + ';line-height:1.3">';
           html += dowNm[wl.dow] + '<br><span style="font-size:8px">' + wl.dayNum + '.</span>';
           html += '</div>';
         }
@@ -2322,36 +2336,34 @@
           effekt.allPeaks.forEach(function(p) { peakMap[parseInt(p.date.split('-')[2])] = p.kw; });
           var top3Days = effekt.top3 ? effekt.top3.map(function(p) { return parseInt(p.date.split('-')[2]); }) : [];
           var now2 = new Date(); var todayDay = (now2.getFullYear()===calYear && now2.getMonth()===calMonth) ? now2.getDate() : -1;
-          var maxKw = Math.max.apply(null, effekt.allPeaks.map(function(p){return p.kw;}));
           var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-          var medals = ['🥇','🥈','🥉'];
           html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">' + t('dailyPeaksLabel') + ' · ' + effekt.dailyPeakCount + ' ' + t('daysRecorded') + '</div>';
           html += '<div style="font-size:10px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:4px">' + monthNames[calMonth] + ' ' + calYear + '</div>';
-          html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:9px;text-align:center">';
+          html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center">';
           ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(function(d) {
-            html += '<div style="color:var(--text-muted);padding:2px 0;font-weight:600">' + d + '</div>';
+            html += '<div style="color:var(--text-muted);padding:2px 0;font-size:9px;font-weight:600">' + d + '</div>';
           });
           for (var e = 0; e < startCol; e++) html += '<div></div>';
           for (var day = 1; day <= daysInMonth; day++) {
             var kw = peakMap[day];
             var rank = top3Days.indexOf(day);
             var isToday = day === todayDay;
-            var bg, color, fw = '400', medal = '';
-            if      (rank === 0) { bg = 'rgba(255,200,0,0.30)';   color = '#9a6c00'; fw = '700'; medal = medals[0]; }
-            else if (rank === 1) { bg = 'rgba(160,200,220,0.35)'; color = '#2a6080'; fw = '700'; medal = medals[1]; }
-            else if (rank === 2) { bg = 'rgba(190,120,50,0.28)';  color = '#7a3d10'; fw = '700'; medal = medals[2]; }
-            else if (kw) { var intensity = kw / maxKw; bg = 'rgba(232,68,26,' + (0.05 + intensity * 0.15).toFixed(2) + ')'; color = 'var(--text-secondary)'; }
-            else { bg = 'transparent'; color = 'var(--text-muted)'; }
-            var border = isToday ? '1px solid var(--brand)' : '1px solid transparent';
-            html += '<div style="padding:2px 1px;border-radius:4px;background:' + bg + ';border:' + border + '">';
-            html += '<div style="color:' + (isToday ? 'var(--brand)' : 'var(--text-tertiary)') + ';font-size:9px;line-height:1.2">' + day + '</div>';
+            // Cell background
+            var cellBg = rank === 0 ? 'rgba(255,184,0,0.2)' : rank === 1 ? 'rgba(160,184,200,0.2)' : rank === 2 ? 'rgba(184,112,64,0.2)' : isToday ? 'rgba(10,132,255,0.08)' : 'transparent';
+            var cellBorder = isToday ? '2px solid var(--brand)' : '1px solid transparent';
+            // kW traffic-light color
+            var kwColor = kw ? (kw >= limitKW ? '#ff3b30' : kw >= limitKW * 0.75 ? '#ff9500' : '#34c759') : '';
+            // Rank badge colors
+            var badgeBg = rank === 0 ? '#C8920A' : rank === 1 ? '#6A8FA8' : '#9A6040';
+            html += '<div style="padding:3px 2px;border-radius:4px;background:' + cellBg + ';border:' + cellBorder + ';position:relative;min-height:34px">';
+            html += '<div style="color:' + (isToday ? 'var(--brand)' : 'var(--text-tertiary)') + ';font-size:9px;font-weight:' + (isToday ? '700' : '400') + ';line-height:1.2;text-align:left;padding-left:1px">' + day + '</div>';
+            if (rank >= 0 && rank <= 2) {
+              html += '<div style="position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:50%;background:' + badgeBg + ';color:#fff;font-size:8px;font-weight:700;text-align:center;line-height:14px">' + (rank + 1) + '</div>';
+            }
             if (kw) {
-              html += '<div style="display:flex;align-items:center;justify-content:center;gap:1px;line-height:1.2">';
-              html += '<span style="color:' + color + ';font-weight:' + fw + ';font-size:9px">' + kw.toFixed(1) + 'kW</span>';
-              if (medal) html += '<span style="font-size:7px;line-height:1">' + medal + '</span>';
-              html += '</div>';
+              html += '<div style="color:' + kwColor + ';font-size:11px;font-weight:700;line-height:1.3;margin-top:1px">' + kw.toFixed(1) + '</div>';
             } else {
-              html += '<div style="height:11px"></div>';
+              html += '<div style="height:16px"></div>';
             }
             html += '</div>';
           }
