@@ -23,6 +23,7 @@ function _readSettings(s) {
     mainCircuitA:         s.get('mainCircuitA')         ?? 25,
     classFilters:         s.get('classFilters')         ?? {},
     powerExcluded:        s.get('powerExcluded')        ?? {},
+    dynamicHourlyBudget:  s.get('dynamicHourlyBudget')  ?? false,
     priorityList:         s.get('priorityList')         ?? [],
     selectedMeterDeviceId: s.get('selectedMeterDeviceId') ?? 'auto',
   };
@@ -122,6 +123,7 @@ module.exports = {
       'smoothingWindow', 'spikeMultiplier', 'hysteresisCount', 'cooldownSeconds',
       'errorMarginPercent', 'missingPowerTimeoutS', 'dynamicRestoreGuard',
       'voltageSystem', 'phaseDistribution', 'mainCircuitA', 'classFilters', 'powerExcluded',
+      'dynamicHourlyBudget',
     ];
     const changed = [];
     for (const key of allowed) {
