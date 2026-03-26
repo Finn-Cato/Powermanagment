@@ -15,7 +15,7 @@ const { PROFILES, PROFILE_LIMIT_FACTOR, DEFAULT_SETTINGS, MITIGATION_LOG_MAX, CH
 // Acts as a safety net for cases where the headroom snapshot is unreliable (e.g. 0W at snapshot time).
 const RESTORE_COOLDOWN_MS = 240 * 1000; // 240 seconds
 
-/**
+/**cd "C:\Github\Powermanagment" ; homey app run
  * Promise wrapper with timeout — prevents hung API calls from blocking the mitigation cycle.
  * @param {Promise} promise - The promise to wrap
  * @param {number} ms - Timeout in milliseconds
@@ -90,8 +90,10 @@ class PowerGuardApp extends Homey.App {
     this._evBatteryState = {};    // Per-charger battery reports: {deviceId: {pct, hoursNeeded, updatedAt}}
     this._evCapabilityInstances = {};
     this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
-    this._powerConsumptionLog = []; // In-memory log for debug
-    this._cachedDevices = null; // All devices from API (including non-controllable ones)
+    this._powerCapabilityInstances = {}; // measure_power capability instances keyed by deviceId
+    this._adaxCapabilityInstances = {};  // Adax temp/onoff capability instances keyed by deviceId
+    this._adaxRawPower = {};             // Raw (unestimated) measure_power value for Adax devices
+    this._adaxState = {};               // {deviceId: {measT, targT, onoff}} for Adax estimation
     this.log('[Power Consumption] Data object initialized');
     this._lastEVAdjustTime = 0;
     this._lastProactiveSheddingTime = 0;
@@ -104,7 +106,7 @@ class PowerGuardApp extends Homey.App {
     this._lastCacheTime = null;
     this._saveQueue = [];
     // Unified app log for remote diagnostics
-    this._appLog = [];          // Ring buffer: last 2000 entries {time, category, message}
+    this._appLog = [];          // Ring buffer: last 500 entries {time, category, message}
     this._appStartTime = Date.now();
 
     // Price engine state (SECTION 12)
@@ -241,6 +243,12 @@ class PowerGuardApp extends Homey.App {
     }
 
     try {
+      if (this._api) await this._subscribeDevicePower();
+    } catch (err) {
+      this.error('Device power subscriptions error (non-fatal):', err);
+    }
+
+    try {
       if (this._api) await this._connectToEVChargers();
     } catch (err) {
       this.error('EV charger connection error (non-fatal):', err);
@@ -250,7 +258,7 @@ class PowerGuardApp extends Homey.App {
     setTimeout(() => this._pollAllCarBatteries().catch(err => this.error('[CarBattery] Startup poll error:', err)), 5000);
 
     this._watchdogInterval  = setInterval(() => this._watchdog().catch(err => this.error('[Watchdog] Error:', err)), 10000);
-    this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(err => this.error('[Cache] Refresh error:', err)), 60000);
+    this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(err => this.error('[Cache] Refresh error:', err)), 300000);
     this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(err => this.error('[Queue] Save error:', err)), 3000);
 
     // Start spot price engine — non-fatal, charger control still works without it
@@ -303,6 +311,138 @@ class PowerGuardApp extends Homey.App {
         }
       }
     }
+  }
+
+  // ─── Event-based device power subscriptions ─────────────────────────────
+  async _subscribeDevicePower() {
+    if (!this._api) return;
+    let subscribeCount = 0;
+    let failCount = 0;
+    try {
+      const allDevices = await this._api.devices.getDevices();
+      for (const device of Object.values(allDevices)) {
+        if (!device || !Array.isArray(device.capabilities)) continue;
+        if (!device.capabilities.includes('measure_power')) continue;
+
+        const devId    = device.id;
+        const devName  = device.name || 'Unknown';
+        const devClass = (device.class || '').toLowerCase();
+        const driverId = device.driverId || '';
+        const driverLow = driverId.toLowerCase();
+        const nameLow   = devName.toLowerCase();
+
+        // Same filters as former _updatePowerConsumption
+        if (driverLow === 'power-guard' || nameLow.includes('power guard')) continue;
+        if (devClass === 'meter' || nameLow.includes('han') || driverLow.includes('meter')) continue;
+        if (devClass === 'socket' && (nameLow.includes('light') || nameLow.includes('lamp'))) continue;
+
+        // Seed tracking entry with the current snapshot so readings don't start at 0
+        const initW = device.capabilitiesObj?.measure_power?.value || 0;
+        if (!this._powerConsumptionData[devId]) {
+          this._powerConsumptionData[devId] = {
+            deviceId: devId, name: devName, class: devClass,
+            readings: [], current: initW, avg: initW, peak: initW,
+          };
+        }
+
+        const isAdax = driverId.includes('no.adax');
+        if (isAdax) {
+          const co = device.capabilitiesObj || {};
+          this._adaxRawPower[devId] = initW;
+          this._adaxState[devId] = {
+            measT: co.measure_temperature?.value ?? null,
+            targT: co.target_temperature?.value  ?? null,
+            onoff: co.onoff?.value               ?? null,
+          };
+        }
+
+        try {
+          const inst = await device.makeCapabilityInstance('measure_power', value => {
+            this._onDevicePowerEvent(devId, devName, devClass, driverId, value);
+          });
+          this._powerCapabilityInstances[devId] = inst;
+          subscribeCount++;
+
+          if (isAdax) {
+            if (!this._adaxCapabilityInstances[devId]) this._adaxCapabilityInstances[devId] = [];
+            if (device.capabilities.includes('measure_temperature')) {
+              const tInst = await device.makeCapabilityInstance('measure_temperature', v => {
+                if (!this._adaxState[devId]) this._adaxState[devId] = {};
+                this._adaxState[devId].measT = v;
+                this._recomputeAdaxCurrent(devId);
+              });
+              this._adaxCapabilityInstances[devId].push(tInst);
+            }
+            if (device.capabilities.includes('target_temperature')) {
+              const ttInst = await device.makeCapabilityInstance('target_temperature', v => {
+                if (!this._adaxState[devId]) this._adaxState[devId] = {};
+                this._adaxState[devId].targT = v;
+                this._recomputeAdaxCurrent(devId);
+              });
+              this._adaxCapabilityInstances[devId].push(ttInst);
+            }
+            if (device.capabilities.includes('onoff')) {
+              const onInst = await device.makeCapabilityInstance('onoff', v => {
+                if (!this._adaxState[devId]) this._adaxState[devId] = {};
+                this._adaxState[devId].onoff = v;
+                this._recomputeAdaxCurrent(devId);
+              });
+              this._adaxCapabilityInstances[devId].push(onInst);
+            }
+          }
+        } catch (err) {
+          failCount++;
+          this.error(`[PowerSub] Failed to subscribe to "${devName}": ${err.message}`);
+        }
+      }
+    } catch (err) {
+      this.error('[PowerSub] getDevices failed:', err);
+    }
+    this.log(`[PowerSub] Subscribed to ${subscribeCount} devices (${failCount} failed)`);
+    this._appLogEntry('system', `Power subscriptions: ${subscribeCount} devices`);
+  }
+
+  _onDevicePowerEvent(devId, devName, devClass, driverId, rawW) {
+    if (!this._powerConsumptionData[devId]) {
+      this._powerConsumptionData[devId] = {
+        deviceId: devId, name: devName, class: devClass,
+        readings: [], current: 0, avg: 0, peak: 0,
+      };
+    }
+    if ((driverId || '').includes('no.adax')) {
+      this._adaxRawPower[devId] = rawW || 0;
+      this._recomputeAdaxCurrent(devId);
+    } else {
+      this._powerConsumptionData[devId].current = rawW || 0;
+    }
+  }
+
+  _recomputeAdaxCurrent(devId) {
+    const rawW = this._adaxRawPower[devId] || 0;
+    const data = this._powerConsumptionData[devId];
+    if (!data) return;
+    let currentW = rawW;
+    if (currentW > 0) {
+      const isMitigated = (this._mitigatedDevices || []).some(m => m.deviceId === devId);
+      if (isMitigated) {
+        currentW = 0;
+      } else {
+        const adax  = this._adaxState[devId] || {};
+        const measT = adax.measT ?? null;
+        const targT = adax.targT ?? null;
+        const onoff = adax.onoff ?? null;
+        if (onoff === false) {
+          currentW = 0;
+        } else if (measT != null && targT != null) {
+          const diff = targT - measT;
+          if (diff <= 0)       currentW = 0;
+          else if (diff < 0.5) currentW = Math.round(currentW * 0.20);
+          else if (diff < 2.0) currentW = Math.round(currentW * 0.50);
+          // else diff >= 2.0 → keep rated 100%
+        }
+      }
+    }
+    data.current = currentW;
   }
 
   // ─── Settings Save Queue Processor ────────────────────────────────────────
@@ -1520,8 +1660,8 @@ class PowerGuardApp extends Homey.App {
         }
       }
 
-      // Store scan results for diagnostics (visible via getStatus)
-      this._lastMitigationScan = scanResults;
+      // Store scan results for diagnostics (visible via getStatus), capped at 20
+      this._lastMitigationScan = scanResults.slice(-20);
       this.log(`[Mitigation] Scan complete: ${JSON.stringify(scanResults)}`);
     } finally {
       release();
@@ -1869,7 +2009,7 @@ class PowerGuardApp extends Homey.App {
 
   _appLogEntry(category, message) {
     this._appLog.push({ time: new Date().toISOString(), category: category, message: message });
-    if (this._appLog.length > 2000) this._appLog.shift();
+    if (this._appLog.length > 500) this._appLog.shift();
   }
 
   getAppLog() {
@@ -2000,13 +2140,6 @@ class PowerGuardApp extends Homey.App {
       const devicesList = Object.values(allDevices);
       this.log(`[Cache] Found ${devicesList.length} total devices`);
       
-      // Only keep devices with measure_power — that is all _cachedDevices is used for.
-      // Storing the full list of all devices was the primary RAM consumer.
-      this._cachedDevices = devicesList.filter(d =>
-        Array.isArray(d.capabilities) && d.capabilities.includes('measure_power')
-      );
-      this.log(`[Cache] Keeping ${this._cachedDevices.length} measure_power devices (was ${devicesList.length} total)`);
-
       // Fetch zones for room grouping — best-effort, non-fatal
       let zoneMap = {};
       try {
@@ -3798,12 +3931,7 @@ class PowerGuardApp extends Homey.App {
     try {
       const timestamp = new Date().toISOString();
       const line = `[${timestamp}] ${message}`;
-      this._powerConsumptionLog.push(line);
-      
-      // Keep last 500 lines to avoid memory issues
-      if (this._powerConsumptionLog.length > 500) {
-        this._powerConsumptionLog.shift();
-      }
+      // _powerConsumptionLog removed — use _appLog instead
     } catch (err) {
       // Silently fail
     }
@@ -4185,160 +4313,30 @@ class PowerGuardApp extends Homey.App {
   // ─── Public API (settings UI) ─────────────────────────────────────────────
 
   _updatePowerConsumption(currentTotalW) {
-    // Update power consumption tracking for all devices with measure_power
+    // Update rolling window stats — current values are kept live by capability subscriptions.
+    // Called periodically from the watchdog to update avg/peak.
     try {
-      let allDevices = [];
-      
-      // Method 1: Try to use already-cached devices from _cacheDevices
-      if (this._deviceCacheReady && Array.isArray(this._cachedDevices)) {
-        this._writeDebugLog(`Using cached devices: ${this._cachedDevices.length} devices`);
-        allDevices = this._cachedDevices;
-      }
-      // Method 2: Try to use the saved device cache from settings
-      else if (!allDevices.length) {
-        const savedCache = this.homey.settings.get('_deviceCache') || [];
-        if (Array.isArray(savedCache) && savedCache.length > 0) {
-          this._writeDebugLog(`Using saved device cache: ${savedCache.length} devices`);
-          allDevices = savedCache;
+      const entries = Object.values(this._powerConsumptionData);
+      if (!entries.length) return;
+      entries.forEach(data => {
+        // Re-apply Adax mitigation check on each tick (mitigated state changes asynchronously)
+        if (Object.prototype.hasOwnProperty.call(this._adaxRawPower, data.deviceId)) {
+          this._recomputeAdaxCurrent(data.deviceId);
         }
-      }
-      
-      // Method 3: Fall back to HomeyAPI (only if API is ready and has devices)
-      if (!allDevices.length && this._api && this._api.devices) {
-        try {
-          const apiDevices = this._api.devices.getDevices();
-          if (apiDevices && typeof apiDevices === 'object') {
-            allDevices = Object.values(apiDevices);
-            this._writeDebugLog(`HomeyAPI returned ${allDevices.length} devices`);
-          }
-        } catch (err) {
-          this._writeDebugLog(`HomeyAPI error: ${err.message}`);
-        }
-      }
-      
-      if (!allDevices.length) {
-        this._writeDebugLog('WARNING: No device sources available yet');
-        return;
-      }
-      
-      const beforeCount = Object.keys(this._powerConsumptionData).length;
-      let updateCount = 0;
-      
-      allDevices.forEach(device => {
-        if (!device) return;
-        
-        const deviceName = (device.name || '').toLowerCase();
-        const deviceClass = (device.class || '').toLowerCase();
-        const deviceDriver = (device.driverId || '').toLowerCase();
-        
-        // Skip Power Guard itself
-        if (deviceDriver === 'power-guard' || deviceName.includes('power guard')) return;
-        
-        // Skip meters and HAN devices
-        if (deviceClass === 'meter' || deviceName.includes('han') || deviceDriver.includes('meter')) return;
-        
-        // Get capabilities
-        let caps = [];
-        if (Array.isArray(device.capabilities)) {
-          caps = device.capabilities;
-        }
-        if (!caps.includes('measure_power')) return;
-        
-        // Skip sockets that are lights (e.g., smart plugs with lights), but allow water heaters and other sockets
-        if (deviceClass === 'socket' && (deviceName.includes('light') || deviceName.includes('lamp'))) {
-          return;
-        }
-        
-        updateCount++;
-        const devId = device.id;
-        
-        // Get power value
-        let currentW = 0;
-        if (device.capabilitiesObj?.measure_power?.value) {
-          currentW = device.capabilitiesObj.measure_power.value;
-        } else if (typeof device.getCapabilityValue === 'function') {
-          try {
-            currentW = device.getCapabilityValue('measure_power') || 0;
-          } catch (_) {}
-        }
-
-        // ── Adax heater power estimation workaround ──
-        // Adax heaters are always onoff=true in Homey but their heating element
-        // cycles at hardware level. We estimate actual draw based on how close
-        // the room is to setpoint:
-        //   ≥ target+0.0: element off/idle        → 0W
-        //   target-0.5 to target: near setpoint, light cycling  → 20% rated
-        //   target-2.0 to target-0.5: moderate cycling           → 50% rated
-        //   < target-2.0: actively heating                       → 100% rated
-        const isAdaxDevice = (device.driverId || '').includes('no.adax');
-        if (isAdaxDevice && currentW > 0) {
-          // If this device has already been mitigated, show 0W immediately
-          // (command was sent; heater will respond within ~20 min for cloud devices)
-          const isMitigated = (this._mitigatedDevices || []).some(m => m.deviceId === devId);
-          if (isMitigated) {
-            currentW = 0;
-          } else {
-            const obj = device.capabilitiesObj || {};
-            const measT = obj.measure_temperature ? obj.measure_temperature.value : null;
-            const targT = obj.target_temperature ? obj.target_temperature.value : null;
-            const onoff = obj.onoff ? obj.onoff.value : null;
-            if (onoff === false) {
-              currentW = 0;
-            } else if (measT != null && targT != null) {
-              const diff = targT - measT; // positive = room colder than target
-              if (diff <= 0) {
-                currentW = 0;           // at or above target — element fully idle
-              } else if (diff < 0.5) {
-                currentW = Math.round(currentW * 0.20); // near setpoint, light cycling
-              } else if (diff < 2.0) {
-                currentW = Math.round(currentW * 0.50); // moderate cycling
-              }
-              // else diff >= 2.0 → keep rated 100% (actively heating)
-            }
-          }
-        }
-        
-        if (!this._powerConsumptionData[devId]) {
-          this._powerConsumptionData[devId] = {
-            deviceId: devId,
-            name: device.name || 'Unknown',
-            class: device.class || '',
-            readings: [],
-            current: currentW,
-            avg: currentW,
-            peak: currentW,
-          };
-          this._writeDebugLog(`NEW DEVICE: "${device.name}" (${device.class}) power=${currentW}W`);
-        }
-        
-        const data = this._powerConsumptionData[devId];
-        data.current = currentW;
-        data.readings.push(currentW);
-        if (data.readings.length > 60) data.readings.shift();
-        
+        data.readings.push(data.current);
+        if (data.readings.length > 30) data.readings.shift();
         if (data.readings.length > 0) {
-          data.avg = Math.round(data.readings.reduce((a, b) => a + b, 0) / data.readings.length);
+          data.avg  = Math.round(data.readings.reduce((a, b) => a + b, 0) / data.readings.length);
           data.peak = Math.max(...data.readings);
         }
       });
-      
-      const afterCount = Object.keys(this._powerConsumptionData).length;
-      if (updateCount > 0 && afterCount > beforeCount) {
-        this._writeDebugLog(`STATUS: Found ${updateCount} devices with measure_power, tracking ${afterCount} total`);
-      }
     } catch (err) {
-      this._writeDebugLog(`ERROR scanning devices: ${err.message}`);
+      this._writeDebugLog(`ERROR in _updatePowerConsumption: ${err.message}`);
     }
   }
 
   getPowerConsumption() {
     // Return ALL devices with measure_power capability, sorted by current power
-    
-    // If we have no devices yet, try to scan now (don't await, just trigger)
-    if (Object.keys(this._powerConsumptionData).length === 0) {
-      this._updatePowerConsumption(0);
-    }
-    
     const tracked = Object.values(this._powerConsumptionData || {});
     
     const msg = `GET request - ${tracked.length} tracked devices`;
@@ -4378,11 +4376,12 @@ class PowerGuardApp extends Homey.App {
 
   async getDebugLog() {
     try {
-      const log = this._powerConsumptionLog.join('\n');
+      const entries = (this._appLog || []).filter(e => e.category === 'energy' || e.category === 'cache');
+      const log = entries.map(e => `[${e.time}] ${e.message}`).join('\n');
       return {
         ok: true,
         log: log || '[No log entries yet]',
-        lines: this._powerConsumptionLog.length,
+        lines: entries.length,
         hasDevices: Object.keys(this._powerConsumptionData).length > 0,
         deviceCount: Object.keys(this._powerConsumptionData).length,
       };
@@ -4504,6 +4503,14 @@ class PowerGuardApp extends Homey.App {
     }
     for (const inst of Object.values(this._evCapabilityInstances || {})) {
       try { inst.destroy(); } catch (_) {}
+    }
+    for (const inst of Object.values(this._powerCapabilityInstances || {})) {
+      try { inst.destroy(); } catch (_) {}
+    }
+    for (const instList of Object.values(this._adaxCapabilityInstances || {})) {
+      for (const inst of (Array.isArray(instList) ? instList : [])) {
+        try { inst.destroy(); } catch (_) {}
+      }
     }
   }
 
