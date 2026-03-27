@@ -72,7 +72,7 @@ const MITIGATION_LOG_MAX = 100;
 // EV charger control defaults
 const CHARGER_DEFAULTS = {
   minCurrent: 6,               // Minimum charging current (Easee supports 6A)
-  startCurrent: 11,            // Current when resuming from pause (ensures reliable start)
+  startCurrent: 6,             // Current when resuming from pause — always start at minimum
   maxCurrent: 32,              // Maximum charging current
   toggleConfirmedMs: 15000,    // Throttle for decreases when confirmed (15s — fast response)
   toggleIncreaseMs: 50000,     // Throttle for increases (50s — ramp completes within 240s cooldown)

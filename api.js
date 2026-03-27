@@ -405,17 +405,46 @@ module.exports = {
       const bilLaderNa     = chargerStatuses.some(c => c.charging);
       const burdeLadeBilen = bilTilkoblet && chargeMode !== null && chargeMode !== 'av';
 
-      // Next cheap hour
+      // Next cheap hour — when deadline mode is active, show first upcoming charging window hour.
+      // When standard mode, show the next globally "billig" level hour.
       let nesteBilligeTime = null;
       if (priceState && Array.isArray(priceState.entries)) {
         const isFlat = priceState.stats && priceState.stats.spread === 0;
         if (isFlat) {
           nesteBilligeTime = 'flat_rate';
         } else {
-          const cheap = priceState.entries.find(e => new Date(e.hour).getTime() > now && e.level === 'billig');
-          if (cheap) {
-            const d = new Date(cheap.hour);
-            nesteBilligeTime = d.getHours().toString().padStart(2, '0') + ':00';
+          const ferdigKl = homey.settings.get('ev_ferdig_ladet_kl');
+          if (ferdigKl && typeof ferdigKl === 'string' && ferdigKl.includes(':') && chargeMode === 'av') {
+            // Deadline mode active — find the first future entry that would be in cheapest window.
+            // Reconstruct deadline window and cheapest-N selection to match app.js logic.
+            const [dhh, dmm] = ferdigKl.split(':').map(Number);
+            const deadline = new Date(now);
+            deadline.setHours(dhh, dmm || 0, 0, 0);
+            if (deadline.getTime() <= now) deadline.setDate(deadline.getDate() + 1);
+            const hoursNeededRaw = typeof homey.settings.get('ev_ladebehov_timer') === 'number' && homey.settings.get('ev_ladebehov_timer') > 0
+              ? homey.settings.get('ev_ladebehov_timer') : null;
+            const windowEntries = priceState.entries
+              .filter(e => { const t = new Date(e.hour).getTime(); return t > now && t < deadline.getTime(); })
+              .map(e => ({ ...e, ts: new Date(e.hour).getTime(), ore: e.ore }));
+            const effectiveN = hoursNeededRaw !== null ? Math.ceil(hoursNeededRaw) : windowEntries.length;
+            if (windowEntries.length > 0) {
+              const selectedTs = new Set(
+                [...windowEntries].sort((a, b) => a.ore - b.ore).slice(0, effectiveN).map(e => e.ts)
+              );
+              const next = windowEntries.find(e => selectedTs.has(e.ts));
+              if (next) {
+                const d = new Date(next.hour);
+                nesteBilligeTime = d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' });
+              }
+            }
+          }
+          if (!nesteBilligeTime) {
+            // Standard mode — next globally cheap hour
+            const cheap = priceState.entries.find(e => new Date(e.hour).getTime() > now && e.level === 'billig');
+            if (cheap) {
+              const d = new Date(cheap.hour);
+              nesteBilligeTime = d.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' });
+            }
           }
         }
       }

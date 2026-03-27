@@ -227,11 +227,13 @@
     <!-- Tab bar -->
     <div class="tab-bar">
       <button class="tab-btn active" id="tb-overview" onclick="showTab('overview')"><span class="tab-icon">🏠</span><span class="tab-label" data-i18n="tabHome">Home</span></button>
-      <button class="tab-btn"        id="tb-devices"  onclick="showTab('devices')"><span class="tab-icon">📱</span><span class="tab-label" data-i18n="tabDevices">Devices</span></button>
+
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label" data-i18n="tabPower">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label" data-i18n="tabHeaters">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label" data-i18n="tabLog">Log</span></button>
-      <button class="tab-btn"        id="tb-smart"       onclick="showTab('smart')"><span class="tab-icon">🔌</span><span class="tab-label" data-i18n="tabSmart">EV</span></button>
+      <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Pris</span></button>
+      <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🏠</span><span class="tab-label">Modus</span></button>
+      <button class="tab-btn"        id="tb-ev"          onclick="showTab('ev')"><span class="tab-icon">🔌</span><span class="tab-label">Lader</span></button>
     </div>
 
     <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
@@ -241,7 +243,7 @@
       <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
         <button id="otb-overview"  onclick="showOverviewSubTab('overview')"  class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subOverview">🏠 Overview</button>
         <button id="otb-settings"  onclick="showOverviewSubTab('settings')"  class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subSettings">⚙️ Settings</button>
-        <button id="otb-system"    onclick="showOverviewSubTab('system')"    class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subSystem">📊 System</button>
+        <button id="otb-devices"   onclick="showOverviewSubTab('devices')"   class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="tabDevices">📱 Enheter</button>
         <button id="otb-help"      onclick="showOverviewSubTab('help')"      class="tab-btn"        style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="subHelp">❓ Help</button>
       </div>
 
@@ -428,15 +430,41 @@
 
       </div><!-- /#overview-panel-settings -->
 
-      <!-- ── System panel ── -->
-      <div id="overview-panel-system" style="display:none">
+      <!-- ── Devices panel ── -->
+      <div id="overview-panel-devices" style="display:none">
 
       <div class="card">
-        <h2 data-i18n="hanDiagnostics">HAN Meter Diagnostics</h2>
-        <div id="st-han-suspended" style="display:none;font-size:12px;color:#ff9500;margin-bottom:8px;font-weight:600;"></div>
-        <div id="han-diag-content" style="font-size:12px;">
-          <span style="color:var(--text-muted)" data-i18n="loading">Loading...</span>
+        <div id="cache-status" style="font-size:12px; color:var(--text-muted); margin-bottom:12px; padding: 8px; background:var(--bg-surface); border-radius:8px;">
+          <span id="cache-loading" style="color:var(--text-muted)">⏳ Loading devices...</span>
+          <span id="cache-status-text" style="display:none; color:#34c759">✓</span>
+          <span id="cache-refresh-btn" style="display:none; margin-left:12px;">
+            <button class="btn-small btn-secondary" onclick="refreshDeviceCache()" style="padding:4px 10px; font-size:11px;" data-i18n="refresh">Refresh</button>
+          </span>
         </div>
+
+        <h2 data-i18n="devicePriority">Device priority</h2>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;line-height:1.5" data-i18n-html="devicePriorityDesc">
+          Toggle a device <b>on</b> to let Power Guard control it. Use the <b>↑↓ arrows</b> to set the order —
+          devices higher in the list are turned off first.
+        </p>
+        <details style="margin-bottom:10px;">
+          <summary style="font-size:12px;color:var(--text-link,#007aff);cursor:pointer;padding:4px 0;" data-i18n="priorityHelpToggle">How does priority order work?</summary>
+          <div style="background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:6px;" data-i18n-html="helpEvPriorityOrder">
+            <b>Priority list order — how to prioritise EV charging:</b><br>
+            Devices at the <b>top</b> of the priority list are shed <b>first</b> when power exceeds the limit. Devices at the <b>bottom</b> are shed last. To prioritise your car charging, move EV chargers to the <b>bottom</b> of the list — this way heaters and water heaters are reduced before the charger is touched.<br><br>
+            <b>Example priority list (chargers prioritised):</b>
+            <table style="width:100%;margin-top:6px;font-size:11px;border-collapse:collapse;">
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">1</td><td style="padding:3px 6px;">🔥 Water heater</td><td style="padding:3px 6px;color:#ff3b30;font-style:italic;">← shed first</td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">2</td><td style="padding:3px 6px;">🌡️ Floor heating — Bathroom</td><td></td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">3</td><td style="padding:3px 6px;">🌡️ Floor heating — Hallway</td><td></td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">4</td><td style="padding:3px 6px;">🌡️ Panel heater — Living room</td><td></td></tr>
+              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">5</td><td style="padding:3px 6px;">🌡️ Panel heater — Bedroom</td><td></td></tr>
+              <tr><td style="padding:3px 6px;color:var(--text-muted);">6</td><td style="padding:3px 6px;">🔌 EV Charger</td><td style="padding:3px 6px;color:#34c759;font-style:italic;">← shed last</td></tr>
+            </table>
+            <div style="margin-top:6px;font-size:11px;">If you want heaters to stay on and the charger to be reduced first, move the charger to the <b>top</b> instead.</div>
+          </div>
+        </details>
+        <div id="devices-list"></div>
       </div>
 
       <div class="card" id="managed-chargers-card">
@@ -461,7 +489,7 @@
         </details>
       </div>
 
-      </div><!-- /#overview-panel-system -->
+      </div><!-- /#overview-panel-devices -->
 
       <!-- ── Help panel ── -->
       <div id="overview-panel-help" style="display:none">
@@ -675,52 +703,14 @@
         </div>
       </div>
 
-      <!-- Mitigation Scan Results -->
-      <div class="card">
-        <h2 data-i18n="lastMitigationScanTitle">Last Mitigation Scan</h2>
-        <div id="log-mitigation-scan" style="font-size:12px;">
-          <span style="color:var(--text-muted)" data-i18n="loading">Loading...</span>
-        </div>
-        <div style="margin-top:8px;">
-          <button class="btn-secondary" onclick="copyAppLog('mitigation-scan')" style="font-size:11px; padding:4px 10px;" data-i18n="copyMitigationScanJSON">Copy Mitigation Scan JSON</button>
-        </div>
-      </div>
-
-      <!-- System Info -->
-      <div class="card">
-        <h2 data-i18n="systemInfo">System Info</h2>
-        <div id="log-system-info" style="font-size:12px;">
-          <span style="color:var(--text-muted)" data-i18n="loading">Loading...</span>
-        </div>
-        <div style="margin-top:8px;">
-          <button class="btn-secondary" onclick="copyAppLog('system-info')" style="font-size:11px; padding:4px 10px;" data-i18n="copySystemInfoJSON">Copy System Info JSON</button>
-        </div>
-      </div>
-
-      <!-- Device Firmware Info -->
-      <div class="card">
-        <h2 data-i18n="deviceFirmwareInfo">Device Firmware Info</h2>
-        <p style="font-size:12px; color:var(--text-muted); margin:0 0 10px 0;" data-i18n="deviceFirmwareInfoDesc">Search devices by name or driver to read their firmware version from Homey.</p>
-        <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center;">
-          <input type="text" id="firmware-search" placeholder="e.g. namron, dimmer…" data-i18n="firmwarePlaceholder" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid var(--border-color); border-radius:6px; background:var(--bg-surface); color:var(--text-primary);" onkeydown="if(event.key==='Enter') loadFirmwareInfo()">
-          <button class="btn-secondary" onclick="loadFirmwareInfo()" style="font-size:12px; padding:6px 14px;" data-i18n="search">Search</button>
-        </div>
-        <div id="firmware-results" style="font-size:12px; color:var(--text-muted);" data-i18n="firmwareInitialText">Enter a search term above and click Search.</div>
-      </div>
 
     </div><!-- /#tab-log -->
 
     <!-- ── Smart tab ────────────────────────────────────────────── -->
-    <div id="tab-smart" style="display:none">
+    <!-- Price tab -->
+    <div id="tab-price" style="display:none">
 
-      <!-- Smart sub-tab bar -->
-      <div style="display:flex;gap:6px;margin-bottom:10px;padding:0 2px;">
-        <button id="stb-price" onclick="showSmartSubTab('price')" class="tab-btn active" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartPriceTab">💰 Price</button>
-        <button id="stb-modes" onclick="showSmartSubTab('modes')" class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartModesTab">🏠 Modes</button>
-        <button id="stb-ev"    onclick="showSmartSubTab('ev')"    class="tab-btn" style="font-size:13px;padding:6px 16px;flex:1;" data-i18n="smartEvTab">� Charger</button>
-      </div>
-
-      <!-- ── Price panel ── -->
+            <!-- ── Price panel ── -->
       <div id="smart-panel-price">
 
       <!-- Status card -->
@@ -747,7 +737,7 @@
           </div>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;font-weight:500" data-i18n="priceTimeline">18-HOUR PRICE TIMELINE</div>
-        <div id="price-chart" style="display:flex;align-items:flex-end;gap:2px;height:70px;background:var(--bg-surface);border-radius:8px;padding:6px 6px 0 6px;overflow-x:auto"></div>
+        <div id="price-chart" style="display:flex;align-items:flex-end;gap:2px;height:70px;background:var(--bg-surface);border-radius:8px;padding:6px 6px 0 6px;overflow-x:hidden"></div>
         <div id="price-chart-labels" style="display:flex;gap:2px;padding:0 6px;margin-top:2px;overflow-x:hidden;"></div>
         <div id="price-chart-legend" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;font-size:10px;color:var(--text-muted)">
           <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#34c759;margin-right:3px"></span><span data-i18n="priceCheap">Cheap</span></span>
@@ -823,9 +813,11 @@
       </div>
 
       </div><!-- /#smart-panel-price -->
+    </div><!-- /#tab-price -->
 
-      <!-- ── Modes panel ── -->
-      <div id="smart-panel-modes" style="display:none">
+    <!-- Modes tab -->
+    <div id="tab-modes" style="display:none">
+      <div id="smart-panel-modes">
 
       <!-- Night schedule -->
       <div class="card" style="padding:10px 14px;">
@@ -873,9 +865,11 @@
       </div>
 
       </div><!-- /#smart-panel-modes -->
+    </div><!-- /#tab-modes -->
 
-      <!-- ── EV Charger panel ── -->
-      <div id="smart-panel-ev" style="display:none">
+    <!-- EV Charger tab -->
+    <div id="tab-ev" style="display:none">
+      <div id="smart-panel-ev">
 
       <!-- Smart Charging Status card -->
       <div class="card" style="padding:10px 14px;">
@@ -967,47 +961,10 @@
       <div id="managed-chargers-smart-slot"></div>
 
       </div><!-- /#smart-panel-ev -->
-
-    </div><!-- /#tab-smart -->
+    </div><!-- /#tab-ev -->
 
     <!-- ── Devices tab ───────────────────────────────────────────────────── -->
-    <div id="tab-devices" style="display:none">
 
-      <div class="card">
-        <div id="cache-status" style="font-size:12px; color:var(--text-muted); margin-bottom:12px; padding: 8px; background:var(--bg-surface); border-radius:8px;">
-          <span id="cache-loading" style="color:var(--text-muted)">⏳ Loading devices...</span>
-          <span id="cache-status-text" style="display:none; color:#34c759">✓</span>
-          <span id="cache-refresh-btn" style="display:none; margin-left:12px;">
-            <button class="btn-small btn-secondary" onclick="refreshDeviceCache()" style="padding:4px 10px; font-size:11px;" data-i18n="refresh">Refresh</button>
-          </span>
-        </div>
-
-        <h2 data-i18n="devicePriority">Device priority</h2>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:4px;line-height:1.5" data-i18n-html="devicePriorityDesc">
-          Toggle a device <b>on</b> to let Power Guard control it. Use the <b>↑↓ arrows</b> to set the order —
-          devices higher in the list are turned off first.
-        </p>
-        <details style="margin-bottom:10px;">
-          <summary style="font-size:12px;color:var(--text-link,#007aff);cursor:pointer;padding:4px 0;" data-i18n="priorityHelpToggle">How does priority order work?</summary>
-          <div style="background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;margin-top:6px;" data-i18n-html="helpEvPriorityOrder">
-            <b>Priority list order — how to prioritise EV charging:</b><br>
-            Devices at the <b>top</b> of the priority list are shed <b>first</b> when power exceeds the limit. Devices at the <b>bottom</b> are shed last. To prioritise your car charging, move EV chargers to the <b>bottom</b> of the list — this way heaters and water heaters are reduced before the charger is touched.<br><br>
-            <b>Example priority list (chargers prioritised):</b>
-            <table style="width:100%;margin-top:6px;font-size:11px;border-collapse:collapse;">
-              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">1</td><td style="padding:3px 6px;">🔥 Water heater</td><td style="padding:3px 6px;color:#ff3b30;font-style:italic;">← shed first</td></tr>
-              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">2</td><td style="padding:3px 6px;">🌡️ Floor heating — Bathroom</td><td></td></tr>
-              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">3</td><td style="padding:3px 6px;">🌡️ Floor heating — Hallway</td><td></td></tr>
-              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">4</td><td style="padding:3px 6px;">🌡️ Panel heater — Living room</td><td></td></tr>
-              <tr style="border-bottom:1px solid var(--border-light);"><td style="padding:3px 6px;color:var(--text-muted);">5</td><td style="padding:3px 6px;">🌡️ Panel heater — Bedroom</td><td></td></tr>
-              <tr><td style="padding:3px 6px;color:var(--text-muted);">6</td><td style="padding:3px 6px;">🔌 EV Charger</td><td style="padding:3px 6px;color:#34c759;font-style:italic;">← shed last</td></tr>
-            </table>
-            <div style="margin-top:6px;font-size:11px;">If you want heaters to stay on and the charger to be reduced first, move the charger to the <b>top</b> instead.</div>
-          </div>
-        </details>
-        <div id="devices-list"></div>
-      </div>
-
-    </div><!-- /#tab-devices -->
 
   </div><!-- /#main-content -->
 </div>
@@ -1845,29 +1802,20 @@
   }
 
   function showOverviewSubTab(name) {
-    ['overview','settings','system','help'].forEach(function(n) {
+    ['overview','settings','devices','help'].forEach(function(n) {
       document.getElementById('overview-panel-' + n).style.display = n === name ? 'block' : 'none';
       var btn = document.getElementById('otb-' + n);
-      btn.classList[n === name ? 'add' : 'remove']('active');
+      if (btn) btn.classList[n === name ? 'add' : 'remove']('active');
     });
     if (name === 'overview') { loadAll(); loadPriceData(); loadModesSettings(); }
     else if (name === 'settings') { loadAll(); }
-    else if (name === 'system') { loadAll(); }
+    else if (name === 'devices') { loadAll(); renderAllDevices(); }
   }
 
-  function showSmartSubTab(name) {
-    ['price','modes','ev'].forEach(function(n) {
-      document.getElementById('smart-panel-' + n).style.display = n === name ? 'block' : 'none';
-      var btn = document.getElementById('stb-' + n);
-      btn.classList[n === name ? 'add' : 'remove']('active');
-    });
-    if (name === 'price') { loadPriceData(); }
-    else if (name === 'modes') { if (_modesData) showModeSubTab(_modesSubTab); loadModesSettings(); }
-    else if (name === 'ev') { loadEvDevices(); loadEvChargingStatus(); }
-  }
+  function showSmartSubTab(name) { showTab(name); }
 
   function showTab(name) {
-    ['overview','devices','consumption','floorheater','log','smart'].forEach(function(t) {
+    ['overview','consumption','floorheater','log','price','modes','ev'].forEach(function(t) {
       document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
       document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
     });
@@ -1891,9 +1839,13 @@
       loadFloorHeaters();
     } else if (name === 'log') {
       loadAppLog();
-    } else if (name === 'smart') {
-      showSmartSubTab('price');
+    } else if (name === 'price') {
+      loadPriceData();
       triggerPriceRefresh();
+    } else if (name === 'modes') {
+      if (_modesData) showModeSubTab(_modesSubTab); loadModesSettings();
+    } else if (name === 'ev') {
+      loadEvDevices(); loadEvChargingStatus();
     } else if (name === 'overview') {
       showOverviewSubTab('overview');
     } else {
@@ -4246,9 +4198,8 @@
         // Auto-refresh every 60s while Smart/Price panel is visible
         if (!_priceAutoRefresh) {
           _priceAutoRefresh = setInterval(function() {
-            var tab   = document.getElementById('tab-smart');
-            var panel = document.getElementById('smart-panel-price');
-            if (tab && tab.style.display !== 'none' && panel && panel.style.display !== 'none') loadPriceData();
+            var tab = document.getElementById('tab-price');
+            if (tab && tab.style.display !== 'none') loadPriceData();
           }, 60000);
         }
       })
@@ -4348,11 +4299,11 @@
         var hLabel = new Date(e.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' });
         var hShort = new Date(e.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', timeZone: 'Europe/Oslo' });
         bars += '<div title="' + hLabel + ': ' + e.ore + ' øre (' + e.level + ')" ' +
-          'style="flex:1;min-width:14px;height:' + barH + 'px;background:' + col + ';border-radius:3px 3px 0 0;' +
+          'style="flex:1;min-width:0;height:' + barH + 'px;background:' + col + ';border-radius:3px 3px 0 0;' +
           'opacity:' + (isCurrent ? '1' : '0.6') + ';' +
           'outline:' + (isCurrent ? '2px solid var(--text-primary)' : 'none') + ';' +
           'cursor:default"></div>';
-        labels += '<div style="flex:1;min-width:14px;text-align:center;font-size:9px;' +
+        labels += '<div style="flex:1;min-width:0;text-align:center;font-size:9px;' +
           'color:' + (isCurrent ? 'var(--text-primary)' : 'var(--text-muted)') + ';' +
           'font-weight:' + (isCurrent ? '700' : '400') + ';overflow:hidden;">' + hShort + '</div>';
       });
@@ -4398,16 +4349,16 @@
   function _updateHeaterTabVisibility(priceEnabled) {
     var heaterBtn        = document.getElementById('tb-floorheater');
     var powerBtn         = document.getElementById('tb-consumption');
-    var smartBtn         = document.getElementById('tb-smart');
+    var smartBtns        = ['tb-price','tb-modes','tb-ev'].map(function(id){ return document.getElementById(id); });
     var modeCard         = document.getElementById('active-mode-card');
     var managedChargers  = document.getElementById('managed-chargers-card');
     var smartSlot        = document.getElementById('managed-chargers-smart-slot');
-    var systemPanel      = document.getElementById('overview-panel-system');
+    var systemPanel      = document.getElementById('overview-panel-devices');
 
     if (priceEnabled) {
       if (heaterBtn)  heaterBtn.style.display  = 'none';
       if (powerBtn)   powerBtn.style.display   = 'none';
-      if (smartBtn)   smartBtn.style.display   = '';
+      smartBtns.forEach(function(b){ if(b) b.style.display=''; });
       if (modeCard)   modeCard.style.display   = '';
       // Move Managed Chargers card into Smart → EV panel
       if (managedChargers && smartSlot && !smartSlot.contains(managedChargers)) {
@@ -4422,17 +4373,18 @@
     } else {
       if (heaterBtn)  heaterBtn.style.display  = '';
       if (powerBtn)   powerBtn.style.display   = '';
-      if (smartBtn)   smartBtn.style.display   = 'none';
+      smartBtns.forEach(function(b){ if(b) b.style.display='none'; });
       if (modeCard)   modeCard.style.display   = 'none';
       // Move Managed Chargers card back into System panel (before save-row)
       if (managedChargers && systemPanel && !systemPanel.contains(managedChargers)) {
         var saveRow = systemPanel.querySelector('.save-row');
         systemPanel.insertBefore(managedChargers, saveRow || null);
       }
-      // If user is currently on Smart tab, redirect to Overview
-      if (document.getElementById('tab-smart').style.display !== 'none') {
-        showTab('overview');
-      }
+// If user is currently on a Price/Modes/EV tab, redirect to Overview
+      var onSmartTab = ['tab-price','tab-modes','tab-ev'].some(function(id){
+        var el = document.getElementById(id); return el && el.style.display !== 'none';
+      });
+      if (onSmartTab) { showTab('overview'); }
     }
   }
 
