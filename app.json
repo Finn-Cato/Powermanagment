@@ -9,8 +9,8 @@
     "no": "Power Guard"
   },
   "description": {
-    "en": "Keep your home within its power limit — automatically",
-    "no": "Hold hjemmet innenfor effektgrensen — automatisk"
+    "en": "Protect your home from power spikes — controls EV chargers, heaters and more to keep you within your grid limit and reduce your capacity tariff.",
+    "no": "Beskytt hjemmet mot effekttopper — styrer elbilladere, varmere og mer for å holde deg innenfor nettgrensen og redusere effekttariffen."
   },
   "category": [
     "energy"
@@ -23,7 +23,13 @@
       "HAN",
       "frient",
       "EV",
-      "charger"
+      "charger",
+      "capacity tariff",
+      "load balancing",
+      "peak shaving",
+      "easee",
+      "zaptec",
+      "spot price"
     ],
     "no": [
       "strøm",
@@ -32,7 +38,13 @@
       "HAN",
       "frient",
       "elbil",
-      "lader"
+      "lader",
+      "effekttariff",
+      "lastbalansering",
+      "toppavskjæring",
+      "easee",
+      "zaptec",
+      "spotpris"
     ]
   },
   "images": {
