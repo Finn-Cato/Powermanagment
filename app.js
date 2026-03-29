@@ -2651,7 +2651,7 @@ class PowerGuardApp extends Homey.App {
    */
   _checkChargerConfirmation(deviceId) {
     const state = this._chargerState[deviceId];
-    if (!state || state.confirmed || state.timedOut) return;  // Already resolved or no pending command
+    if (!state || state.confirmed || state.timedOut || state.lastCommandA == null) return;  // Already resolved or no pending command
 
     const evData = this._evPowerData[deviceId];
     if (!evData || evData.offeredCurrent == null) return;
