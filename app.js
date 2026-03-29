@@ -1365,7 +1365,7 @@ class PowerGuardApp extends Homey.App {
       tierMaxKW: tier.maxKW === Infinity ? null : tier.maxKW,
       top3: top3.map(p => ({ date: p.date, kw: Math.round(p.kw * 1000) / 1000 })),
       dailyPeakCount: allPeaks.length,
-      allPeaks: allPeaks.slice(0, 10),  // Top 10 for display
+      allPeaks: allPeaks,  // All days for calendar display
       currentHourKWh: Math.round(currentHourKWh * 1000) / 1000,
       projectedKWh:   Math.round(projectedKWh * 1000) / 1000,
       todayPeakKW:    Math.round(todayPeak * 1000) / 1000,
