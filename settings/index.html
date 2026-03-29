@@ -331,7 +331,7 @@
         <div class="row" style="margin-bottom:8px;">
           <div class="label-group"><label style="font-size:16px;font-weight:600;" data-i18n="smartPriceTitle">Smart Price Control</label></div>
           <div class="control">
-            <label class="toggle"><input type="checkbox" id="ps-enabled" onchange="priceSaveSettings()"><span class="slider"></span></label>
+            <label class="toggle"><input type="checkbox" id="ps-enabled" onchange="if(this.checked) showSmartModal(); priceSaveSettings()"><span class="slider"></span></label>
           </div>
         </div>
         <div style="font-size:12px;color:var(--text-muted);line-height:1.5;" data-i18n="smartPriceDescription">Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity — charging fast when power is cheap, slowing down when it's expensive. Power Guard's hard safety limit always takes priority.</div>
@@ -4581,7 +4581,6 @@
   function priceSaveSettings() {
     var enabled    = document.getElementById('ps-enabled').checked;
     _updateHeaterTabVisibility(enabled);
-    if (enabled) showSmartModal();
     var area       = document.getElementById('ps-priceArea').value;
     var disc       = Number(document.getElementById('ps-nightDiscountOre').value) || 0;
     var capLav     = Number(document.getElementById('ps-capLav').value) / 100;
