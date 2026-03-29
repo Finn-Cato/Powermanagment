@@ -66,8 +66,12 @@ class PowerGuardApp extends Homey.App {
     try {
       const saved = this.homey.settings.get('_mitigatedDevices');
       if (Array.isArray(saved) && saved.length > 0) {
+        // Keep evProactive shed entries alive across restart — they will be restored
+        // by _proactiveEVLoadShed once it confirms the charger session is truly over.
+        // Non-proactive entries (normal mitigation) are kept as-is for _triggerRestore.
         this._mitigatedDevices = saved;
-        this.log(`Restored ${saved.length} mitigated device(s) from previous session`);
+        const proactiveCount = saved.filter(m => m.evProactive).length;
+        this.log(`Restored ${saved.length} mitigated device(s) from previous session (${proactiveCount} EV-proactive — won't auto-restore until charger session ends)`);
       }
     } catch (_) {}
     this._api = null;
@@ -2496,6 +2500,19 @@ class PowerGuardApp extends Homey.App {
         // Derive connected state using whitelist approach
         this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
 
+        // If the charger is already actively charging when the app starts, seed an immunity
+        // window so the first HAN reading (which may not yet reflect the charger's current
+        // draw) doesn't immediately trigger a pause before Power Guard can take control.
+        const initialPowerW  = this._evPowerData[entry.deviceId].powerW;
+        const initialOffered = this._evPowerData[entry.deviceId].offeredCurrent || 0;
+        const initialCharging = ['charging', 'CHARGING', 3].includes(this._evPowerData[entry.deviceId].chargerStatus);
+        if (initialCharging || initialPowerW > 200 || initialOffered > 0) {
+          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+          this._chargerState[entry.deviceId].resumeImmunityUntil = Date.now() + 120000;
+          this.log(`[EV] Startup immunity: ${entry.name} is already charging — 120s immunity window set`);
+          this._appLogEntry('charger', `${entry.name}: startup immunity 120s (al lader ved oppstart)`);
+        }
+
         // Listen to measure_power changes
         if (caps.includes('measure_power')) {
           const pwrInst = device.makeCapabilityInstance('measure_power', (value) => {
@@ -2873,6 +2890,15 @@ class PowerGuardApp extends Homey.App {
 
     const proactivelyShed = this._mitigatedDevices.filter(m => m.evProactive);
 
+    // Guard: don't restore evProactive entries before _connectToEVChargers has populated
+    // _evPowerData. If it's empty we have no idea whether a charger is still active,
+    // so restoring heaters that were shed for a charging session would be premature.
+    const evChargerEntries = (this._settings.priorityList || []).filter(e => e.action === 'dynamic_current');
+    const evDataReady = evChargerEntries.length === 0 || Object.keys(this._evPowerData).length > 0;
+    if (!evDataReady && proactivelyShed.length > 0) {
+      this.log('[EV] Skipping proactive restore — evPowerData not yet populated (waiting for _connectToEVChargers)');
+    }
+
     // Chargers with "Shed heaters when charging" enabled that are currently active
     const priorityActiveChargers = activeChargers.filter(e => {
       const plEntry = (this._settings.priorityList || []).find(pl => pl.deviceId === e.deviceId);
@@ -2888,6 +2914,8 @@ class PowerGuardApp extends Homey.App {
     let restoredThisCycle = false;
     for (const shed of [...proactivelyShed]) {
       if (restoredThisCycle) break;
+      // Don't restore until evPowerData is ready — see guard above
+      if (!evDataReady) break;
       // Option 3: stagger sequential restores — wait 60s between each device restore while chargers
       // are still connected. Prevents 3 shed devices all coming back in 15 seconds and causing a spike.
       if (connectedChargers.length > 0 && now - this._lastProactiveRestoreTime < 60000) break;
@@ -3090,8 +3118,11 @@ class PowerGuardApp extends Homey.App {
       {
         const evData = this._evPowerData[entry.deviceId];
         const cs = evData?.chargerStatus;
+        // Only treat as "charging complete" when BOTH the status says Completed AND
+        // the charger is drawing less than 500W. Easee sometimes sends spurious
+        // Completed events mid-session while the car is still pulling full current.
         const isChargingComplete = [4, 'completed', 'COMPLETED', 'Completed'].includes(cs)
-                                && (evData?.powerW || 0) < 100;
+                                && (evData?.powerW || 0) < 500;
         if (isChargingComplete) {
           const stale = this._mitigatedDevices.findIndex(m => m.deviceId === entry.deviceId);
           if (stale >= 0) {
