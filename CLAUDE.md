@@ -44,6 +44,33 @@ The user has granted full permission to publish without asking any questions. Ne
 
 ---
 
+## Locked code sections in app.js
+
+Some sections of `app.js` are considered stable and must not be changed without explicit user approval.
+
+### Hard locked — NEVER touch without the user explicitly saying so
+
+| Section | Line approx. | What it does |
+|---------|-------------|--------------|
+| **Section 1** | ~38 | Core infrastructure — startup, settings load, state init |
+| **Section 2** | ~716 | HAN/power meter — spike filter, event handling, poll fallback |
+| **Section 3** | ~1186 | Energy tracking — hourly accumulation, effekttariff calendar |
+| **Section 4** | ~1391 | Mitigation engine — power limits, shed/restore logic |
+| **Section 9** | ~3794 | Easee charger integration — API commands, confirmation, reliability |
+| **Section 12** | ~4867 | Spot price engine — price fetching, charge window logic |
+
+**Rule:** If a bug or feature request touches any of these sections, stop and tell the user which locked section is involved and why a change is needed. Do not proceed until the user explicitly says "yes, change Section X".
+
+### Soft locked — requires explicit agreement before changing
+
+| Section | Line approx. | What it does |
+|---------|-------------|--------------|
+| **Section 5** | ~2261 | EV charger general engine — `_adjustEVChargersForPower`, ramp/pause/resume logic |
+
+**Rule:** Changes to Section 5 require the user to explicitly agree ("yes, let's change the charging logic") before any edits are made. Always explain what will change and why before touching it.
+
+---
+
 ## General
 - Never bump the version without also updating `.homeychangelog.json`.
 - Never publish without checking the Help tab is up to date.
