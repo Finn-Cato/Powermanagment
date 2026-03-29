@@ -591,38 +591,28 @@ class PowerGuardApp extends Homey.App {
     const margin = 1 - ((this._settings.errorMarginPercent || 0) / 100);
     const base = this._settings.powerLimitW * factor * margin;
 
-    // Hard brake: only after a clean hour rollover (never on mid-hour app start)
-    if (this._hourlyEnergy.hourStartKnown) {
-      const accumulatedWh = (this._hourlyEnergy && this._hourlyEnergy.accumulatedWh) || 0;
-      const budgetWh = base; // base W × 1h = base Wh
-      // When budget is already spent, force limit to 0 regardless of dynamicHourlyBudget setting.
-      // This ensures maximum mitigation even if the toggle is off.
-      if (accumulatedWh >= budgetWh) return 0;
-    }
-
     if (!this._settings.dynamicHourlyBudget) return base;
 
-    // Only activate dynamic mode after a clean hour rollover
+    // Only activate after a clean hour rollover — never on mid-hour app start
     if (!this._hourlyEnergy.hourStartKnown) return base;
 
     // Dynamic: use remaining hourly budget to compute effective limit
     const msIntoHour = Date.now() % 3600000;
     const fractionRemaining = 1 - (msIntoHour / 3600000);
     const accumulatedWh = (this._hourlyEnergy && this._hourlyEnergy.accumulatedWh) || 0;
-    const budgetWh = base;
-    const remainingWh = budgetWh - accumulatedWh; // guaranteed > 0 due to hard-brake above
+    const budgetWh = base; // base W × 1h = base Wh (10kW limit = 10kWh budget/hour)
+    const remainingWh = budgetWh - accumulatedWh;
 
     // Avoid divide-by-zero near end of hour (< ~1 min left)
     if (fractionRemaining < 0.02) return base;
 
     const dynamicLimit = remainingWh / fractionRemaining;
 
-    // Safety caps: never above physical circuit max or 2× base.
-    // No lower floor — budget math takes precedence. If dynamicLimit is very low,
-    // that's the correct signal to mitigate aggressively.
+    // Safety caps: never below 50% of base, never above physical circuit max or 2× base
     const phases = this._detectSystemPhases ? this._detectSystemPhases() : 1;
-    const physicalMax = (this._settings.mainCircuitA || 25) * 230 * phases;
-    return Math.min(Math.max(dynamicLimit, 0), physicalMax, base * 2);
+    const voltage = (phases > 1) ? 400 : 230;
+    const physicalMax = (this._settings.mainCircuitA || 25) * voltage * phases;
+    return Math.min(Math.max(dynamicLimit, base * 0.5), physicalMax, base * 2);
   }
 
   /**
@@ -2893,8 +2883,12 @@ class PowerGuardApp extends Homey.App {
     // Guard: don't restore evProactive entries before _connectToEVChargers has populated
     // _evPowerData. If it's empty we have no idea whether a charger is still active,
     // so restoring heaters that were shed for a charging session would be premature.
+    // Safety valve: after 3 minutes give up waiting — something went wrong with connect.
     const evChargerEntries = (this._settings.priorityList || []).filter(e => e.action === 'dynamic_current');
-    const evDataReady = evChargerEntries.length === 0 || Object.keys(this._evPowerData).length > 0;
+    const evConnectAge = Date.now() - (this._appStartTime || 0);
+    const evDataReady = evChargerEntries.length === 0
+      || Object.keys(this._evPowerData).length > 0
+      || evConnectAge > 180000; // 3 min timeout — don't block restore forever
     if (!evDataReady && proactivelyShed.length > 0) {
       this.log('[EV] Skipping proactive restore — evPowerData not yet populated (waiting for _connectToEVChargers)');
     }
@@ -3160,9 +3154,7 @@ class PowerGuardApp extends Homey.App {
       let targetCurrent;
       // Resume immunity: after turning ON, the Easee charger briefly spikes to full hardware
       // power (16A) before it enforces the dynamic limit we set. This spike can be 4000–10000W
-      // over our soft limit — we must NEVER pause during this window, even on "hard emergency".
-      // hardEmergency is kept only for the step-down logic (step 1A vs pause immediately).
-      const hardEmergency = totalOverload > 2000;
+      // over our soft limit — we must NEVER pause during this window.
       const resumeImmune = !!(cState.resumeImmunityUntil && now < cState.resumeImmunityUntil);
 
       // Step-down cooldown: after stepping down, wait before stepping down again
@@ -3183,13 +3175,11 @@ class PowerGuardApp extends Homey.App {
         targetCurrent = currentTargetA;
         this.log(`[EV] Resume immunity: ${entry.name} — holding ${currentTargetA}A (${Math.round((cState.resumeImmunityUntil - now) / 1000)}s left, overload=${Math.round(totalOverload)}W)`);
       } else if (overLimit) {
-        // Total power over limit.
-        // Hard emergency (>2000W over): pause immediately — no point stepping 1A at a time.
-        // Normal overload: step down 1A, or pause if already at minimum.
+        // Total power over limit — step down 1A, or pause if already at minimum.
         if (isPaused) {
           targetCurrent = null;
-        } else if (hardEmergency || currentTargetA <= CHARGER_DEFAULTS.minCurrent) {
-          targetCurrent = null; // pause immediately
+        } else if (currentTargetA <= CHARGER_DEFAULTS.minCurrent) {
+          targetCurrent = null; // at minimum, must pause
         } else if (stepDownReady) {
           targetCurrent = currentTargetA - 1;
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
@@ -3198,17 +3188,14 @@ class PowerGuardApp extends Homey.App {
           targetCurrent = currentTargetA; // step-down cooldown active, hold
         }
       } else if (isPaused) {
-        // Resume from pause only when there's enough headroom to absorb the charger's
-        // minimum draw — prevents the resume→over-limit→immediate-pause oscillation.
+        // Resume from pause when enough headroom — always start at 6A
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
-        const phases = evDataNow?.detectedPhases || entry.chargerPhases || 3;
-        const minResumeW = (CHARGER_DEFAULTS.minCurrent * phases * 230) + HEADROOM_TO_RAMP;
-        if (headroomW >= minResumeW && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
+        if (headroomW >= HEADROOM_TO_RAMP && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._lastAnyChargerRampUpTime = now;
-          this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(headroomW)}W headroom, ${phases}φ, need ${Math.round(minResumeW)}W)`);
+          this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(headroomW)}W headroom)`);
           this._appLogEntry('charger', `${entry.name}: starter lading → ${targetCurrent}A (${Math.round(headroomW)}W ledig)`);
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
@@ -3234,15 +3221,8 @@ class PowerGuardApp extends Homey.App {
 
       const isIncrease = targetCurrent !== null && (isPaused ? targetCurrent > 0 : targetCurrent > currentTargetA);
 
-      // Skip if nothing changed — but always retry pause when the charger is still
-      // physically drawing power and we need it off (price wants off OR over power limit).
-      // Also bypass skip entirely on hard emergency (>2000W over) — we must stop the
-      // charger regardless of whether evData has been seeded yet since app restart.
-      const priceWantsOff = priceCap <= 0;
-      const chargerStillActive = (evDataNow?.powerW || 0) > 200;
-      // Never retry-pause while immune — the spike is expected, not a real overload.
-      const needsRetry = !resumeImmune && chargerStillActive && (priceWantsOff || overLimit);
-      if (targetCurrent === null && isPaused && !needsRetry && !hardEmergency) continue;
+      // Skip if nothing changed
+      if (targetCurrent === null && isPaused) continue;
       if (targetCurrent !== null && targetCurrent === currentTargetA) continue;
       // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
       if (!alreadyTracked && targetCurrent !== null && targetCurrent >= (entry.circuitLimitA || 32)) {
@@ -3871,11 +3851,9 @@ class PowerGuardApp extends Homey.App {
     // Skip if charger has no car connected
     if (!this._isCarConnected(deviceId)) return false;
 
-    // Item 4: Don't send new commands while a previous command is still pending.
-    // Exception: a pause command (currentA === null) always goes through immediately
-    // so a hard emergency can stop the charger without waiting 15s.
+    // Item 4: Don't send new commands while a previous command is still pending
     const pendingTs = this._pendingChargerCommands[deviceId];
-    if (currentA !== null && pendingTs && (Date.now() - pendingTs) < 15000) {
+    if (pendingTs && (Date.now() - pendingTs) < 15000) {
       this.log(`[Easee] Skipping ${deviceId}, command still pending (${Math.round((Date.now() - pendingTs) / 1000)}s ago)`);
       return false;
     }
