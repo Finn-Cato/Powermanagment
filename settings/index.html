@@ -2032,19 +2032,36 @@
     if (evSection && evGrid) {
       if (evChargers.length) {
         evSection.style.display = 'block';
-        evGrid.innerHTML = evChargers.map(function(c) {
-          var statusColor = c.status === 'paused' ? '#ff3b30' :
-                           c.status === 'dynamic' ? '#ff9500' :
-                           c.status === 'charging' ? '#34c759' :
-                           c.status === 'waiting' ? '#007aff' :
-                           c.status === 'completed' ? '#34c759' :
-                           c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
-          return '<div class="stat-box">'  +
-            '<div class="stat-label">' + escHtml(c.name || 'EV Charger') + '</div>' +
-            '<div class="stat-value">' + Math.round(c.powerW || 0) + ' W</div>' +
-            '<div class="stat-sub" style="color:' + statusColor + '">' + escHtml(c.statusLabel || 'Idle') + '</div>' +
-            '</div>';
-        }).join('');
+        // In-place update to avoid flicker — full render only when charger list changes
+        var allExist = evChargers.every(function(c) { return !!document.getElementById('ev-stat-val-' + c.deviceId); });
+        if (!allExist || evGrid.children.length !== evChargers.length) {
+          evGrid.innerHTML = evChargers.map(function(c) {
+            var statusColor = c.status === 'paused' ? '#ff3b30' :
+                             c.status === 'dynamic' ? '#ff9500' :
+                             c.status === 'charging' ? '#34c759' :
+                             c.status === 'waiting' ? '#007aff' :
+                             c.status === 'completed' ? '#34c759' :
+                             c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
+            return '<div class="stat-box">' +
+              '<div class="stat-label">' + escHtml(c.name || 'EV Charger') + '</div>' +
+              '<div class="stat-value" id="ev-stat-val-' + c.deviceId + '">' + Math.round(c.powerW || 0) + ' W</div>' +
+              '<div class="stat-sub" id="ev-stat-sub-' + c.deviceId + '" style="color:' + statusColor + '">' + escHtml(c.statusLabel || 'Idle') + '</div>' +
+              '</div>';
+          }).join('');
+        } else {
+          evChargers.forEach(function(c) {
+            var statusColor = c.status === 'paused' ? '#ff3b30' :
+                             c.status === 'dynamic' ? '#ff9500' :
+                             c.status === 'charging' ? '#34c759' :
+                             c.status === 'waiting' ? '#007aff' :
+                             c.status === 'completed' ? '#34c759' :
+                             c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
+            var valEl = document.getElementById('ev-stat-val-' + c.deviceId);
+            var subEl = document.getElementById('ev-stat-sub-' + c.deviceId);
+            if (valEl) valEl.textContent = Math.round(c.powerW || 0) + ' W';
+            if (subEl) { subEl.textContent = c.statusLabel || 'Idle'; subEl.style.color = statusColor; }
+          });
+        }
       } else {
         evSection.style.display = 'none';
       }

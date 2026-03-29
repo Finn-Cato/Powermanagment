@@ -5090,6 +5090,15 @@ class PowerGuardApp extends Homey.App {
       if (typeof bst.hoursNeeded === 'number') { anyValid = true; maxHours = Math.max(maxHours, bst.hoursNeeded); }
     }
     if (anyValid) hoursNeeded = maxHours;
+
+    // If all chargers are already at/above their target percentage — stop charging.
+    // hoursNeeded===0 should not fall through to "use all hours" via hoursBeforeDeadline.length.
+    if (anyValid && hoursNeeded === 0) {
+      this.log('[Price] All chargers at/above target — returning av');
+      this._deadlineForced = true;
+      return 'av';
+    }
+
     if (hoursNeeded === null) {
       const manual = this.homey.settings.get('ev_ladebehov_timer');
       if (typeof manual === 'number' && manual > 0) hoursNeeded = manual;
@@ -5120,6 +5129,14 @@ class PowerGuardApp extends Homey.App {
         // CRITICAL: deadline imminent — force max regardless of price
         if (hoursRemaining <= effectiveHoursNeeded + 1) {
           this.log(`[Price] Deadline forcing 'maks': ${hoursRemaining.toFixed(1)}h left, ${effectiveHoursNeeded.toFixed(1)}h needed`);
+          this._deadlineForced = true;
+          return 'maks';
+        }
+
+        // FLAT-RATE PRICING: with near-zero price spread (Norgespris / regulated tariff),
+        // all hours cost the same — the cheapest-hours rule is meaningless. Just charge.
+        if (stats.spread <= 8) {
+          this.log(`[Price] Deadline mode (flat-rate spread=${stats.spread.toFixed(1)}) — charging freely`);
           this._deadlineForced = true;
           return 'maks';
         }
