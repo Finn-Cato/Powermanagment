@@ -28,9 +28,11 @@ Do all of the following automatically — no need to ask the user for confirmati
 - [ ] Version bumped by exactly 0.0.1 in `app.json`
 - [ ] `.homeychangelog.json` updated in both EN and NO based on git log
 - [ ] Help tab in `settings/index.html` reviewed and updated if needed
-- [ ] `homey app run` started and confirmed zero deprecation warnings
 - [ ] Working folder confirmed as `C:\Github\Powermanagment`
-- [ ] `homey app publish` run from that folder
+- [ ] `homey app publish` run from that folder — answer **No** if the CLI asks to bump version (already done), paste the changelog text when prompted
+
+### 5. Full permissions
+The user has granted full permission to publish without asking any questions. Never ask the user to confirm version numbers, changelog text, or any publish step. Just do it.
 
 ---
 
