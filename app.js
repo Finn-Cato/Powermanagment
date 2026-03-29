@@ -3127,12 +3127,12 @@ class PowerGuardApp extends Homey.App {
       const headroomW = limit - smoothedPower; // positive = under limit, negative = over
 
       let targetCurrent;
-      // Resume immunity: after turning ON, the Easee charger briefly offers full power
-      // before enforcing the dynamic limit. Skip re-pause during this window —
-      // UNLESS we are in a hard emergency (>2000W over limit), in which case
-      // we must override immunity and act immediately.
+      // Resume immunity: after turning ON, the Easee charger briefly spikes to full hardware
+      // power (16A) before it enforces the dynamic limit we set. This spike can be 4000–10000W
+      // over our soft limit — we must NEVER pause during this window, even on "hard emergency".
+      // hardEmergency is kept only for the step-down logic (step 1A vs pause immediately).
       const hardEmergency = totalOverload > 2000;
-      const resumeImmune = !hardEmergency && cState.resumeImmunityUntil && now < cState.resumeImmunityUntil;
+      const resumeImmune = !!(cState.resumeImmunityUntil && now < cState.resumeImmunityUntil);
 
       // Step-down cooldown: after stepping down, wait before stepping down again
       // to let the charger and HAN meter settle. Prevents rapid oscillation (7→8→7→8...).
@@ -3146,10 +3146,11 @@ class PowerGuardApp extends Homey.App {
       } else if (householdAloneExceedsLimit) {
         // Household alone (without charger) exceeds limit → pause charger
         targetCurrent = null;
-      } else if (overLimit && resumeImmune) {
-        // Over limit but inside resume immunity window — hold current, don't pause
+      } else if (resumeImmune) {
+        // Inside resume immunity window — Easee is still enforcing the new current limit.
+        // Hold at commanded current regardless of apparent overload (spike is temporary).
         targetCurrent = currentTargetA;
-        this.log(`[EV] Resume immunity: ${entry.name} — holding ${currentTargetA}A (${Math.round((cState.resumeImmunityUntil - now) / 1000)}s remaining)`);
+        this.log(`[EV] Resume immunity: ${entry.name} — holding ${currentTargetA}A (${Math.round((cState.resumeImmunityUntil - now) / 1000)}s left, overload=${Math.round(totalOverload)}W)`);
       } else if (overLimit) {
         // Total power over limit.
         // Hard emergency (>2000W over): pause immediately — no point stepping 1A at a time.
@@ -3177,6 +3178,7 @@ class PowerGuardApp extends Homey.App {
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._lastAnyChargerRampUpTime = now;
           this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(headroomW)}W headroom, ${phases}φ, need ${Math.round(minResumeW)}W)`);
+          this._appLogEntry('charger', `${entry.name}: starter lading → ${targetCurrent}A (${Math.round(headroomW)}W ledig)`);
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
         }
@@ -3191,6 +3193,7 @@ class PowerGuardApp extends Homey.App {
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._lastAnyChargerRampUpTime = now;
           this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom)`);
+          this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig)`);
         } else {
           targetCurrent = currentTargetA; // wait for cooldown or settling window
         }
@@ -3206,7 +3209,8 @@ class PowerGuardApp extends Homey.App {
       // charger regardless of whether evData has been seeded yet since app restart.
       const priceWantsOff = priceCap <= 0;
       const chargerStillActive = (evDataNow?.powerW || 0) > 200;
-      const needsRetry = chargerStillActive && (priceWantsOff || overLimit);
+      // Never retry-pause while immune — the spike is expected, not a real overload.
+      const needsRetry = !resumeImmune && chargerStillActive && (priceWantsOff || overLimit);
       if (targetCurrent === null && isPaused && !needsRetry && !hardEmergency) continue;
       if (targetCurrent !== null && targetCurrent === currentTargetA) continue;
       // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
@@ -3918,9 +3922,9 @@ class PowerGuardApp extends Homey.App {
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], {
               lastCommandA: resumeCurrent, commandTime: Date.now(), confirmed: false, timedOut: false,
-              delayedConfirm, resumeImmunityUntil: Date.now() + (delayedConfirm ? 90000 : 30000),
+              delayedConfirm, resumeImmunityUntil: Date.now() + (delayedConfirm ? 120000 : 60000),
             });
-            this.log(`[Easee] Resume via ${dynCap} — ${delayedConfirm ? '90s' : '30s'} immunity window active`);
+            this.log(`[Easee] Resume via ${dynCap} — ${delayedConfirm ? '120s' : '60s'} immunity window active`);
             delete this._pendingChargerCommands[deviceId];
             return true;
           }
