@@ -324,6 +324,78 @@
             "example": "night"
           }
         ]
+      },
+      {
+        "id": "charger_should_change_current",
+        "title": {
+          "en": "Charger current should change",
+          "no": "Ladestrøm bør endres"
+        },
+        "tokens": [
+          {
+            "name": "device_name",
+            "type": "string",
+            "title": {
+              "en": "Charger name",
+              "no": "Ladernavn"
+            },
+            "example": "My EV Charger"
+          },
+          {
+            "name": "current_a",
+            "type": "number",
+            "title": {
+              "en": "Current (A)",
+              "no": "Ladestrøm (A)"
+            },
+            "example": 10
+          }
+        ]
+      },
+      {
+        "id": "charger_should_pause",
+        "title": {
+          "en": "Charger should pause",
+          "no": "Ladingen bør stoppes"
+        },
+        "tokens": [
+          {
+            "name": "device_name",
+            "type": "string",
+            "title": {
+              "en": "Charger name",
+              "no": "Ladernavn"
+            },
+            "example": "My EV Charger"
+          }
+        ]
+      },
+      {
+        "id": "charger_should_resume",
+        "title": {
+          "en": "Charger should resume",
+          "no": "Ladingen bør startes"
+        },
+        "tokens": [
+          {
+            "name": "device_name",
+            "type": "string",
+            "title": {
+              "en": "Charger name",
+              "no": "Ladernavn"
+            },
+            "example": "My EV Charger"
+          },
+          {
+            "name": "current_a",
+            "type": "number",
+            "title": {
+              "en": "Starting current (A)",
+              "no": "Startstrøm (A)"
+            },
+            "example": 6
+          }
+        ]
       }
     ],
     "conditions": [

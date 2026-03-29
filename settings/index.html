@@ -1301,6 +1301,7 @@
       chargeTo: 'Charge to',
       car: 'Car',
       shedHeatersWhenCharging: '⚡ Shed heaters when charging',
+      flowControlled: '🔀 Flow-controlled charger',
       active: 'ACTIVE',
       actionTurnOff: 'Turn off',
       actionLowerThermostat: 'Lower thermostat',
@@ -1645,6 +1646,7 @@
       chargeTo: 'Lad til',
       car: 'Bil',
       shedHeatersWhenCharging: '⚡ Sl\u00e5 av varmere under lading',
+      flowControlled: '🔀 Flyt-styrt lader',
       active: 'AKTIV',
       actionTurnOff: 'Sl\u00e5 av',
       actionLowerThermostat: 'Senk termostat',
@@ -3377,6 +3379,10 @@
             '<input type="checkbox"' + (entry.chargerPriority ? ' checked' : '') + ' onchange="updateChargerPriority(\'' + entry.deviceId + '\',this.checked)">' +
             t('shedHeatersWhenCharging') +
           '</label>' +
+          '<label style="display:flex;align-items:center;gap:6px;font-size:11px;margin-left:4px;" title="Flow control: Power Guard fires Homey flow triggers (ladestrøm / pause / resume) instead of calling the charger directly. Use this for unsupported chargers.">' +
+            '<input type="checkbox"' + (entry.flowControlled ? ' checked' : '') + ' onchange="updateFlowControlled(\'' + entry.deviceId + '\',this.checked)">' +
+            t('flowControlled') +
+          '</label>' +
         '</div>'
       : '';
 
@@ -3489,6 +3495,11 @@
     if (!entry) return;
     entry.carDeviceId = carDeviceId || undefined;
     savePriorityList();
+  }
+
+  function updateFlowControlled(deviceId, val) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (entry) { entry.flowControlled = !!val; savePriorityList(); }
   }
 
   function updateChargerPriority(deviceId, checked) {

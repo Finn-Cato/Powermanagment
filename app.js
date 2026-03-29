@@ -1895,11 +1895,14 @@ class PowerGuardApp extends Homey.App {
   // ─── Flow cards ───────────────────────────────────────────────────────────
 
   _registerFlowCards() {
-    this._triggerPowerLimitExceeded = this.homey.flow.getTriggerCard('power_limit_exceeded');
-    this._triggerMitigationApplied  = this.homey.flow.getTriggerCard('mitigation_applied');
-    this._triggerMitigationCleared  = this.homey.flow.getTriggerCard('mitigation_cleared');
-    this._triggerProfileChanged     = this.homey.flow.getTriggerCard('profile_changed');
-    this._triggerModeChanged        = this.homey.flow.getTriggerCard('mode_changed');
+    this._triggerPowerLimitExceeded     = this.homey.flow.getTriggerCard('power_limit_exceeded');
+    this._triggerMitigationApplied      = this.homey.flow.getTriggerCard('mitigation_applied');
+    this._triggerMitigationCleared      = this.homey.flow.getTriggerCard('mitigation_cleared');
+    this._triggerProfileChanged         = this.homey.flow.getTriggerCard('profile_changed');
+    this._triggerModeChanged            = this.homey.flow.getTriggerCard('mode_changed');
+    this._triggerChargerCurrentChanged  = this.homey.flow.getTriggerCard('charger_should_change_current');
+    this._triggerChargerShouldPause     = this.homey.flow.getTriggerCard('charger_should_pause');
+    this._triggerChargerShouldResume    = this.homey.flow.getTriggerCard('charger_should_resume');
 
     const condEnabled = this.homey.flow.getConditionCard('guard_enabled');
     if (condEnabled) condEnabled.registerRunListener(() => this._settings.enabled);
@@ -2290,6 +2293,11 @@ class PowerGuardApp extends Homey.App {
    * If status is unknown/null/unrecognized → assume NOT connected (safe default).
    */
   _isCarConnected(deviceId) {
+    // Flow-controlled chargers are always treated as connected — Power Guard fires triggers,
+    // and the user's flow decides what to actually do with the charger.
+    const _fcEntry = (this._settings.priorityList || []).find(e => e.deviceId === deviceId);
+    if (_fcEntry?.flowControlled) return true;
+
     const evData = this._evPowerData[deviceId];
     if (!evData) return false;  // No data at all → skip
 
@@ -3778,6 +3786,41 @@ class PowerGuardApp extends Homey.App {
   //  ✅ WORKING — Reasonably stable, test before changing
   // ══════════════════════════════════════════════════════════════════
 
+  /**
+   * Fires Homey flow triggers instead of calling a charger API directly.
+   * Used when `entry.flowControlled = true` in the priority list.
+   * The user wires the triggers to their own charger app in Homey flows.
+   */
+  async _handleFlowControlledCharger(deviceId, deviceName, currentA) {
+    const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === deviceId);
+    const wasPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
+
+    if (currentA === null) {
+      this._triggerChargerShouldPause?.trigger({ device_name: deviceName })
+        .catch(e => this.error('[FlowCharger] pause trigger error:', e));
+      this._addLog(`Flow trigger: pause — ${deviceName}`);
+      this._appLogEntry('charger', `Flow-controlled: pause — ${deviceName}`);
+    } else if (wasPaused) {
+      const startA = Math.min(CHARGER_DEFAULTS.startCurrent, currentA);
+      this._triggerChargerShouldResume?.trigger({ device_name: deviceName, current_a: startA })
+        .catch(e => this.error('[FlowCharger] resume trigger error:', e));
+      this._addLog(`Flow trigger: resume → ${startA}A — ${deviceName}`);
+      this._appLogEntry('charger', `Flow-controlled: resume → ${startA}A (target=${currentA}A) — ${deviceName}`);
+    } else {
+      this._triggerChargerCurrentChanged?.trigger({ device_name: deviceName, current_a: currentA })
+        .catch(e => this.error('[FlowCharger] current trigger error:', e));
+      this._addLog(`Flow trigger: current → ${currentA}A — ${deviceName}`);
+      this._appLogEntry('charger', `Flow-controlled: current → ${currentA}A — ${deviceName}`);
+    }
+
+    // Track state so Power Guard knows what it last told the charger to do
+    if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+    Object.assign(this._chargerState[deviceId], {
+      lastCommandA: currentA ?? 0, commandTime: Date.now(), confirmed: true, timedOut: false,
+    });
+    return true;
+  }
+
   async _setEaseeChargerCurrent(deviceId, currentA) {
     if (!this._api) return false;
 
@@ -3785,6 +3828,10 @@ class PowerGuardApp extends Homey.App {
     const brand = this._getChargerBrand(deviceId);
     if (brand === 'zaptec') return this._setZaptecCurrent(deviceId, currentA);
     if (brand === 'enua') return this._setEnuaCurrent(deviceId, currentA);
+
+    // Route to flow-trigger handler for flow-controlled (externally-wired) chargers
+    const _plEntry = (this._settings.priorityList || []).find(e => e.deviceId === deviceId);
+    if (_plEntry?.flowControlled) return this._handleFlowControlledCharger(deviceId, _plEntry.name, currentA);
 
     // Skip if charger has no car connected
     if (!this._isCarConnected(deviceId)) return false;
