@@ -1,4 +1,8 @@
 {
+  "0.8.55": {
+    "en": "Fix: EV charger no longer inherits full current on app restart or car reconnect — it always starts at 6A and ramps up from there. Three root causes fixed: (1) startup immunity window removed — Power Guard takes control immediately on the first HAN reading; (2) offeredCurrent is never inherited as the starting point; (3) if a charger is drawing power but Power Guard has no tracked state (e.g. after restart), it now forces the charger to 6A immediately instead of silently skipping it. Fix: removed an outdated tooltip from the EV charger settings UI.",
+    "no": "Fiks: EV-lader arver ikke lenger full strøm ved app-omstart eller biltilkobling — den starter alltid på 6A og ramper opp derfra. Tre rotårsaker fikset: (1) oppstartsimmunitet fjernet — Power Guard tar kontroll umiddelbart på første HAN-avlesning; (2) offeredCurrent arves aldri som startpunkt; (3) hvis en lader bruker strøm men Power Guard ikke har sporet tilstand (f.eks. etter omstart), tvinges laderen nå til 6A umiddelbart i stedet for å hoppes over stille. Fiks: fjernet utdatert infotekst fra EV-laderinnstillingene."
+  },
   "0.8.54": {
     "en": "Fix: monthly calendar now shows all days with recorded peaks — previously only the top 10 highest days were shown, leaving most of the calendar blank.",
     "no": "Fiks: månedlig kalender viser nå alle dager med registrerte topper — tidligere ble kun de 10 høyeste dagene vist, noe som lot mesteparten av kalenderen stå blank."
