@@ -75,3 +75,6 @@ Some sections of `app.js` are considered stable and must not be changed without 
 - Never bump the version without also updating `.homeychangelog.json`.
 - Never publish without checking the Help tab is up to date.
 - The `.homeyignore` file must exclude all dev-only files (audit reports, internal docs, etc.).
+- NEVER run `homey app publish` unless the user explicitly asks to publish to the App Store.
+- After every code change: use `homey app install` (permanent, keeps settings) — NOT `homey app run` (temporary debug session only).
+- `CLAUDE.md` and `.github/copilot-instructions.md` must always be kept identical. If one is updated, update the other immediately to match.

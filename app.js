@@ -262,9 +262,11 @@ class PowerGuardApp extends Homey.App {
     // Populate battery state immediately on startup so the UI shows data right away
     setTimeout(() => this._pollAllCarBatteries().catch(err => this.error('[CarBattery] Startup poll error:', err)), 5000);
 
-    this._watchdogInterval  = setInterval(() => this._watchdog().catch(err => this.error('[Watchdog] Error:', err)), 10000);
+    this._perfStats = { cpuSample: process.cpuUsage(), calls: {} };
+    this._watchdogInterval  = setInterval(async () => { const _t = Date.now(); await this._watchdog().catch(err => this.error('[Watchdog] Error:', err)); this._trackCallTime('watchdog', Date.now() - _t); }, 10000);
     this._cacheRefreshInterval = setInterval(() => this._cacheDevices().catch(err => this.error('[Cache] Refresh error:', err)), 300000);
-    this._queueProcessorInterval = setInterval(() => this._processSaveQueue().catch(err => this.error('[Queue] Save error:', err)), 3000);
+    this._queueProcessorInterval = setInterval(async () => { const _t = Date.now(); await this._processSaveQueue().catch(err => this.error('[Queue] Save error:', err)); this._trackCallTime('saveQueue', Date.now() - _t); }, 3000);
+    this._resourceMonitorInterval = setInterval(() => this._resourceMonitor(), 5 * 60 * 1000);
 
     // Start spot price engine — non-fatal, charger control still works without it
     // To remove price feature entirely: delete this block + SECTION 12 at bottom of file
@@ -289,6 +291,7 @@ class PowerGuardApp extends Homey.App {
     this.log('Power Guard ready (device cache: ' +
       (this._deviceCacheReady ? 'YES' : 'NO') + ')');
     this._appLogEntry('system', 'Power Guard ready (device cache: ' + (this._deviceCacheReady ? 'YES' : 'NO') + ')');
+    this._appLogEntry('system', '[PerfTest] v2 - riktig kode kjorer pa Homey!');
   }
 
   // ─── Device Cache Initialization with Retry Logic ──────────────────────────
@@ -928,7 +931,7 @@ class PowerGuardApp extends Homey.App {
     // that may not reliably fire capability change events through Homey's API.
     // Poll every 10s, and do an immediate first poll after 2s to get data quickly.
     if (this._hanPollInterval) clearInterval(this._hanPollInterval);
-    this._hanPollInterval = setInterval(() => this._pollHANPower().catch(err => this.error('[HAN] Poll error:', err)), 10000);
+    this._hanPollInterval = setInterval(async () => { const _t = Date.now(); await this._pollHANPower().catch(err => this.error('[HAN] Poll error:', err)); this._trackCallTime('hanPoll', Date.now() - _t); }, 10000);
     setTimeout(() => this._pollHANPower().catch(err => this.error('[HAN] Initial poll error:', err)), 2000);
     this.log('HAN active polling started (10s interval, first poll in 2s)');
   }
@@ -1014,6 +1017,7 @@ class PowerGuardApp extends Homey.App {
     // Coerce to number — some cloud-based meters may report as string
     rawValue = Number(rawValue);
     if (isNaN(rawValue)) return;
+    const _tReading = Date.now();
 
     // Cap negative power to 0 (solar export should not count as usage)
     if (rawValue < 0) rawValue = 0;
@@ -1120,6 +1124,7 @@ class PowerGuardApp extends Homey.App {
     // Cache status into settings so the settings page can read it via H.get()
     // No throttle — HAN readings already arrive ~1-2s apart, and settings page polls every 2s.
     this._cacheStatus();
+    this._trackCallTime('onPowerReading', Date.now() - _tReading);
   }
 
   _onPhaseReading(capId, value) {
@@ -2132,6 +2137,80 @@ class PowerGuardApp extends Homey.App {
     } catch (_) {}
   }
 
+  // ─── Performance / resource monitoring ───────────────────────────────────────
+
+  /**
+   * Track how long a named call took. Warns immediately if > 500 ms.
+   * Stats are collected for _resourceMonitor() and reset every 5 min.
+   */
+  _trackCallTime(name, ms) {
+    if (!this._perfStats) return;
+    const s = this._perfStats.calls[name] || (this._perfStats.calls[name] = { count: 0, total: 0, max: 0 });
+    s.count++;
+    s.total += ms;
+    if (ms > s.max) s.max = ms;
+    if (ms > 500) this.log(`[Perf] SLOW ${name}: ${ms}ms`);
+  }
+
+  /**
+   * Logs CPU and memory usage every 5 minutes.
+   * Check Homey app log for [Perf] lines to see resource trends.
+   * Calls are sorted by total accumulated time — the top entry is the biggest CPU consumer.
+   */
+  _resourceMonitor() {
+    try {
+      // process.memoryUsage() reads /proc/self/statm which is unavailable in Homey's sandbox
+      // Wrap separately so CPU and call stats still work if memory fails
+      let memLine = '[Perf] RAM: n/a';
+      try {
+        const mem = process.memoryUsage();
+        const toMB = b => (b / 1048576).toFixed(1);
+        memLine = `[Perf] RAM: rss=${toMB(mem.rss)}MB heap=${toMB(mem.heapUsed)}/${toMB(mem.heapTotal)}MB`;
+      } catch (_) {}
+
+      const cpuDelta = process.cpuUsage(this._perfStats.cpuSample);
+      this._perfStats.cpuSample = process.cpuUsage();
+      const cpuMs = Math.round((cpuDelta.user + cpuDelta.system) / 1000);
+      memLine += ` | CPU(5min): ${cpuMs}ms`;
+
+      this.log(memLine);
+      this._appLogEntry('system', memLine);
+
+      const objLine =
+        `[Perf] evChargers=${Object.keys(this._evPowerData || {}).length}` +
+        ` adax=${Object.keys(this._adaxState || {}).length}` +
+        ` powerDevices=${Object.keys(this._powerConsumptionData || {}).length}` +
+        ` appLog=${(this._appLog || []).length}` +
+        ` saveQueue=${(this._saveQueue || []).length}`;
+      this.log(objLine);
+      this._appLogEntry('system', objLine);
+
+      const calls = Object.entries(this._perfStats.calls);
+      if (calls.length > 0) {
+        // Sort by total time descending — first entry = biggest CPU consumer
+        calls.sort((a, b) => b[1].total - a[1].total);
+        const parts = calls.map(([k, v]) => {
+          const avg = Math.round(v.total / v.count);
+          return `${k}:avg=${avg}ms max=${v.max}ms tot=${v.total}ms`;
+        });
+        const callLine = `[Perf] Calls: ${parts.join(' | ')}`;
+        this.log(callLine);
+        this._appLogEntry('system', callLine);
+
+        const [topName, topV] = calls[0];
+        if (topV.total > 60000) {
+          const warnLine = `[Perf] ADVARSEL: "${topName}" brukte ${topV.total}ms på 5min — undersøk denne`;
+          this.log(warnLine);
+          this._appLogEntry('system', warnLine);
+        }
+      }
+      this._perfStats.calls = {}; // Reset for next window
+    } catch (e) {
+      this.error('[Perf] Monitor error:', e.message);
+      this._appLogEntry('system', '[Perf] FEIL: ' + e.message);
+    }
+  }
+
   async _cacheDevices(isInitialization = false) {
     if (!this._api) {
       const err = 'API not available';
@@ -2490,18 +2569,9 @@ class PowerGuardApp extends Homey.App {
         // Derive connected state using whitelist approach
         this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
 
-        // If the charger is already actively charging when the app starts, seed an immunity
-        // window so the first HAN reading (which may not yet reflect the charger's current
-        // draw) doesn't immediately trigger a pause before Power Guard can take control.
-        const initialPowerW  = this._evPowerData[entry.deviceId].powerW;
-        const initialOffered = this._evPowerData[entry.deviceId].offeredCurrent || 0;
-        const initialCharging = ['charging', 'CHARGING', 3].includes(this._evPowerData[entry.deviceId].chargerStatus);
-        if (initialCharging || initialPowerW > 200 || initialOffered > 0) {
-          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
-          this._chargerState[entry.deviceId].resumeImmunityUntil = Date.now() + 120000;
-          this.log(`[EV] Startup immunity: ${entry.name} is already charging — 120s immunity window set`);
-          this._appLogEntry('charger', `${entry.name}: startup immunity 120s (al lader ved oppstart)`);
-        }
+        // On startup: if charger is already running, Power Guard takes control immediately.
+        // _adjustEVChargersForPower will detect the untracked-but-running charger and set it to
+        // 6A on the first HAN reading. No immunity window — we always start from 6A and ramp up.
 
         // Listen to measure_power changes
         if (caps.includes('measure_power')) {
@@ -2640,7 +2710,7 @@ class PowerGuardApp extends Homey.App {
 
     // Active polling fallback for charger data (some Easee firmware doesn't push events reliably)
     if (this._evPollInterval) clearInterval(this._evPollInterval);
-    this._evPollInterval = setInterval(() => this._pollEVChargerData().catch(err => this.error('[EV] Poll error:', err)), 5000);
+    this._evPollInterval = setInterval(async () => { const _t = Date.now(); await this._pollEVChargerData().catch(err => this.error('[EV] Poll error:', err)); this._trackCallTime('evPoll', Date.now() - _t); }, 5000);
     this.log('EV charger polling started (5s interval)');
   }
 
@@ -3142,7 +3212,10 @@ class PowerGuardApp extends Homey.App {
       // always start paused so the ramp begins from 6A, never from whatever the charger offers.
       const offeredA = evDataNow?.offeredCurrent || 0;
       const alreadyCharging = ['charging', 'CHARGING', 3].includes(evDataNow?.chargerStatus);
-      const currentTargetA = alreadyTracked?.currentTargetA ?? (alreadyCharging && offeredA > 0 ? offeredA : null);
+      // Never inherit offeredCurrent from the charger — always start at 6A and ramp up.
+      // If not tracked, currentTargetA = null (isPaused) so the running-but-untracked detection
+      // below will immediately set it to 6A.
+      const currentTargetA = alreadyTracked?.currentTargetA ?? null;
       const isPaused = currentTargetA === 0 || currentTargetA === null;
       const circuitLimitA = entry.circuitLimitA || 32;
       const priceCap = this._getPriceCurrentCap(entry.deviceId, circuitLimitA);
@@ -3221,8 +3294,17 @@ class PowerGuardApp extends Homey.App {
 
       const isIncrease = targetCurrent !== null && (isPaused ? targetCurrent > 0 : targetCurrent > currentTargetA);
 
-      // Skip if nothing changed
-      if (targetCurrent === null && isPaused) continue;
+      // Skip if nothing changed — but only when charger is truly idle.
+      // If the charger is drawing power but Power Guard has no tracked state (e.g. after
+      // app restart, car reconnect, or offeredCurrent was null), take control immediately
+      // at minimum current instead of silently skipping.
+      const chargerActuallyRunning = (evDataNow?.powerW || 0) > 200 || (evDataNow?.offeredCurrent || 0) > 0;
+      if (targetCurrent === null && isPaused && !chargerActuallyRunning) continue;
+      if (targetCurrent === null && isPaused && chargerActuallyRunning) {
+        targetCurrent = CHARGER_DEFAULTS.minCurrent;
+        this.log(`[EV] Taking control: ${entry.name} drawing ${Math.round(evDataNow?.powerW||0)}W untracked — forcing to ${CHARGER_DEFAULTS.minCurrent}A`);
+        this._appLogEntry('charger', `${entry.name}: tar kontroll → ${CHARGER_DEFAULTS.minCurrent}A (var ${Math.round(evDataNow?.powerW||0)}W ukontrollert)`);
+      }
       if (targetCurrent !== null && targetCurrent === currentTargetA) continue;
       // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
       if (!alreadyTracked && targetCurrent !== null && targetCurrent >= (entry.circuitLimitA || 32)) {
@@ -4587,9 +4669,10 @@ class PowerGuardApp extends Homey.App {
   }
 
   async onUninit() {
-    if (this._watchdogInterval)     clearInterval(this._watchdogInterval);
-    if (this._cacheRefreshInterval) clearInterval(this._cacheRefreshInterval);
-    if (this._hanPollInterval)      clearInterval(this._hanPollInterval);
+    if (this._watchdogInterval)        clearInterval(this._watchdogInterval);
+    if (this._cacheRefreshInterval)    clearInterval(this._cacheRefreshInterval);
+    if (this._hanPollInterval)         clearInterval(this._hanPollInterval);
+    if (this._resourceMonitorInterval) clearInterval(this._resourceMonitorInterval);
     if (this._hanCapabilityInstance) {
       try { this._hanCapabilityInstance.destroy(); } catch (_) {}
     }
@@ -4889,9 +4972,7 @@ class PowerGuardApp extends Homey.App {
     }
     await this._fetchAndEvaluatePrices();
     // Refresh every 30 minutes
-    this._priceEngineInterval = setInterval(() => {
-      this._fetchAndEvaluatePrices().catch(err => this.error('[Price] Fetch error:', err));
-    }, 30 * 60 * 1000);
+    this._priceEngineInterval = setInterval(async () => { const _t = Date.now(); await this._fetchAndEvaluatePrices().catch(err => this.error('[Price] Fetch error:', err)); this._trackCallTime('priceEngine', Date.now() - _t); }, 30 * 60 * 1000);
   }
 
   async _fetchAndEvaluatePrices() {
@@ -5290,9 +5371,7 @@ class PowerGuardApp extends Homey.App {
       }
     }, 5000);
     // Check Night schedule every minute
-    this._modeSchedulerInterval = setInterval(() => {
-      this._checkNightSchedule().catch(err => this.error('[Modes] Night schedule error:', err));
-    }, 60 * 1000);
+    this._modeSchedulerInterval = setInterval(async () => { const _t = Date.now(); await this._checkNightSchedule().catch(err => this.error('[Modes] Night schedule error:', err)); this._trackCallTime('modeScheduler', Date.now() - _t); }, 60 * 1000);
     this.log(`[Modes] Scheduler started. Active mode: ${this._modeSettings.activeMode}`);
   }
 
