@@ -954,9 +954,11 @@ class PowerGuardApp extends Homey.App {
 
         const timeSinceLastReading = this._lastHanReading ? Date.now() - this._lastHanReading : Infinity;
 
-        // Only process if we haven't had an event-based reading in the last 8 seconds
-        // This avoids double-processing when events ARE working
-        if (timeSinceLastReading > 8000) {
+        // Only process if we haven't had an event-based reading in the last 15 seconds
+        // This avoids double-processing when events ARE working.
+        // 15s chosen because HAN meter sends events every ~10s — 8s was too tight and
+        // caused continuous poll fallback activation even when events were healthy.
+        if (timeSinceLastReading > 15000) {
           // Only log to appLog when entering fallback mode (not every poll cycle)
           if (!this._hanInFallbackMode) {
             this._hanInFallbackMode = true;
@@ -3465,9 +3467,10 @@ class PowerGuardApp extends Homey.App {
       if (brand === 'zaptec') {
         // Look for Zaptec current control actions
         const zaptecActions = allActions.filter(a => a.uri === 'homey:app:com.zaptec');
-        // Try known IDs first, then fuzzy match
-        let action = zaptecActions.find(a => a.id === 'set_installation_current')
-                  || zaptecActions.find(a => a.id === 'installation_current_control')
+        // Try known IDs first (go=installation_current_control, home=home_installation_current_control),
+        // then fuzzy match. Note: 'set_installation_current' does NOT exist in the Zaptec app.
+        let action = zaptecActions.find(a => a.id === 'installation_current_control')
+                  || zaptecActions.find(a => a.id === 'home_installation_current_control')
                   || zaptecActions.find(a => /current|ampere|limit|strøm/i.test(a.id));
         if (!action) {
           // Try broader URI match
@@ -3556,9 +3559,10 @@ class PowerGuardApp extends Homey.App {
     // Fall back to hardcoded known ID if enumeration returns nothing — the API
     // sometimes doesn't enumerate actions for installed apps until they've been
     // used in a Flow at least once. The action may still be callable.
+    // Zaptec Go uses 'installation_current_control', Zaptec Home uses 'home_installation_current_control'.
     const flowAction = await this._discoverFlowAction('zaptec') ?? {
       uri: 'homey:app:com.zaptec',
-      actionId: 'set_installation_current',
+      actionId: 'installation_current_control',
       argsStyle: 'zaptec3phase'
     };
 
