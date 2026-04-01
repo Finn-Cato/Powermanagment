@@ -3221,7 +3221,12 @@ class PowerGuardApp extends Homey.App {
       const isPaused = currentTargetA === 0 || currentTargetA === null;
       const circuitLimitA = entry.circuitLimitA || 32;
       const priceCap = this._getPriceCurrentCap(entry.deviceId, circuitLimitA);
-      const maxA = Math.min(CHARGER_DEFAULTS.maxCurrent, circuitLimitA, priceCap > 0 ? priceCap : 0);
+      // Use learnedMaxA if available — the charger's actual hardware ceiling, learned
+      // by observing that offeredCurrent stopped increasing despite higher commands.
+      // This prevents endless ramp-up attempts for chargers with a lower physical max
+      // than the configured circuitLimitA (e.g. 16A charger with circuitLimitA=32).
+      const effectiveMax = cState?.learnedMaxA ?? circuitLimitA;
+      const maxA = Math.min(CHARGER_DEFAULTS.maxCurrent, effectiveMax, priceCap > 0 ? priceCap : 0);
 
       const overLimit = smoothedPower > limit;
       const headroomW = limit - smoothedPower; // positive = under limit, negative = over
