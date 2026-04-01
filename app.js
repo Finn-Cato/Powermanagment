@@ -609,7 +609,14 @@ class PowerGuardApp extends Homey.App {
     // Avoid divide-by-zero near end of hour (< ~1 min left)
     if (fractionRemaining < 0.02) return base;
 
-    const dynamicLimit = remainingWh / fractionRemaining;
+    // Conservative early-hour buffer: reduce the effective limit by up to 20% at the start
+    // of the hour, fading linearly to 0% as the hour progresses. This prevents the charger
+    // from using the full remaining budget early on, when unforeseeable household loads
+    // (e.g. oven, shower) could still push the total over the limit.
+    // At 5 min in: ~18% reduction. At 30 min: ~10%. At 55 min: ~2%. At 58 min: ~0%.
+    const fractionElapsed = 1 - fractionRemaining;
+    const conservatism = 0.20 * (1 - fractionElapsed);
+    const dynamicLimit = (remainingWh / fractionRemaining) * (1 - conservatism);
 
     // Safety caps: never below 50% of base, never above physical circuit max or 2× base
     const phases = this._detectSystemPhases ? this._detectSystemPhases() : 1;
