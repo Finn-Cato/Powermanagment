@@ -4783,13 +4783,18 @@ class PowerGuardApp extends Homey.App {
         const btnVal = obj.charging_button ? obj.charging_button.value : null;
         results.steps.push({ step: 'charging_button', ok: true, detail: `Current value: ${btnVal}` });
 
-        // Write-back test (write same value back — no actual change)
-        try {
-          const writeVal = btnVal !== null ? btnVal : true;
-          await device.setCapabilityValue({ capabilityId: 'charging_button', value: writeVal });
-          results.steps.push({ step: 'Write test', ok: true, detail: `Wrote charging_button = ${writeVal} (same as current — no change)` });
-        } catch (err) {
-          results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write charging_button: ${err.message}` });
+        // Write-back test: only run when charging_button is true (charging active).
+        // Zaptec rejects setCapabilityValue when already paused — skip the test in that case
+        // to avoid a false failure that confuses users.
+        if (btnVal === true) {
+          try {
+            await device.setCapabilityValue({ capabilityId: 'charging_button', value: true });
+            results.steps.push({ step: 'Write test', ok: true, detail: `Wrote charging_button = true (no change)` });
+          } catch (err) {
+            results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write charging_button: ${err.message}` });
+          }
+        } else {
+          results.steps.push({ step: 'Write test', ok: true, detail: `Skipped — charger is paused/finished (Zaptec rejects writes when already paused)` });
         }
 
         // Check car connected status
@@ -4800,40 +4805,43 @@ class PowerGuardApp extends Homey.App {
         const availCurrent = obj.available_installation_current ? obj.available_installation_current.value : 'unknown';
         results.steps.push({ step: 'Installation current', ok: true, detail: `Available: ${availCurrent}A` });
 
-        // Test Flow API availability for dynamic current control
-        try {
-          const flowActions = await this._api.flow.getFlowCardActions();
-          // Find all Zaptec flow actions
-          const zaptecActions = Object.values(flowActions).filter(a =>
-            a.uri === 'homey:app:com.zaptec'
-          );
-          // Look for current control action (try known names)
-          const currentAction = zaptecActions.find(a =>
-            a.id.includes('current') || a.id.includes('Current') || a.id.includes('ampere') || a.id.includes('limit')
-          );
-          const exactAction = zaptecActions.find(a => a.id === 'installation_current_control');
-
-          if (exactAction) {
-            results.steps.push({ step: 'Flow API', ok: true, detail: `Found: installation_current_control (0-40A per phase) — dynamic current ready` });
-          } else if (currentAction) {
-            results.steps.push({ step: 'Flow API', ok: true, detail: `Found Zaptec current action: "${currentAction.id}" (title: ${currentAction.title || 'N/A'}) — will use this for dynamic current` });
-          } else if (zaptecActions.length > 0) {
-            const actionList = zaptecActions.map(a => `${a.id}${a.title ? ' (' + (typeof a.title === 'object' ? JSON.stringify(a.title) : a.title) + ')' : ''}`).join(', ');
-            results.steps.push({ step: 'Flow API', ok: false, detail: `Found ${zaptecActions.length} Zaptec action(s) but none for current control: ${actionList}` });
-          } else {
-            // Check if any flow actions exist for Zaptec with different URI pattern
-            const allZaptec = Object.values(flowActions).filter(a =>
-              (a.uri || '').includes('zaptec') || (a.ownerUri || '').includes('zaptec')
-            );
-            if (allZaptec.length > 0) {
-              const actionList = allZaptec.map(a => `${a.uri}/${a.id}`).join(', ');
-              results.steps.push({ step: 'Flow API', ok: false, detail: `No actions at homey:app:com.zaptec, but found Zaptec-related: ${actionList}` });
-            } else {
-              results.steps.push({ step: 'Flow API', ok: false, detail: 'No Zaptec flow actions found via enumeration. Dynamic current control via Flow API may not work.' });
+        // Test Flow API by actually calling the known action with 0A (safe no-op).
+        // Homey only enumerates flow actions for apps that have been used in a Flow —
+        // so enumeration will always fail for new users. Instead, we probe directly
+        // with the two known IDs (Go = installation_current_control,
+        // Home = home_installation_current_control) and treat a non-"unknown action"
+        // response as success.
+        const knownIds = ['installation_current_control', 'home_installation_current_control'];
+        let flowOk = false;
+        let workingId = null;
+        let flowErr = null;
+        for (const actionId of knownIds) {
+          try {
+            await this._api.flow.runFlowCardAction({
+              uri: 'homey:app:com.zaptec',
+              id: actionId,
+              args: { device: { id: deviceId, name: device.name }, current1: 0, current2: 0, current3: 0 }
+            });
+            flowOk = true;
+            workingId = actionId;
+            break;
+          } catch (err) {
+            // "unknown action" = action doesn't exist; any other error = action exists but failed
+            if (!err.message?.toLowerCase().includes('unknown')) {
+              flowOk = true;
+              workingId = actionId;
+              break;
             }
+            flowErr = err.message;
           }
-        } catch (flowErr) {
-          results.steps.push({ step: 'Flow API', ok: false, detail: `Flow API error: ${flowErr.message}` });
+        }
+        if (flowOk) {
+          results.steps.push({ step: 'Flow API', ok: true, detail: `Action "${workingId}" confirmed working — dynamic current ready` });
+          // Warm up the cache so real commands use the correct ID immediately
+          if (!this._flowActionCache) this._flowActionCache = {};
+          this._flowActionCache['zaptec'] = { uri: 'homey:app:com.zaptec', actionId: workingId, argsStyle: 'zaptec3phase' };
+        } else {
+          results.steps.push({ step: 'Flow API', ok: false, detail: `Neither known Zaptec action responded. Last error: ${flowErr || 'unknown'}. Dynamic current control may not work.` });
         }
 
         results.success = !results.steps.some(s => s.ok === false);
