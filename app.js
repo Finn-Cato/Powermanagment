@@ -593,36 +593,9 @@ class PowerGuardApp extends Homey.App {
     const factor = PROFILE_LIMIT_FACTOR[this._settings.profile] || 1.0;
     const margin = 1 - ((this._settings.errorMarginPercent || 0) / 100);
     const base = this._settings.powerLimitW * factor * margin;
-
-    if (!this._settings.dynamicHourlyBudget) return base;
-
-    // Only activate after a clean hour rollover — never on mid-hour app start
-    if (!this._hourlyEnergy.hourStartKnown) return base;
-
-    // Dynamic: use remaining hourly budget to compute effective limit
-    const msIntoHour = Date.now() % 3600000;
-    const fractionRemaining = 1 - (msIntoHour / 3600000);
-    const accumulatedWh = (this._hourlyEnergy && this._hourlyEnergy.accumulatedWh) || 0;
-    const budgetWh = base; // base W × 1h = base Wh (10kW limit = 10kWh budget/hour)
-    const remainingWh = budgetWh - accumulatedWh;
-
-    // Avoid divide-by-zero near end of hour (< ~1 min left)
-    if (fractionRemaining < 0.02) return base;
-
-    // Conservative early-hour buffer: reduce the effective limit by up to 20% at the start
-    // of the hour, fading linearly to 0% as the hour progresses. This prevents the charger
-    // from using the full remaining budget early on, when unforeseeable household loads
-    // (e.g. oven, shower) could still push the total over the limit.
-    // At 5 min in: ~18% reduction. At 30 min: ~10%. At 55 min: ~2%. At 58 min: ~0%.
-    const fractionElapsed = 1 - fractionRemaining;
-    const conservatism = 0.20 * (1 - fractionElapsed);
-    const dynamicLimit = (remainingWh / fractionRemaining) * (1 - conservatism);
-
-    // Safety caps: never below 50% of base, never above physical circuit max or 2× base
-    const phases = this._detectSystemPhases ? this._detectSystemPhases() : 1;
-    const voltage = (phases > 1) ? 400 : 230;
-    const physicalMax = (this._settings.mainCircuitA || 25) * voltage * phases;
-    return Math.min(Math.max(dynamicLimit, base * 0.5), physicalMax, base * 2);
+    // Dynamic hourly budget is informational only — always use fixed limit for control.
+    // Hourly energy tracking and budget charts still work normally via _hourlyEnergy (Section 3).
+    return base;
   }
 
   /**
