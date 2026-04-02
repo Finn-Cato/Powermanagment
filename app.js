@@ -2837,10 +2837,11 @@ class PowerGuardApp extends Homey.App {
               this.log(`[EV] ${entry.name} confirmed ${detected}-phase (ratio ${ratio.toFixed(0)} W/A, 3 consistent readings)`);
               this._appLogEntry('charger', `${entry.name} detected ${detected}-phase charging (${ratio.toFixed(0)} W/A)`);
               data.detectedPhases = detected;
-              // Persist confirmed phase into priorityList so it survives restarts
+              // Persist confirmed phase into priorityList so it survives restarts.
+              // Skip if user has manually locked the phase count (chargerPhasesManual=true).
               const pl = this.homey.settings.get('priorityList') || [];
               const idx = pl.findIndex(e => e.deviceId === entry.deviceId);
-              if (idx !== -1 && pl[idx].chargerPhases !== detected) {
+              if (idx !== -1 && !pl[idx].chargerPhasesManual && pl[idx].chargerPhases !== detected) {
                 pl[idx] = { ...pl[idx], chargerPhases: detected };
                 this.homey.settings.set('priorityList', pl);
               }

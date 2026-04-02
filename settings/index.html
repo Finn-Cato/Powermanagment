@@ -1304,6 +1304,8 @@
       shedHeatersDesc: 'Proactively turns off heaters/thermostats when charging starts. Not required for Power Guard to control the charger.',
       flowControlled: '🔀 Flow-controlled charger',
       flowControlledDesc: 'For unsupported chargers only — use your own Homey flows.',
+      phaseAuto: 'Auto-detect',
+      phasesManualDesc: 'Override auto-detection. Required for Zaptec — has no offered current sensor.',
       active: 'ACTIVE',
       actionTurnOff: 'Turn off',
       actionLowerThermostat: 'Lower thermostat',
@@ -1651,6 +1653,8 @@
       shedHeatersDesc: 'Sl\u00e5r av varmere/termostater proaktivt n\u00e5r lading starter. Ikke n\u00f8dvendig for at Power Guard skal styre laderen.',
       flowControlled: '🔀 Flyt-styrt lader',
       flowControlledDesc: 'Kun for ladere uten direkte st\u00f8tte \u2014 bruk egne flows i stedet.',
+      phaseAuto: 'Automatisk',
+      phasesManualDesc: 'Overstyr automatisk deteksjon. P\u00e5krevd for Zaptec \u2014 mangler offered-str\u00f8m-sensor.',
       active: 'AKTIV',
       actionTurnOff: 'Sl\u00e5 av',
       actionLowerThermostat: 'Senk termostat',
@@ -3388,6 +3392,13 @@
               carSelOptions +
             '</select>' +
           '</label>' +
+          '<label style="display:flex;align-items:center;gap:4px;font-size:11px;" title="' + t('phasesManualDesc') + '">' + t('phasesHeader') +
+            '<select style="margin-left:4px;font-size:11px;" onchange="updateChargerPhases(\'' + entry.deviceId + '\',this.value)">' +
+              '<option value=""' + (!entry.chargerPhases ? ' selected' : '') + '>' + t('phaseAuto') + '</option>' +
+              '<option value="1"' + (entry.chargerPhases === 1 ? ' selected' : '') + '>' + t('onePhase') + '</option>' +
+              '<option value="3"' + (entry.chargerPhases === 3 ? ' selected' : '') + '>' + t('threePhase') + '</option>' +
+            '</select>' +
+          '</label>' +
           '<div style="margin-left:4px;margin-bottom:2px;">' +
             '<label style="display:flex;align-items:center;gap:6px;font-size:11px;" title="When ON: heaters and thermostats in the priority list are turned off as soon as this car starts charging, and restored when it stops or is paused by the price engine.">' +
               '<input type="checkbox"' + (entry.chargerPriority ? ' checked' : '') + ' onchange="updateChargerPriority(\'' + entry.deviceId + '\',this.checked)">' +
@@ -3519,6 +3530,20 @@
   function updateFlowControlled(deviceId, val) {
     var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
     if (entry) { entry.flowControlled = !!val; savePriorityList(); }
+  }
+
+  function updateChargerPhases(deviceId, val) {
+    var entry = priorityList.filter(function(e) { return e.deviceId === deviceId; })[0];
+    if (!entry) return;
+    var n = parseInt(val);
+    if (isNaN(n) || val === '') {
+      entry.chargerPhases = undefined;
+      entry.chargerPhasesManual = false;
+    } else {
+      entry.chargerPhases = n;
+      entry.chargerPhasesManual = true;
+    }
+    savePriorityList();
   }
 
   function updateChargerPriority(deviceId, checked) {
