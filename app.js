@@ -3690,13 +3690,21 @@ class PowerGuardApp extends Homey.App {
           if (btnVal === false) {
             // Always resume at 6A (startCurrent = minCurrent) — ramps up 1A/min from there.
             const resumeA = Math.min(CHARGER_DEFAULTS.startCurrent, currentA);
-            // Set current via flow first, then attempt to re-enable the charging button.
-            // Non-fatal: Zaptec rejects charging_button=true when a session has ended
-            // (e.g. car fully charged). If rejected, the flow still sets the current limit
-            // so it takes effect when the session restarts.
+            // Activate charging_button FIRST (awaited). If Zaptec rejects it the charger is in
+            // Connected_Finished (completed session) — no point sending a current command, give up
+            // gracefully without retrying. Physical cable reconnect is needed to start a new session.
+            try {
+              await withTimeout(
+                device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
+                10000, `zaptecResume(${deviceId})`
+              );
+            } catch (btnErr) {
+              this.log(`[Zaptec] Resume rejected — charger likely in Connected_Finished: ${btnErr.message}`);
+              this._appLogEntry('charger', `Zaptec ${device.name}: aktivering avvises (sesjon avsluttet — kabel ut/inn for ny sesjon)`);
+              delete this._pendingChargerCommands[deviceId];
+              return true; // give up gracefully, no retry
+            }
             await callZaptecFlow(resumeA);
-            device.setCapabilityValue({ capabilityId: 'charging_button', value: true })
-              .catch(e => this.log(`[Zaptec] button re-enable on resume (non-critical): ${e.message}`));
             this._addLog(`Zaptec resumed: ${device.name} → ${resumeA}A (next cycle will optimize to ${currentA}A)`);
             this._appLogEntry('charger', `Zaptec resumed: ${device.name} → ${resumeA}A (target=${currentA}A, vil rampe opp)`);
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
@@ -3707,18 +3715,29 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Normal current adjustment via Flow API ──
-        // Also ensure charging_button=true — Zaptec can end up with button=false after a completed
-        // session or firmware reset while Power Guard still thinks currentTargetA > 0 (not paused).
-        // Without this, the flow current command is accepted but the charger does nothing.
+        // If charging_button=false, activate it FIRST (awaited) before sending current.
+        // callZaptecFlow will be rejected by the Zaptec Homey app when the button is off,
+        // which previously caused 3x retry spam. Activating the button first also tells us
+        // whether the charger is resumable (paused) or in Connected_Finished (session ended).
+        // If button activation fails → Connected_Finished → give up without retry.
         const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(40, currentA));
         const btnValNow = device.capabilitiesObj?.charging_button?.value;
         if (device.capabilities.includes('charging_button') && btnValNow === false) {
-          this.log(`[Zaptec] charging_button is false in normal path — sending current + attempting button re-enable`);
-          this._appLogEntry('charger', `Zaptec ${device.name}: knapp var av, slår på og setter ${clampedA}A`);
+          this.log(`[Zaptec] charging_button is false — activating before sending ${clampedA}A`);
+          this._appLogEntry('charger', `Zaptec ${device.name}: knapp var av, aktiverer og setter ${clampedA}A`);
+          try {
+            await withTimeout(
+              device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
+              10000, `zaptecButtonEnable(${deviceId})`
+            );
+          } catch (btnErr) {
+            // Zaptec rejected — charger is in Connected_Finished or otherwise non-resumable.
+            this.log(`[Zaptec] Activation rejected — Connected_Finished? ${btnErr.message}`);
+            this._appLogEntry('charger', `Zaptec ${device.name}: aktivering avvises (sesjon avsluttet — kabel ut/inn for ny sesjon)`);
+            delete this._pendingChargerCommands[deviceId];
+            return true; // give up gracefully, no retry
+          }
           await callZaptecFlow(clampedA);
-          // Non-fatal: Zaptec may reject button=true when no active session.
-          device.setCapabilityValue({ capabilityId: 'charging_button', value: true })
-            .catch(e => this.log(`[Zaptec] button re-enable in normal path (non-critical): ${e.message}`));
         } else {
           await callZaptecFlow(clampedA);
         }
