@@ -621,9 +621,12 @@ class PowerGuardApp extends Homey.App {
    * Runs on every startup but each migration only applies once.
    * Current migrations:
    *   v2 — Reset voltageSystem to 'auto' so the app detects phases from the HAN sensor.
+   *   v3 — Clear chargerPhasesManual on all priority list entries so auto-detection takes over.
+   *        The manual phase selector has been removed from the UI; auto-detection now works for
+   *        all supported chargers (Easee via offeredCurrent, Zaptec via sentCurrent).
    */
   _migrateSettings() {
-    const CURRENT_SCHEMA = 2;
+    const CURRENT_SCHEMA = 3;
     let version = 0;
     try { version = parseInt(this.homey.settings.get('_settingsSchemaVersion') || 0, 10) || 0; } catch (_) {}
 
@@ -635,9 +638,31 @@ class PowerGuardApp extends Homey.App {
       if (this._settings) {
         this._settings.voltageSystem = DEFAULT_SETTINGS.voltageSystem;
       }
+    }
 
+    if (version < 3) {
+      this.log('[Migration] Running schema v3: clearing chargerPhasesManual overrides → auto-detect');
+      try {
+        const pl = this.homey.settings.get('priorityList') || [];
+        let changed = false;
+        for (const entry of pl) {
+          if (entry.chargerPhasesManual) {
+            entry.chargerPhasesManual = false;
+            entry.chargerPhases = undefined;  // Force default (3) until auto-detect kicks in
+            changed = true;
+            this.log(`[Migration] v3: cleared chargerPhasesManual for ${entry.name || entry.deviceId}`);
+          }
+        }
+        if (changed) {
+          this.homey.settings.set('priorityList', pl);
+          if (this._settings) this._settings.priorityList = pl;
+        }
+      } catch (_) {}
+    }
+
+    if (version < CURRENT_SCHEMA) {
       try { this.homey.settings.set('_settingsSchemaVersion', CURRENT_SCHEMA); } catch (_) {}
-      this.log('[Migration] Schema v2 complete');
+      this.log(`[Migration] Schema v${CURRENT_SCHEMA} complete`);
     }
   }
 
@@ -2826,24 +2851,24 @@ class PowerGuardApp extends Homey.App {
         // 1-phase: ~230 W/A, 3-phase: ~690 W/A. Midpoint threshold at 460.
         // Requires 3 consecutive consistent readings before updating detectedPhases —
         // prevents a single low reading during charger ramp-up from wrongly setting 1-phase.
-        // Primary: use offeredCurrent (W/A ratio). Fallback for Zaptec Go (no offered sensor):
-        // compare L2/L3 current to L1 — if both are > 20% of L1 the charger uses 3 phases.
+        // Primary: offeredCurrent (W/A ratio). Fallback: currentTargetA (what we sent as P1).
+        // Zaptec Go lacks measure_current.offered, so we use currentTargetA as denominator.
+        // A 1-phase Zaptec will ignore P2/P3 and only draw 1-phase power even if we send 3-phase,
+        // so powerW/currentTargetA reliably reflects the charger's actual phase count.
+        // Thresholds (W/A):  1-phase IT ≈133,  1-phase TN ≈230,  3-phase IT ≈400,  3-phase TN ≈690.
+        // Threshold 300 separates 1-phase (≤230) from 3-phase (≥400) for both IT and TN networks.
         let _phaseDetectRef = null;
+        const _sentAmps = entry.currentTargetA || 0;
         if (data.powerW > 200 && data.offeredCurrent > 0) {
-          _phaseDetectRef = { method: 'ratio', ratio: data.powerW / data.offeredCurrent };
-        } else if (data.powerW > 200 && !data.offeredCurrent) {
-          const _l1 = obj['measure_current.phase1']?.value || obj['measure_current.L1']?.value || 0;
-          const _l2 = obj['measure_current.phase2']?.value || obj['measure_current.L2']?.value || 0;
-          const _l3 = obj['measure_current.phase3']?.value || obj['measure_current.L3']?.value || 0;
-          if (_l1 > 1) {
-            // 3-phase if both L2 and L3 carry at least 20% of L1, else 1-phase
-            const is3phase = (_l2 > _l1 * 0.2) && (_l3 > _l1 * 0.2);
-            _phaseDetectRef = { method: 'L1L2L3', ratio: is3phase ? 690 : 230 };
-          }
+          _phaseDetectRef = { method: 'offeredCurrent', ratio: data.powerW / data.offeredCurrent };
+        } else if (data.powerW > 200 && _sentAmps >= 6) {
+          // Fallback: use the last commanded P1 current as denominator.
+          // Only valid when charger is actively drawing power at a known setpoint (≥6A).
+          _phaseDetectRef = { method: 'sentCurrent', ratio: data.powerW / _sentAmps };
         }
         if (_phaseDetectRef) {
           const { ratio } = _phaseDetectRef;
-          const detected = ratio < 460 ? 1 : 3;
+          const detected = ratio < 300 ? 1 : 3;
           if (!data._phaseVote || data._phaseVote.value !== detected) {
             data._phaseVote = { value: detected, count: 1 };
           } else {
