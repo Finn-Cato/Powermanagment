@@ -405,10 +405,7 @@
             <div class="label-group"><label data-i18n="dynamicRestoreGuard">Dynamic restore guard</label><span class="hint" data-i18n="dynamicRestoreGuardHint">Wait 1–5 min after turning a device off before restoring. Longer waits when more of the hour remains. Prevents rapid cycling.</span></div>
             <div class="control"><input type="checkbox" id="s-dynamicRestoreGuard" onchange="saveAll()" checked></div>
           </div>
-          <div class="row">
-            <div class="label-group"><label data-i18n="dynamicHourlyBudget">Dynamic hourly budget</label><span class="hint" data-i18n="dynamicHourlyBudgetHint">Allow higher power mid-hour when the hourly kWh budget allows it. Only activates from the start of the next full hour.</span></div>
-            <div class="control"><input type="checkbox" id="s-dynamicHourlyBudget" onchange="saveAll()"></div>
-          </div>
+          <!-- dynamicHourlyBudget removed — always disabled, budget is informational only -->
         </div>
       </div>
 
@@ -1069,7 +1066,7 @@
       helpHwThermostats: 'Any brand — auto-detected',
       helpEffekttariffTitle: 'Effekttariff &amp; Hourly Budget',
       helpEffekttariffDesc: 'The Norwegian <b>effekttariff</b> charges based on your <b>3 highest hourly kWh peaks</b> per month. Power Guard tracks your hourly energy and shows a budget bar in the overview so you can see how much of your hour\'s quota is used.',
-      helpEffekttariffList: '<li><b>Budget bar</b> — coloured fill shows kWh used vs the hour\'s budget; white line marks how far through the hour you are; labels show remaining kWh and minutes left.</li><li><b>Dynamic hourly budget</b> (toggle on the Hjem tab or in Advanced settings) — if you\'ve used little power early in the hour, Power Guard temporarily allows higher power using the remaining quota. Capped at 2× base limit and physical circuit max. Only activates after the first complete hour rollover (startup protection).</li><li><b>Chart views</b> — the overview shows three tabs: <b>DAG</b> (today\'s 24-hour bars coloured green/orange/red vs budget), <b>UKE</b> (last 7 days daily peaks), and <b>MÅNED</b> (monthly calendar with 🥇🥈🥉 medals for your top-3 peaks).</li><li><b>Monthly metric</b> — your top-3 hourly peaks are tracked. A warning appears when the current hour would set a new daily peak.</li>',
+      helpEffekttariffList: '<li><b>Budget bar</b> — coloured fill shows kWh used vs the hour\'s budget; white line marks how far through the hour you are; labels show remaining kWh and minutes left.</li><li><b>Chart views</b> — the overview shows three tabs: <b>DAG</b> (today\'s 24-hour bars coloured green/orange/red vs budget), <b>UKE</b> (last 7 days daily peaks), and <b>MÅNED</b> (monthly calendar with 🥇🥈🥉 medals for your top-3 peaks).</li><li><b>Monthly metric</b> — your top-3 hourly peaks are tracked. A warning appears when the current hour would set a new daily peak.</li>',
       helpEffekttariffEV: '<b>EV charging &amp; budget:</b><br><b>Shed heaters when charging</b> only fires when the budget is actually too tight — not just because the charger is plugged in. If the charger and household load together are within the limit, heating devices stay on. When the charger session ends, shed devices are restored one at a time (60s stagger) so the system can observe the impact before the next restore.',
       powerConsumption: 'Power Consumption by Device',
       filterByType: 'Filter by device type', lastUpdated: 'Last updated:',
@@ -1418,7 +1415,7 @@
       helpHwThermostats: 'Alle merker \u2014 auto-detektert',
       helpEffekttariffTitle: 'Effekttariff &amp; timebudsjett',
       helpEffekttariffDesc: 'Den norske <b>effekttariffen</b> beregnes ut fra dine <b>3 h\u00f8yeste timetopper</b> per m\u00e5ned. Power Guard sporer timeforbruket ditt og viser et budsjettm\u00e5ler i oversikten s\u00e5 du kan se hvor mye av timens kvote som er brukt.',
-      helpEffekttariffList: '<li><b>Budsjettm\u00e5ler</b> \u2014 fargelagt fyll viser kWh brukt mot timens budsjett; hvit linje markerer hvor langt i timen du er; etiketter viser gjenst\u00e5ende kWh og minutter igjen.</li><li><b>Dynamisk timebudsjett</b> (bryter p\u00e5 Hjem-fanen eller i Avanserte innstillinger) \u2014 hvis du har brukt lite str\u00f8m tidlig i timen, tillater Power Guard midlertidig h\u00f8yere effekt ved hjelp av den gjenst\u00e5ende kvoten. Begrenset til 2\u00d7 basisgrensen og fysisk sikringsmax. Aktiveres bare etter f\u00f8rste fullstendige timegjenrulling (oppstartsbeskyttelse).</li><li><b>Diagramvisninger</b> \u2014 oversikten viser tre faner: <b>DAG</b> (dagens 24-timers stolper farget gr\u00f8nn/oransje/r\u00f8d mot budsjett), <b>UKE</b> (siste 7 dagers daglige topper), og <b>M\u00c5NED</b> (m\u00e5nedlig kalender med \ud83e\udd47\ud83e\udd48\ud83e\udd49 medaljer for dine topp-3 topper).</li><li><b>M\u00e5nedlig m\u00e5ling</b> \u2014 dine topp-3 timetopper spores. Et varsel vises n\u00e5r innev\u00e6rende time ville sette en ny dagspeak.</li>',
+      helpEffekttariffList: '<li><b>Budsjettm\u00e5ler</b> \u2014 fargelagt fyll viser kWh brukt mot timens budsjett; hvit linje markerer hvor langt i timen du er; etiketter viser gjenst\u00e5ende kWh og minutter igjen.</li><li><b>Diagramvisninger</b> \u2014 oversikten viser tre faner: <b>DAG</b> (dagens 24-timers stolper farget gr\u00f8nn/oransje/r\u00f8d mot budsjett), <b>UKE</b> (siste 7 dagers daglige topper), og <b>M\u00c5NED</b> (m\u00e5nedlig kalender med \ud83e\udd47\ud83e\udd48\ud83e\udd49 medaljer for dine topp-3 topper).</li><li><b>M\u00e5nedlig m\u00e5ling</b> \u2014 dine topp-3 timetopper spores. Et varsel vises n\u00e5r innev\u00e6rende time ville sette en ny dagspeak.</li>',
       helpEffekttariffEV: '<b>Elbillading &amp; budsjett:</b><br><b>Sl\u00e5 av varmere under lading</b> aktiveres bare n\u00e5r budsjettet faktisk er for trangt \u2014 ikke bare fordi laderen er tilkoblet. Hvis laderen og husholdningsforbruket samlet er innenfor grensen, forblir varmeenheter p\u00e5. N\u00e5r lading-\u00f8kten avsluttes, gjenopprettes sl\u00e5tte-av enheter \u00e9n om gangen (60 sekunder mellom hver) slik at systemet kan observere p\u00e5virkningen f\u00f8r neste gjenoppretting.',
       filterByType: 'Filtrer etter enhetstype', lastUpdated: 'Sist oppdatert:',
       thermostats: 'Termostater', loadingHeaters: 'Laster\u2026',
@@ -2118,16 +2115,8 @@
       html += '<span>' + t('usedLabel') + ': <b>' + usedKWh.toFixed(2) + ' kWh</b></span>';
       html += '<span>' + t('leftLabel') + ': <b>' + remainWh.toFixed(2) + ' kWh</b></span>';
       html += '</div>';
-      var dynOn = _storedSettings && _storedSettings.dynamicHourlyBudget;
-      var dynToggleLabel = dynOn ? t('on') : t('off');
-      var dynToggleColor = dynOn ? '#34c759' : 'var(--text-muted)';
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:2px">';
-      if (dynOn) {
-        html += '<span>' + t('baseLabel') + ': <b>' + limitKW.toFixed(1) + ' kW</b>  &rarr;  ' + t('dynamicLabel') + ': ' + dynLabel + peakWarning + '</span>';
-      } else {
-        html += '<span>' + t('dynamicLabel') + peakWarning + '</span>';
-      }
-      html += '<button onclick="toggleDynamicBudget()" style="font-size:10px;padding:1px 7px;border-radius:10px;border:1px solid ' + dynToggleColor + ';background:transparent;color:' + dynToggleColor + ';cursor:pointer;font-weight:600;">' + dynToggleLabel + '</button>';
+      html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">';
+      html += '<span>' + t('baseLabel') + ': <b>' + limitKW.toFixed(1) + ' kW</b>' + peakWarning + '</span>';
       html += '</div>';
       html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + t('todayPeak') + '<b>' + effekt.todayPeakKW.toFixed(2) + ' kW</b></div>';
       html += '</div>';

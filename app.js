@@ -574,7 +574,7 @@ class PowerGuardApp extends Homey.App {
       errorMarginPercent: s.get('errorMarginPercent') ?? DEFAULT_SETTINGS.errorMarginPercent,
       missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? DEFAULT_SETTINGS.missingPowerTimeoutS,
       dynamicRestoreGuard: s.get('dynamicRestoreGuard') ?? DEFAULT_SETTINGS.dynamicRestoreGuard,
-      dynamicHourlyBudget: s.get('dynamicHourlyBudget') ?? DEFAULT_SETTINGS.dynamicHourlyBudget,
+      dynamicHourlyBudget: false, // Always disabled — budget is informational only, not a control source
       voltageSystem:     s.get('voltageSystem')     ?? DEFAULT_SETTINGS.voltageSystem,
       phaseDistribution: s.get('phaseDistribution') ?? DEFAULT_SETTINGS.phaseDistribution,
       mainCircuitA:      s.get('mainCircuitA')      ?? DEFAULT_SETTINGS.mainCircuitA,
@@ -2902,6 +2902,10 @@ class PowerGuardApp extends Homey.App {
     const nonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
     const budget = limit - nonChargerUsage;
 
+    // Track last time any EV charger was actively drawing power (>100W).
+    // Used to prevent restoring shed devices during brief charger pauses/adjustments.
+    if (totalChargerPowerW > 100) this._evChargerLastActiveMs = now;
+
     // Phase-aware minimum budget: sum of minCurrent × voltage per connected charger.
     // A 1-phase charger needs only 6A × 230W = 1380W; a 3-phase needs 6A × 690W = 4140W.
     // Using a hardcoded 690W here would cause 1-phase users to shed heating devices 3× too early.
@@ -2976,6 +2980,11 @@ class PowerGuardApp extends Homey.App {
         shouldRestore = !connectedChargers.length || budgetSufficient;
       }
       if (!shouldRestore) continue;
+      // Don't restore within 3 minutes of a charger actively drawing power.
+      // Prevents disco-effect: charger pauses briefly for current adjustment → restore fires
+      // → charger resumes → shed fires again (observed: 2m7s pause that just cleared the old 2min guard).
+      const EV_COOLDOWN_MS = 3 * 60 * 1000;
+      if (shed.evPriorityChargerId && now - (this._evChargerLastActiveMs || 0) < EV_COOLDOWN_MS) continue;
       // Min 2 min before restoring when a charger is still connected — avoids rapid re-shed.
       // Bypassed when no charger is connected (session is over).
       if (connectedChargers.length > 0 && now - shed.mitigatedAt < 120000) continue;
@@ -3260,9 +3269,23 @@ class PowerGuardApp extends Homey.App {
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
         }
+      } else if (cState.timedOut && !isPaused && (evDataNow?.offeredCurrent || 0) < 1) {
+        // timedOut=true means the charger ignored our last command (offered 0A when we commanded >0A).
+        // If this has persisted for more than 5 minutes the charger is stuck — do a pause/resume reset.
+        // The resume will clear timedOut=false so the next cycle can ramp up normally from 6A.
+        const timedOutSince = cState.commandTime || 0;
+        const TIMEOUT_RECOVERY_MS = 5 * 60 * 1000;
+        if (headroomW >= HEADROOM_TO_RAMP && now - timedOutSince >= TIMEOUT_RECOVERY_MS) {
+          this.log(`[EV] timedOut recovery: ${entry.name} — pausing then resuming to reset charger state (stuck ${Math.round((now - timedOutSince) / 60000)}min)`);
+          this._appLogEntry('charger', `${entry.name}: nullstiller lader (ignorerte kommando i ${Math.round((now - timedOutSince) / 60000)}min)`);
+          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+          this._chargerState[entry.deviceId].timedOut = false;
+          targetCurrent = null; // force pause this cycle — next cycle will see isPaused=true and resume at 6A
+        } else {
+          targetCurrent = currentTargetA; // not enough headroom yet or too soon — hold
+        }
       } else if (headroomW >= HEADROOM_TO_RAMP && currentTargetA < maxA && !cState.timedOut) {
         // Under limit with headroom — ramp up 1A if both per-charger 60s and shared 30s settling are satisfied
-        // Skip if last command was unconfirmed (charger is at its hardware limit)
         const lastRampUp    = cState.lastRampUpTime || 0;
         const sinceLastAny  = now - (this._lastAnyChargerRampUpTime || 0);
         if (!madeIncrease && now - lastRampUp >= RAMP_UP_COOLDOWN && sinceLastAny >= SETTLE_WINDOW) {
@@ -3545,11 +3568,11 @@ class PowerGuardApp extends Homey.App {
     // sometimes doesn't enumerate actions for installed apps until they've been
     // used in a Flow at least once. The action may still be callable.
     // Zaptec Go uses 'installation_current_control', Zaptec Home uses 'home_installation_current_control'.
-    const flowAction = await this._discoverFlowAction('zaptec') ?? {
-      uri: 'homey:app:com.zaptec',
-      actionId: 'installation_current_control',
-      argsStyle: 'zaptec3phase'
-    };
+    // Discover the correct flow action (cached after first lookup).
+    // If enumeration fails, callZaptecFlow will probe all known action IDs directly.
+    // Zaptec Go = installation_current_control, Home = home_installation_current_control,
+    // Go 2 = go2_installation_current_control, Pro = pro_installation_current_control.
+    const flowAction = await this._discoverFlowAction('zaptec');
 
     // Resolve charger phases from priority list (default 3 if unknown)
     const _zaptecEntry = (this._settings.priorityList || []).find(e => e.deviceId === deviceId);
@@ -3569,22 +3592,48 @@ class PowerGuardApp extends Homey.App {
         // Helper to call the Zaptec flow action with the discovered ID.
         // For 1-phase chargers (TN), P2 and P3 must be 0 — sending same amps
         // on all phases causes Zaptec to reject or misinterpret the command.
+        // If discovery failed (flowAction=null), probes all 4 known action IDs and
+        // caches the first one that works (handles Go, Home, Go 2, Pro without guessing).
         const callZaptecFlow = async (amps) => {
-          if (!flowAction) {
-            this.log(`[Zaptec] No flow action discovered, skipping current control`);
-            return;
-          }
           const p2 = _zaptecPhases >= 2 ? amps : 0;
           const p3 = _zaptecPhases >= 3 ? amps : 0;
-          this.log(`[Zaptec] Calling flow ${flowAction.actionId} → P1=${amps}A P2=${p2}A P3=${p3}A (${_zaptecPhases}-phase)`);
-          await withTimeout(
-            this._api.flow.runFlowCardAction({
-              uri: flowAction.uri,
-              id: flowAction.actionId,
-              args: { device: { id: deviceId, name: device.name }, current1: amps, current2: p2, current3: p3 }
-            }),
-            10000, `zaptecFlow(${deviceId}, ${amps}A)`
-          );
+          if (flowAction) {
+            this.log(`[Zaptec] Calling flow ${flowAction.actionId} → P1=${amps}A P2=${p2}A P3=${p3}A (${_zaptecPhases}-phase)`);
+            await withTimeout(
+              this._api.flow.runFlowCardAction({
+                uri: flowAction.uri,
+                id: flowAction.actionId,
+                args: { device: { id: deviceId, name: device.name }, current1: amps, current2: p2, current3: p3 }
+              }),
+              10000, `zaptecFlow(${deviceId}, ${amps}A)`
+            );
+            return;
+          }
+          // Fallback probe: try all known model-specific IDs in order
+          const probeIds = ['installation_current_control', 'home_installation_current_control',
+                            'go2_installation_current_control', 'pro_installation_current_control'];
+          let lastErr;
+          for (const actionId of probeIds) {
+            try {
+              this.log(`[Zaptec] Probing action ${actionId} → P1=${amps}A P2=${p2}A P3=${p3}A`);
+              await withTimeout(
+                this._api.flow.runFlowCardAction({
+                  uri: 'homey:app:com.zaptec',
+                  id: actionId,
+                  args: { device: { id: deviceId, name: device.name }, current1: amps, current2: p2, current3: p3 }
+                }),
+                10000, `zaptecFlow(${deviceId}, ${amps}A)`
+              );
+              if (!this._flowActionCache) this._flowActionCache = {};
+              this._flowActionCache['zaptec'] = { uri: 'homey:app:com.zaptec', actionId, argsStyle: 'zaptec3phase' };
+              this.log(`[Zaptec] Probed and cached working action: ${actionId}`);
+              return;
+            } catch (err) {
+              if (!err.message?.toLowerCase().includes('unknown')) throw err;
+              lastErr = err;
+            }
+          }
+          this.log(`[Zaptec] No working flow action found during probe. Last error: ${lastErr?.message}`);
         };
 
         // ── Pause: set charging_button to false ──
@@ -3986,15 +4035,23 @@ class PowerGuardApp extends Homey.App {
                 device.setCapabilityValue({ capabilityId: dynCap, value: resumeCurrent }),
                 10000, `setStartCurrent(${deviceId})`
               );
-              // Wait for the Easee to enforce the dynamic limit before turning ON.
-              // The charger needs time to update its pilot signal — without sufficient
-              // delay the car draws at hardware max (16A) for several seconds after ON.
-              await new Promise(r => setTimeout(r, 5000));
+              // Brief delay before turning on — gives Easee time to register the limit
+              await new Promise(r => setTimeout(r, 3000));
             }
             await withTimeout(
               device.setCapabilityValue({ capabilityId: 'onoff', value: true }),
               10000, `resumeCharger(${deviceId})`
             );
+            // Re-assert current limit after startup — Easee firmware resets the dynamic
+            // limit internally when onoff=true fires, causing the car to draw at hardware
+            // max (16A) for several seconds. Sending the limit again immediately after
+            // startup overrides the firmware reset and enforces the correct A from start.
+            if (dynCap) {
+              await new Promise(r => setTimeout(r, 500));
+              await device.setCapabilityValue({ capabilityId: dynCap, value: resumeCurrent }).catch(() => {});
+              await new Promise(r => setTimeout(r, 2000));
+              await device.setCapabilityValue({ capabilityId: dynCap, value: resumeCurrent }).catch(() => {});
+            }
             this._addLog(`Easee resumed: ${device.name} → ${resumeCurrent}A (next cycle will optimize to ${currentA}A)`);
             this._appLogEntry('charger', `Easee resumed: ${device.name} → ${resumeCurrent}A (target=${currentA}A, will ramp up)`);
             // Record command for confirmation tracking
@@ -4784,7 +4841,8 @@ class PowerGuardApp extends Homey.App {
         // with the two known IDs (Go = installation_current_control,
         // Home = home_installation_current_control) and treat a non-"unknown action"
         // response as success.
-        const knownIds = ['installation_current_control', 'home_installation_current_control'];
+        const knownIds = ['installation_current_control', 'home_installation_current_control',
+                         'go2_installation_current_control', 'pro_installation_current_control'];
         let flowOk = false;
         let workingId = null;
         let flowErr = null;
