@@ -3688,8 +3688,22 @@ class PowerGuardApp extends Homey.App {
         }
 
         // ── Normal current adjustment via Flow API ──
+        // Also ensure charging_button=true — Zaptec can end up with button=false after a completed
+        // session or firmware reset while Power Guard still thinks currentTargetA > 0 (not paused).
+        // Without this, the flow current command is accepted but the charger does nothing.
         const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(40, currentA));
-        await callZaptecFlow(clampedA);
+        const btnValNow = device.capabilitiesObj?.charging_button?.value;
+        if (device.capabilities.includes('charging_button') && btnValNow === false) {
+          this.log(`[Zaptec] charging_button is false despite currentTargetA=${currentA}A — re-enabling before sending current`);
+          this._appLogEntry('charger', `Zaptec ${device.name}: knapp var av, slår på og setter ${clampedA}A`);
+          await callZaptecFlow(clampedA);
+          await withTimeout(
+            device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
+            10000, `zaptecButtonFix(${deviceId})`
+          );
+        } else {
+          await callZaptecFlow(clampedA);
+        }
         this._addLog(`Zaptec strøm: ${device.name} → ${clampedA}A`);
         this._appLogEntry('charger', `Zaptec current: ${device.name} → ${clampedA}A`);
         if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
