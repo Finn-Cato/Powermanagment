@@ -3666,20 +3666,23 @@ class PowerGuardApp extends Homey.App {
 
         // ── Resume from pause: turn on first, then set current ──
         const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === deviceId);
-        const wasPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
+        // Also treat fresh starts (!alreadyTracked) as paused — outer scheduler sees isPaused=true
+        // (currentTargetA=null) but _setZaptecCurrent has no way to know that without this check.
+        const wasPaused = !alreadyTracked || (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
         if (wasPaused && device.capabilities.includes('charging_button')) {
           const btnVal = device.capabilitiesObj?.charging_button?.value;
           if (btnVal === false) {
             // Always resume at 6A (startCurrent = minCurrent) — ramps up 1A/min from there.
             const resumeA = Math.min(CHARGER_DEFAULTS.startCurrent, currentA);
-            // Set current via flow first, then enable charging
+            // Set current via flow first, then attempt to re-enable the charging button.
+            // Non-fatal: Zaptec rejects charging_button=true when a session has ended
+            // (e.g. car fully charged). If rejected, the flow still sets the current limit
+            // so it takes effect when the session restarts.
             await callZaptecFlow(resumeA);
-            await withTimeout(
-              device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
-              10000, `zaptecResume(${deviceId})`
-            );
+            device.setCapabilityValue({ capabilityId: 'charging_button', value: true })
+              .catch(e => this.log(`[Zaptec] button re-enable on resume (non-critical): ${e.message}`));
             this._addLog(`Zaptec resumed: ${device.name} → ${resumeA}A (next cycle will optimize to ${currentA}A)`);
-            this._appLogEntry('charger', `Zaptec resumed: ${device.name} → ${resumeA}A (target=${currentA}A, will ramp up)`);
+            this._appLogEntry('charger', `Zaptec resumed: ${device.name} → ${resumeA}A (target=${currentA}A, vil rampe opp)`);
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
             Object.assign(this._chargerState[deviceId], { lastCommandA: resumeA, commandTime: Date.now(), confirmed: false, timedOut: false });
             delete this._pendingChargerCommands[deviceId];
@@ -3694,13 +3697,12 @@ class PowerGuardApp extends Homey.App {
         const clampedA = Math.max(CHARGER_DEFAULTS.minCurrent, Math.min(40, currentA));
         const btnValNow = device.capabilitiesObj?.charging_button?.value;
         if (device.capabilities.includes('charging_button') && btnValNow === false) {
-          this.log(`[Zaptec] charging_button is false despite currentTargetA=${currentA}A — re-enabling before sending current`);
+          this.log(`[Zaptec] charging_button is false in normal path — sending current + attempting button re-enable`);
           this._appLogEntry('charger', `Zaptec ${device.name}: knapp var av, slår på og setter ${clampedA}A`);
           await callZaptecFlow(clampedA);
-          await withTimeout(
-            device.setCapabilityValue({ capabilityId: 'charging_button', value: true }),
-            10000, `zaptecButtonFix(${deviceId})`
-          );
+          // Non-fatal: Zaptec may reject button=true when no active session.
+          device.setCapabilityValue({ capabilityId: 'charging_button', value: true })
+            .catch(e => this.log(`[Zaptec] button re-enable in normal path (non-critical): ${e.message}`));
         } else {
           await callZaptecFlow(clampedA);
         }
