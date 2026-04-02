@@ -2981,10 +2981,11 @@ class PowerGuardApp extends Homey.App {
       }
       if (!shouldRestore) continue;
       // Don't restore within 3 minutes of a charger actively drawing power.
-      // Prevents disco-effect: charger pauses briefly for current adjustment → restore fires
-      // → charger resumes → shed fires again (observed: 2m7s pause that just cleared the old 2min guard).
+      // Applies to ALL shed types — charger is mid-ramp and will need the headroom shortly.
+      // Prevents disco-effect: budget looks OK between ramp steps → restore fires → next
+      // ramp step pushes over limit → shed fires again.
       const EV_COOLDOWN_MS = 3 * 60 * 1000;
-      if (shed.evPriorityChargerId && now - (this._evChargerLastActiveMs || 0) < EV_COOLDOWN_MS) continue;
+      if (now - (this._evChargerLastActiveMs || 0) < EV_COOLDOWN_MS) continue;
       // Min 2 min before restoring when a charger is still connected — avoids rapid re-shed.
       // Bypassed when no charger is connected (session is over).
       if (connectedChargers.length > 0 && now - shed.mitigatedAt < 120000) continue;
@@ -3100,8 +3101,8 @@ class PowerGuardApp extends Homey.App {
       this._persistMitigatedDevices();
       this._lastProactiveSheddingTime = now;
       this._lastDeviceOffTime = now;
-      this.log(`[EV] Proactive shed: ${entry.name} turned off — budget ${Math.round(budget)}W < needed ${Math.round(minBudgetNeeded)}W`);
-      this._addLog(`EV proactive shed: ${entry.name} off (budget ${Math.round(budget)}W < ${Math.round(minBudgetNeeded)}W)`);
+      this.log(`[EV] Proactive shed: ${entry.name} turned off — budget ${Math.round(budget)}W < needed ${Math.round(restoreBudgetNeeded)}W`);
+      this._addLog(`EV proactive shed: ${entry.name} off (budget ${Math.round(budget)}W < ${Math.round(restoreBudgetNeeded)}W)`);
       await this._updateVirtualDevice({ alarm: true }).catch(() => {});
       break; // One device per cycle
     }
