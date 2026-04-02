@@ -3148,9 +3148,11 @@ class PowerGuardApp extends Homey.App {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    const HEADROOM_TO_RAMP  = 300;   // Minimum headroom (W) before stepping up 1A
-    const RAMP_UP_COOLDOWN  = 60000; // 1 minute between up-steps per charger
-    const SETTLE_WINDOW     = 30000; // 30s shared settling — no charger ramps until meter confirms previous step
+    const HEADROOM_TO_RAMP         = 300;   // Minimum headroom (W) before stepping up 1A
+    const HEADROOM_AFTER_STEPDOWN  = 750;   // Higher headroom required for 60s after a step-down (anti-oscillation)
+    const STEPDOWN_GUARD_MS        = 60000; // Window after step-down where higher headroom applies
+    const RAMP_UP_COOLDOWN         = 60000; // 1 minute between up-steps per charger
+    const SETTLE_WINDOW            = 30000; // 30s shared settling — no charger ramps until meter confirms previous step
     let madeIncrease = false;        // Belt-and-suspenders: also blocks a second ramp within the same cycle
 
     for (const entry of chargerEntries) {
@@ -3219,6 +3221,10 @@ class PowerGuardApp extends Homey.App {
 
       const overLimit = smoothedPower > limit;
       const headroomW = limit - smoothedPower; // positive = under limit, negative = over
+      // Anti-oscillation: require larger headroom for 60s after a step-down so the charger
+      // doesn't immediately ramp back up into the same overload that triggered the step-down.
+      const recentStepDown = cState.lastStepDownTime && (now - cState.lastStepDownTime) < STEPDOWN_GUARD_MS;
+      const headroomThreshold = recentStepDown ? HEADROOM_AFTER_STEPDOWN : HEADROOM_TO_RAMP;
 
       let targetCurrent;
       // Resume immunity: after turning ON, the Easee charger briefly spikes to full hardware
@@ -3259,7 +3265,7 @@ class PowerGuardApp extends Homey.App {
       } else if (isPaused) {
         // Resume from pause when enough headroom — always start at 6A
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
-        if (headroomW >= HEADROOM_TO_RAMP && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
+        if (headroomW >= headroomThreshold && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
@@ -3275,7 +3281,7 @@ class PowerGuardApp extends Homey.App {
         // The resume will clear timedOut=false so the next cycle can ramp up normally from 6A.
         const timedOutSince = cState.commandTime || 0;
         const TIMEOUT_RECOVERY_MS = 5 * 60 * 1000;
-        if (headroomW >= HEADROOM_TO_RAMP && now - timedOutSince >= TIMEOUT_RECOVERY_MS) {
+        if (headroomW >= headroomThreshold && now - timedOutSince >= TIMEOUT_RECOVERY_MS) {
           this.log(`[EV] timedOut recovery: ${entry.name} — pausing then resuming to reset charger state (stuck ${Math.round((now - timedOutSince) / 60000)}min)`);
           this._appLogEntry('charger', `${entry.name}: nullstiller lader (ignorerte kommando i ${Math.round((now - timedOutSince) / 60000)}min)`);
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
@@ -3284,7 +3290,7 @@ class PowerGuardApp extends Homey.App {
         } else {
           targetCurrent = currentTargetA; // not enough headroom yet or too soon — hold
         }
-      } else if (headroomW >= HEADROOM_TO_RAMP && currentTargetA < maxA && !cState.timedOut) {
+      } else if (headroomW >= headroomThreshold && currentTargetA < maxA && !cState.timedOut) {
         // Under limit with headroom — ramp up 1A if both per-charger 60s and shared 30s settling are satisfied
         const lastRampUp    = cState.lastRampUpTime || 0;
         const sinceLastAny  = now - (this._lastAnyChargerRampUpTime || 0);
@@ -3293,8 +3299,8 @@ class PowerGuardApp extends Homey.App {
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._lastAnyChargerRampUpTime = now;
-          this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom)`);
-          this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig)`);
+          this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom${recentStepDown ? ', post-stepdown guard' : ''})`);
+          this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig${recentStepDown ? ', anti-osc' : ''})`);
         } else {
           targetCurrent = currentTargetA; // wait for cooldown or settling window
         }
