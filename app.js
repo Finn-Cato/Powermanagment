@@ -2826,16 +2826,31 @@ class PowerGuardApp extends Homey.App {
         // 1-phase: ~230 W/A, 3-phase: ~690 W/A. Midpoint threshold at 460.
         // Requires 3 consecutive consistent readings before updating detectedPhases —
         // prevents a single low reading during charger ramp-up from wrongly setting 1-phase.
+        // Primary: use offeredCurrent (W/A ratio). Fallback for Zaptec Go (no offered sensor):
+        // compare L2/L3 current to L1 — if both are > 20% of L1 the charger uses 3 phases.
+        let _phaseDetectRef = null;
         if (data.powerW > 200 && data.offeredCurrent > 0) {
-          const ratio = data.powerW / data.offeredCurrent;
+          _phaseDetectRef = { method: 'ratio', ratio: data.powerW / data.offeredCurrent };
+        } else if (data.powerW > 200 && !data.offeredCurrent) {
+          const _l1 = obj['measure_current.phase1']?.value || obj['measure_current.L1']?.value || 0;
+          const _l2 = obj['measure_current.phase2']?.value || obj['measure_current.L2']?.value || 0;
+          const _l3 = obj['measure_current.phase3']?.value || obj['measure_current.L3']?.value || 0;
+          if (_l1 > 1) {
+            // 3-phase if both L2 and L3 carry at least 20% of L1, else 1-phase
+            const is3phase = (_l2 > _l1 * 0.2) && (_l3 > _l1 * 0.2);
+            _phaseDetectRef = { method: 'L1L2L3', ratio: is3phase ? 690 : 230 };
+          }
+        }
+        if (_phaseDetectRef) {
+          const { ratio } = _phaseDetectRef;
           const detected = ratio < 460 ? 1 : 3;
           if (!data._phaseVote || data._phaseVote.value !== detected) {
             data._phaseVote = { value: detected, count: 1 };
           } else {
             data._phaseVote.count++;
             if (data._phaseVote.count >= 3 && data.detectedPhases !== detected) {
-              this.log(`[EV] ${entry.name} confirmed ${detected}-phase (ratio ${ratio.toFixed(0)} W/A, 3 consistent readings)`);
-              this._appLogEntry('charger', `${entry.name} detected ${detected}-phase charging (${ratio.toFixed(0)} W/A)`);
+              this.log(`[EV] ${entry.name} confirmed ${detected}-phase via ${_phaseDetectRef.method} (ratio ${ratio.toFixed(0)} W/A, 3 consistent readings)`);
+              this._appLogEntry('charger', `${entry.name} detected ${detected}-phase charging (${ratio.toFixed(0)} W/A, method=${_phaseDetectRef.method})`);
               data.detectedPhases = detected;
               // Persist confirmed phase into priorityList so it survives restarts.
               // Skip if user has manually locked the phase count (chargerPhasesManual=true).
@@ -3652,10 +3667,11 @@ class PowerGuardApp extends Homey.App {
               10000, `zaptecPause(${deviceId})`
             );
           }
-          // Also set installation current to 0 via flow to prevent any residual draw
-          try { await callZaptecFlow(0); } catch (flowErr) {
-            this.log(`[Zaptec] Flow pause fallback failed (non-critical): ${flowErr.message}`);
-          }
+          // NOTE: do NOT call callZaptecFlow(0) here. For Zaptec, sending
+          // installation_current_control=0A via the Flow action terminates the session
+          // (OperatingMode → Connected_Finished), which shows as "Ferdig" in the Zaptec app
+          // and requires the cable to be physically replugged to restart.
+          // charging_button=false alone is sufficient to pause without ending the session.
           this._addLog(`Zaptec paused: ${device.name}`);
           this._appLogEntry('charger', `Zaptec paused: ${device.name}`);
           if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
@@ -4838,14 +4854,18 @@ class PowerGuardApp extends Homey.App {
         results.steps.push({ step: 'charging_button', ok: true, detail: `Current value: ${btnVal}` });
 
         // Write-back test: only run when charging_button is true (charging active).
-        // Zaptec rejects setCapabilityValue when already paused — skip the test in that case
-        // to avoid a false failure that confuses users.
+        // Zaptec rejects charging_button=true (Resume command) when not paused/scheduled.
+        // Treat "not Paused nor Scheduled" error as OK — it means the charger is already running.
         if (btnVal === true) {
           try {
             await device.setCapabilityValue({ capabilityId: 'charging_button', value: true });
-            results.steps.push({ step: 'Write test', ok: true, detail: `Wrote charging_button = true (no change)` });
+            results.steps.push({ step: 'Write test', ok: true, detail: `Wrote charging_button = true (no change needed)` });
           } catch (err) {
-            results.steps.push({ step: 'Write test', ok: false, detail: `Failed to write charging_button: ${err.message}` });
+            const isExpected = err.message && err.message.toLowerCase().includes('not paused');
+            results.steps.push({ step: 'Write test', ok: isExpected,
+              detail: isExpected
+                ? `OK — charger is already active (Zaptec rejects Resume when not paused, as expected)`
+                : `Failed to write charging_button: ${err.message}` });
           }
         } else {
           results.steps.push({ step: 'Write test', ok: true, detail: `Skipped — charger is paused/finished (Zaptec rejects writes when already paused)` });
