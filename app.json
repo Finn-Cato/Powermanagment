@@ -56,8 +56,8 @@
     "name": "Power Guard",
     "email": "powerguard@finnlyden.no"
   },
-  "support": "https://github.com/Finn-Cato/Powermanagment/issues",
-  "source": "https://github.com/Finn-Cato/Powermanagment",
+  "support": "https://github.com/Finn-Cato/power-guard/issues",
+  "source": "https://github.com/Finn-Cato/power-guard",
   "permissions": [
     "homey:manager:api"
   ],

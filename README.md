@@ -4,7 +4,7 @@
 
 Power Guard monitors your household power consumption in real-time using a HAN electricity meter and automatically controls devices when you approach your grid limit — preventing costly peak penalties and tripped breakers.
 
-> ⚠️ **Trial version** — use at your own risk. Please report bugs on the [Issues page](https://github.com/Finn-Cato/Powermanagment/issues).
+> ⚠️ **Trial version** — use at your own risk. Please report bugs on the [Issues page](https://github.com/Finn-Cato/power-guard/issues).
 
 ---
 
