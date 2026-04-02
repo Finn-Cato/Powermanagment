@@ -4736,6 +4736,7 @@ class PowerGuardApp extends Homey.App {
       enabled:          this._settings.enabled,
       profile:          this._settings.profile,
       currentPowerW:    movingAverage(this._powerBuffer, this._settings.smoothingWindow),
+      rawPowerW:        this._powerBuffer.length > 0 ? this._powerBuffer[this._powerBuffer.length - 1] : null,
       limitW:           this._getEffectiveLimit(),
       overLimitCount:   this._overLimitCount,
       mitigatedDevices: this._mitigatedDevices.map(m => ({ deviceId: m.deviceId, action: m.action })),

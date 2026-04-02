@@ -1898,7 +1898,9 @@
     if (!s) return;
     _lastStatus = s;
     var powerEl = document.getElementById('st-power');
-    var newPower = Math.round(s.currentPowerW || 0);
+    // Use rawPowerW (latest single HAN reading) for display — avoids the ~50s lag
+    // from the smoothed moving average. Fall back to currentPowerW if raw not available.
+    var newPower = Math.round(s.rawPowerW != null ? s.rawPowerW : (s.currentPowerW || 0));
     powerEl.textContent = newPower + ' W';
     // Flash power value green briefly when it changes
     if (_lastPowerW !== null && _lastPowerW !== newPower) {
