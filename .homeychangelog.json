@@ -1,4 +1,8 @@
 {
+  "0.8.70": {
+    "en": "Zaptec Go: in-app help now shows the 3 required Homey flows as visual cards (WHEN/THEN with colour-coded borders and token pills) so users can set up Power Guard integration without leaving the settings page.",
+    "no": "Zaptec Go: innebygd hjelp viser nå de 3 nødvendige Homey-flowene som visuelle kort (NÅR/SÅ med fargekodede kanter og token-piller) slik at brukere kan sette opp Power Guard-integrasjon uten å forlate innstillingssiden."
+  },
   "0.8.69": {
     "en": "Zaptec Go: use 'Flow-controlled charger' mode for full Power Guard integration. Homey's permission system prevents apps from running another app's flow actions directly — the correct solution is to enable 'Flow-controlled charger' in settings and build 3 simple Homey flows that relay Power Guard's commands to Zaptec. Updated in-app help with step-by-step Zaptec flow setup instructions.",
     "no": "Zaptec Go: bruk 'Flyt-styrt lader'-modus for full Power Guard-integrasjon. Homeys rettighetssystem hindrer apper i å kjøre andre appers flow-aksjoner direkte — riktig løsning er å aktivere 'Flyt-styrt lader' i innstillinger og lage 3 enkle Homey-flows som videresender Power Guards kommandoer til Zaptec. Oppdatert hjelp i appen med trinnvis Zaptec flow-oppsett."
