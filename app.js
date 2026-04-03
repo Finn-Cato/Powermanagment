@@ -2657,10 +2657,19 @@ class PowerGuardApp extends Homey.App {
         // Listen to alarm_generic.car_connected changes (Zaptec specific)
         if (caps.includes('alarm_generic.car_connected')) {
           const carInst = device.makeCapabilityInstance('alarm_generic.car_connected', (value) => {
-            if (this._evPowerData[entry.deviceId]) {
-              this._evPowerData[entry.deviceId].carConnectedAlarm = value;
-              this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
-              this.log(`[EV] ${entry.name} alarm_generic.car_connected changed to: ${value} → connected: ${this._evPowerData[entry.deviceId].isConnected}`);
+            const d = this._evPowerData[entry.deviceId];
+            if (d) {
+              d.carConnectedAlarm = value;
+              d.isConnected = this._isCarConnected(entry.deviceId);
+              this.log(`[EV] ${entry.name} alarm_generic.car_connected changed to: ${value} → connected: ${d.isConnected}`);
+              // Car unplugged — reset any synthesised Completed so the next session starts clean
+              if (!value) {
+                d.zeroPowerSince      = null;
+                if (d._completedSynthesised) {
+                  d.chargerStatus        = null;
+                  d._completedSynthesised = false;
+                }
+              }
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_car_connected'] = carInst;
@@ -2905,6 +2914,32 @@ class PowerGuardApp extends Homey.App {
                 this.homey.settings.set('priorityList', pl);
               }
             }
+          }
+        }
+
+        // Zero-power timeout: Zaptec Go keeps charging_button=true even after the car
+        // finishes charging. We can't rely on charging_button going false. If isCharging=true
+        // but powerW stays below 50W for 3+ minutes while we're actively sending current
+        // (≥6A), synthesise chargerStatus='Completed' so the charger loop stops ramping.
+        // Reset when powerW rises above 200W (new charging session started).
+        {
+          const cState = this._chargerState[entry.deviceId];
+          const sentA   = cState?.lastCommandA ?? 0;
+          if (data.isCharging === true && (data.powerW || 0) < 50 && sentA >= 6) {
+            if (!data.zeroPowerSince) data.zeroPowerSince = now;
+          } else if ((data.powerW || 0) > 200) {
+            data.zeroPowerSince = null;
+            if (data._completedSynthesised) {
+              data.chargerStatus      = null;
+              data._completedSynthesised = false;
+            }
+          }
+          if (data.zeroPowerSince && !data._completedSynthesised &&
+              (now - data.zeroPowerSince) > 3 * 60 * 1000) {
+            data.chargerStatus         = 'Completed';
+            data._completedSynthesised = true;
+            this.log(`[EV] ${entry.name}: 3-min zero-power timeout → synthesised chargerStatus='Completed' (isCharging=${data.isCharging}, sentA=${sentA}A)`);
+            this._appLogEntry('charger', `${entry.name}: zero-power timeout → Completed (sentA=${sentA}A)`);
           }
         }
 
