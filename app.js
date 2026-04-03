@@ -3446,7 +3446,9 @@ class PowerGuardApp extends Homey.App {
       // so the resume current is always within the calculated budget.
 
       let success = false;
-      if (brand === 'easee' || !brand) {
+      if (entry.flowControlled) {
+        success = await this._handleFlowControlledCharger(entry.deviceId, entry.name, targetCurrent).catch(() => false);
+      } else if (brand === 'easee' || !brand) {
         success = await this._setEaseeChargerCurrent(entry.deviceId, targetCurrent).catch(() => false);
       } else if (brand === 'enua') {
         await this._setEnuaCurrent(entry.deviceId, targetCurrent).catch(err => this.error('[EV] Enua current set error:', err));

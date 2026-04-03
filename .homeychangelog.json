@@ -1,4 +1,8 @@
 {
+  "0.8.75": {
+    "en": "Fix: flow-controlled charger mode now correctly bypasses all brand-specific handlers (Zaptec, Enua, etc). Both the main charging loop and the command router now check flow-controlled FIRST, so flow triggers are always fired when enabled.",
+    "no": "Fiks: flyt-styrt lader-modus omgår nå alle merkespesifikke behandlere (Zaptec, Enua osv.) korrekt. Både hovedladeløkken og kommandoruteren sjekker flyt-styrt FØRST, slik at flow-triggere alltid utløses når det er aktivert."
+  },
   "0.8.74": {
     "en": "Fix: flow-controlled charger mode now works correctly for Zaptec and other known brands. Previously, brand detection (Zaptec/Enua) ran before the flow-controlled check, so flow triggers were never fired even when enabled.",
     "no": "Fiks: flyt-styrt lader-modus fungerer nå korrekt for Zaptec og andre kjente merker. Tidligere kjørte merkedeteksjon (Zaptec/Enua) før flyt-styrt-sjekken, slik at flow-triggere aldri ble utløst selv når det var aktivert."
