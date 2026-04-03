@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.8.64",
+  "version": "0.8.65",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
