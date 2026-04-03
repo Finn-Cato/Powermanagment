@@ -1,4 +1,8 @@
 {
+  "0.8.66": {
+    "en": "Internal: register zaptec-test diagnostic API route in app.json.",
+    "no": "Intern: registrerer zaptec-test diagnose-API-rute i app.json."
+  },
   "0.8.65": {
     "en": "Internal: adds a diagnostic API endpoint used to verify that Zaptec Go correctly receives and applies current commands from Power Guard.",
     "no": "Intern: legger til et diagnose-API-endepunkt brukt for å verifisere at Zaptec Go korrekt mottar og anvender strømkommandoer fra Power Guard."
