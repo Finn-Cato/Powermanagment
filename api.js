@@ -311,6 +311,69 @@ module.exports = {
     return homey.app.getAppLog();
   },
 
+  // Temporary diagnostic: send targetA to Zaptec and return full result
+  async zaptecTest({ homey, query }) {
+    const app = homey.app;
+    const deviceId = query?.deviceId || null;
+    const amps = parseInt(query?.amps ?? '7', 10);
+    if (!deviceId) return { ok: false, error: 'deviceId required' };
+
+    // Discover what flow actions are available
+    let flowActions = [];
+    try {
+      const all = await app._api.flow.getFlowCardActions();
+      flowActions = Object.values(all)
+        .filter(a => (a.uri||'').includes('zaptec'))
+        .map(a => a.id);
+    } catch(e) { flowActions = ['discovery error: ' + e.message]; }
+
+    // Read current state before
+    let before = {};
+    try {
+      const dev = await app._api.devices.getDevice({ id: deviceId });
+      const obj = dev.capabilitiesObj || {};
+      before = {
+        available: obj.available_installation_current?.value,
+        powerW: obj.measure_power?.value,
+        btn: obj.charging_button?.value,
+        car: obj['alarm_generic.car_connected']?.value,
+      };
+    } catch(e) { before = { error: e.message }; }
+
+    // Send command via PG's own _setZaptecCurrent
+    let cmdResult = false;
+    let cmdError  = null;
+    try {
+      cmdResult = await app._setZaptecCurrent(deviceId, amps);
+    } catch(e) { cmdError = e.message; }
+
+    // Wait and read back
+    await new Promise(r => setTimeout(r, 4000));
+
+    let after = {};
+    try {
+      const dev = await app._api.devices.getDevice({ id: deviceId });
+      const obj = dev.capabilitiesObj || {};
+      after = {
+        available: obj.available_installation_current?.value,
+        powerW: obj.measure_power?.value,
+        btn: obj.charging_button?.value,
+      };
+    } catch(e) { after = { error: e.message }; }
+
+    return {
+      ok: true,
+      flowActionsFound: flowActions,
+      before,
+      after,
+      cmdResult,
+      cmdError,
+      confirmed: before.available !== after.available
+        ? `Changed: ${before.available}A → ${after.available}A`
+        : `No change (still ${after.available}A)`,
+    };
+  },
+
   // ─── Section 12 — Direct Easee REST API ──────────────────────────────────
 
   /**
