@@ -33,7 +33,7 @@ Power Guard monitors your household power consumption in real-time using a HAN e
 - **Grace window** — 2-minute grace period after confirmed charging before flagging a mismatch
 - **Confirmation tracking** — verifies commands by reading `measure_current.offered`, with per-charger reliability scoring
 - **Retry with backoff** — retries failed commands up to 2 times with increasing delays
-- Supports **Easee**, **Zaptec** (Go / Go2 / Home / Pro), **Enua Charge E**, and **Futurehome**
+- Supports **Easee** natively (direct API control). Other chargers (**Zaptec**, **Enua**, **Futurehome**, etc.) are supported via Flow cards — see the Help tab in the app settings
 
 ### Mode Engine (Home / Night / Away / Holiday)
 - Four modes switchable manually from the settings page — no Flow required
