@@ -1,4 +1,8 @@
 {
+  "0.8.72": {
+    "en": "Zaptec Go: corrected token names in in-app help — Flow 1 uses 'Current (A)', Flow 3 uses 'Starting current (A)'. Added tip: current fields open as sliders, tap the tag icon to switch to token mode. Added tip to search for WHEN cards if scrolling does not show them.",
+    "no": "Zaptec Go: korrigert tokennavn i innebygd hjelp — Flow 1 bruker 'Ladestr\u00f8m (A)', Flow 3 bruker 'Startstr\u00f8m (A)'. Lagt til tips: str\u00f8mfelt \u00e5pner som skyveknapp, trykk p\u00e5 tag-ikonet for \u00e5 bytte til token-modus. Lagt til tips om \u00e5 s\u00f8ke p\u00e5 N\u00c5R-kort hvis scrolling ikke viser dem."
+  },
   "0.8.71": {
     "en": "Zaptec Go: corrected in-app help to use the actual Zaptec flow action card names: 'Set available current to' (P1/P2/P3) for adjusting current, 'Stop charging' for pause, and 'Start charging' + 'Set available current to' for resume.",
     "no": "Zaptec Go: korrigert innebygd hjelp til å bruke de faktiske Zaptec flow-aksjonskortnavnene: 'Sett tilgjengelig strøm til' (Strøm P1/P2/P3) for å endre strøm, 'Stopp lading' for pause og 'Start lading' + 'Sett tilgjengelig strøm til' for gjenoppta."
