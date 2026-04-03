@@ -72,7 +72,8 @@
       "connectivity": [],
       "capabilities": [
         "onoff",
-        "measure_power"
+        "measure_power",
+        "alarm_generic"
       ],
       "images": {
         "small": "/drivers/power-guard/assets/small.png",
