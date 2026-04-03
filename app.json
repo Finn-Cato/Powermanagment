@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.8.68",
+  "version": "0.8.69",
   "compatibility": ">=12.0.0",
   "sdk": 3,
   "brandColor": "#1E4A72",
@@ -59,7 +59,8 @@
   "support": "https://github.com/Finn-Cato/power-guard/issues",
   "source": "https://github.com/Finn-Cato/power-guard",
   "permissions": [
-    "homey:manager:api"
+    "homey:manager:api",
+    "homey:manager:flow"
   ],
   "drivers": [
     {

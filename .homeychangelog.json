@@ -1,4 +1,8 @@
 {
+  "0.8.69": {
+    "en": "Fix: added homey:manager:flow permission so Power Guard can call Zaptec flow actions. Previously, all flow commands to Zaptec silently failed with 'Missing Scopes', meaning the charger never received current limit changes from Power Guard.",
+    "no": "Fiks: la til homey:manager:flow-tillatelse slik at Power Guard kan kalle Zaptec flow-actions. Tidligere feilet alle flow-kommandoer til Zaptec stille med 'Missing Scopes', noe som betyr at laderen aldri mottok str\u00f8mbegrensninger fra Power Guard."
+  },
   "0.8.68": {
     "en": "Internal: enhanced diagnostic — tests setCapabilityValue and probes 10 possible Zaptec flow action IDs to find what works in v1.10.4.",
     "no": "Intern: forbedret diagnostikk — tester setCapabilityValue og prober 10 mulige Zaptec flow action-IDer for å finne hva som fungerer i v1.10.4."
