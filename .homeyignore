@@ -12,6 +12,9 @@ publish-helper.js
 tmpclaude-*
 *.pyc
 __pycache__/
+_remote_status.js
+_zaptec_test.js
+_zaptec_flow_guide.html
 
 # Documentation & working notes (not part of the app)
 README.md
