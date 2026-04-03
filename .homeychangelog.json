@@ -1,4 +1,8 @@
 {
+  "0.8.76": {
+    "en": "Fix: flow-controlled chargers no longer ramp up endlessly when no car is connected. Uses Zaptec car_connected alarm (or power draw fallback) to detect car presence instead of always assuming connected.",
+    "no": "Fiks: flyt-styrte ladere ramper ikke lenger opp i det uendelige n\u00e5r ingen bil er tilkoblet. Bruker Zaptecs car_connected-alarm (eller str\u00f8mforbruk som reserve) for \u00e5 oppdage om bil er tilkoblet i stedet for \u00e5 alltid anta tilkoblet."
+  },
   "0.8.75": {
     "en": "Fix: flow-controlled charger mode now correctly bypasses all brand-specific handlers (Zaptec, Enua, etc). Both the main charging loop and the command router now check flow-controlled FIRST, so flow triggers are always fired when enabled.",
     "no": "Fiks: flyt-styrt lader-modus omgår nå alle merkespesifikke behandlere (Zaptec, Enua osv.) korrekt. Både hovedladeløkken og kommandoruteren sjekker flyt-styrt FØRST, slik at flow-triggere alltid utløses når det er aktivert."

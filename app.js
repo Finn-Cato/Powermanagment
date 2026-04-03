@@ -2373,10 +2373,20 @@ class PowerGuardApp extends Homey.App {
    * If status is unknown/null/unrecognized → assume NOT connected (safe default).
    */
   _isCarConnected(deviceId) {
-    // Flow-controlled chargers are always treated as connected — Power Guard fires triggers,
-    // and the user's flow decides what to actually do with the charger.
+    // Flow-controlled chargers: use real signals (car_connected alarm, power draw,
+    // recent command) instead of always returning true. Without this check PG ramps
+    // up endlessly even when no car is plugged in (0W).
     const _fcEntry = (this._settings.priorityList || []).find(e => e.deviceId === deviceId);
-    if (_fcEntry?.flowControlled) return true;
+    if (_fcEntry?.flowControlled) {
+      const evData = this._evPowerData[deviceId];
+      const cState = this._chargerState?.[deviceId] || {};
+      // Zaptec exposes alarm_generic.car_connected — use it if available
+      if (evData?.carConnectedAlarm != null) return evData.carConnectedAlarm === true;
+      // Fallback: consider connected if drawing power or recently commanded (2min grace for startup)
+      const powerW = evData?.powerW || 0;
+      const recentCommand = cState.commandTime && (Date.now() - cState.commandTime) < 120000;
+      return powerW > 50 || recentCommand;
+    }
 
     const evData = this._evPowerData[deviceId];
     if (!evData) return false;  // No data at all → skip
