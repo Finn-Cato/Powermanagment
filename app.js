@@ -1118,7 +1118,7 @@ class PowerGuardApp extends Homey.App {
     this._accumulateHourlyEnergy(rawValue);
 
     const smoothed = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
-    this._updateVirtualDevice({ power: smoothed }).catch(() => {});
+    this._updateVirtualDevice({ power: rawValue }).catch(() => {});  // raw = matches HAN sensor tile in real-time
     this._checkLimits(smoothed).catch((err) => this.error('checkLimits error:', err));
     
     // Update power consumption for all devices
@@ -2930,14 +2930,25 @@ class PowerGuardApp extends Homey.App {
     // the settling window uses the new lower commanded current, which inflates nonChargerUsage and
     // shrinks the budget, causing proactive shed to fire when it shouldn't. Real measured power is
     // always the correct basis for the shed/restore decision.
+    //
+    // offeredCurrent is only used as a fallback during the settling window (< 20 s after a command
+    // was sent) — covering the lag between a ramp-up command and the HAN meter reflecting it.
+    // Outside the settling window we trust measured power exclusively, which correctly handles:
+    //   • Completed session (pw=0, offeredCurrent=16A stale) → 0W
+    //   • Car-paused / bil nekter (pw=0, no recent command) → 0W
+    //   • PG-paused (0A sent, offeredCurrent=0) → 0W
     const totalChargerPowerW = connectedChargers.reduce((sum, e) => {
       const evData = this._evPowerData[e.deviceId];
+      const pw = evData?.powerW || 0;
+      if (pw > 200) return sum + pw; // actively charging — use measured value directly
+      // Low measured power: only use offeredCurrent estimate within settling window
+      const cState = this._chargerState[e.deviceId];
+      const inSettlingWindow = cState?.commandTime && (now - cState.commandTime) < 20000 && cState.lastCommandA > 0;
+      if (!inSettlingWindow) return sum; // no recent command — trust that 0W means 0W
       const phases = evData?.detectedPhases || e.chargerPhases || 3;
       const voltage = phases * 230;
-      const pw = evData?.powerW || 0;
       const offered = evData?.offeredCurrent || 0;
-      const effectivePw = pw > 200 ? pw : (offered > 0 ? offered * voltage : 0);
-      return sum + effectivePw;
+      return sum + (offered > 0 ? offered * voltage : 0);
     }, 0);
 
     const nonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
