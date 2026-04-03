@@ -1,7 +1,7 @@
 {
   "0.8.69": {
-    "en": "Fix: added homey:manager:flow permission so Power Guard can call Zaptec flow actions. Previously, all flow commands to Zaptec silently failed with 'Missing Scopes', meaning the charger never received current limit changes from Power Guard.",
-    "no": "Fiks: la til homey:manager:flow-tillatelse slik at Power Guard kan kalle Zaptec flow-actions. Tidligere feilet alle flow-kommandoer til Zaptec stille med 'Missing Scopes', noe som betyr at laderen aldri mottok str\u00f8mbegrensninger fra Power Guard."
+    "en": "Zaptec Go: use 'Flow-controlled charger' mode for full Power Guard integration. Homey's permission system prevents apps from running another app's flow actions directly — the correct solution is to enable 'Flow-controlled charger' in settings and build 3 simple Homey flows that relay Power Guard's commands to Zaptec. Updated in-app help with step-by-step Zaptec flow setup instructions.",
+    "no": "Zaptec Go: bruk 'Flyt-styrt lader'-modus for full Power Guard-integrasjon. Homeys rettighetssystem hindrer apper i å kjøre andre appers flow-aksjoner direkte — riktig løsning er å aktivere 'Flyt-styrt lader' i innstillinger og lage 3 enkle Homey-flows som videresender Power Guards kommandoer til Zaptec. Oppdatert hjelp i appen med trinnvis Zaptec flow-oppsett."
   },
   "0.8.68": {
     "en": "Internal: enhanced diagnostic — tests setCapabilityValue and probes 10 possible Zaptec flow action IDs to find what works in v1.10.4.",

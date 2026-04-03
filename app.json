@@ -59,8 +59,7 @@
   "support": "https://github.com/Finn-Cato/power-guard/issues",
   "source": "https://github.com/Finn-Cato/power-guard",
   "permissions": [
-    "homey:manager:api",
-    "homey:manager:flow"
+    "homey:manager:api"
   ],
   "drivers": [
     {
