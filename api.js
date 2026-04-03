@@ -318,92 +318,74 @@ module.exports = {
     const amps = parseInt(query?.amps ?? '7', 10);
     if (!deviceId) return { ok: false, error: 'deviceId required' };
 
-    // Dump ALL flow actions from Zaptec app (runs locally on Homey — not via cloud)
+    const dev = await app._api.devices.getDevice({ id: deviceId });
+    const obj = dev.capabilitiesObj || {};
+
+    const before = {
+      available: obj.available_installation_current?.value,
+      powerW:    obj.measure_power?.value,
+      btn:       obj.charging_button?.value,
+      car:       obj['alarm_generic.car_connected']?.value,
+    };
+
+    // Test 1: Try setCapabilityValue on available_installation_current (local Homey = may work even though cloud blocks it)
+    let capSetResult = null;
+    try {
+      await dev.setCapabilityValue({ capabilityId: 'available_installation_current', value: amps });
+      capSetResult = 'OK';
+    } catch(e) { capSetResult = 'FAIL: ' + e.message; }
+
+    await new Promise(r => setTimeout(r, 2000));
+    const afterCap = (await app._api.devices.getDevice({ id: deviceId })).capabilitiesObj || {};
+
+    // Test 2: Dump ALL flow action IDs that contain com.zaptec in URI (from the running Zaptec app process)
     let allZaptecActions = [];
-    let flowProbeResults = {};
     try {
       const all = await app._api.flow.getFlowCardActions();
       allZaptecActions = Object.values(all)
         .filter(a => (a.uri||'').toLowerCase().includes('zaptec'))
         .map(a => ({ id: a.id, uri: a.uri, args: (a.args||[]).map(x => x.name||x.id) }));
-
-      // Try every Zaptec action that has 'current' in the name
-      const dev = await app._api.devices.getDevice({ id: deviceId });
-      const candidates = allZaptecActions.filter(a => /current|ampere|limit|str.m/i.test(a.id));
-      for (const act of candidates) {
-        try {
-          await app._api.flow.runFlowCardAction({
-            uri:  act.uri,
-            id:   act.id,
-            args: { device: { id: deviceId, name: dev.name }, current1: amps, current2: amps, current3: amps }
-          });
-          flowProbeResults[act.id] = 'OK';
-        } catch(e) {
-          flowProbeResults[act.id] = e.message;
-        }
-      }
-      if (candidates.length === 0) {
-        // No current-related actions — try the first 5 Zaptec actions to see what works
-        for (const act of allZaptecActions.slice(0, 5)) {
-          try {
-            await app._api.flow.runFlowCardAction({
-              uri:  act.uri,
-              id:   act.id,
-              args: { device: { id: deviceId, name: dev.name }, current1: amps, current2: amps, current3: amps }
-            });
-            flowProbeResults[act.id] = 'OK';
-          } catch(e) {
-            flowProbeResults[act.id] = e.message;
-          }
-        }
-      }
     } catch(e) { allZaptecActions = [{ error: e.message }]; }
 
-    // Read current state before
-    let before = {};
-    try {
-      const dev = await app._api.devices.getDevice({ id: deviceId });
-      const obj = dev.capabilitiesObj || {};
-      before = {
-        available: obj.available_installation_current?.value,
-        powerW: obj.measure_power?.value,
-        btn: obj.charging_button?.value,
-        car: obj['alarm_generic.car_connected']?.value,
-      };
-    } catch(e) { before = { error: e.message }; }
+    // Test 3: Probe ALL known/guessed current-control action IDs directly
+    const probeIds = [
+      'installation_current_control',
+      'home_installation_current_control',
+      'go2_installation_current_control',
+      'pro_installation_current_control',
+      'set_installation_current',
+      'set_charging_current',
+      'set_current',
+      'setInstallationCurrent',
+      'setChargingCurrent',
+      'current_control',
+    ];
+    const probeResults = {};
+    for (const id of probeIds) {
+      try {
+        await app._api.flow.runFlowCardAction({
+          uri:  'homey:app:com.zaptec',
+          id,
+          args: { device: { id: deviceId, name: dev.name }, current1: amps, current2: amps, current3: amps }
+        });
+        probeResults[id] = 'OK!';
+      } catch(e) {
+        probeResults[id] = e.message;
+      }
+    }
 
-    // Send command via PG's own _setZaptecCurrent
-    let cmdResult = false;
-    let cmdError  = null;
-    try {
-      cmdResult = await app._setZaptecCurrent(deviceId, amps);
-    } catch(e) { cmdError = e.message; }
-
-    // Wait and read back
-    await new Promise(r => setTimeout(r, 4000));
-
-    let after = {};
-    try {
-      const dev = await app._api.devices.getDevice({ id: deviceId });
-      const obj = dev.capabilitiesObj || {};
-      after = {
-        available: obj.available_installation_current?.value,
-        powerW: obj.measure_power?.value,
-        btn: obj.charging_button?.value,
-      };
-    } catch(e) { after = { error: e.message }; }
+    // Wait and read final state
+    await new Promise(r => setTimeout(r, 3000));
+    const afterFinal = (await app._api.devices.getDevice({ id: deviceId })).capabilitiesObj || {};
 
     return {
       ok: true,
-      allZaptecActions,
-      flowProbeResults,
       before,
-      after,
-      cmdResult,
-      cmdError,
-      confirmed: before.available !== after.available
-        ? `Changed: ${before.available}A → ${after.available}A`
-        : `No change (still ${after.available}A)`,
+      capSetResult,
+      afterCap: { available: afterCap.available_installation_current?.value },
+      allZaptecActions,
+      probeResults,
+      afterFinal: { available: afterFinal.available_installation_current?.value, powerW: afterFinal.measure_power?.value },
     };
   },
 

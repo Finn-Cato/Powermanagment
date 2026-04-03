@@ -1,4 +1,8 @@
 {
+  "0.8.68": {
+    "en": "Internal: enhanced diagnostic — tests setCapabilityValue and probes 10 possible Zaptec flow action IDs to find what works in v1.10.4.",
+    "no": "Intern: forbedret diagnostikk — tester setCapabilityValue og prober 10 mulige Zaptec flow action-IDer for å finne hva som fungerer i v1.10.4."
+  },
   "0.8.67": {
     "en": "Internal: improved zaptec-test diagnostic endpoint — dumps all Zaptec flow actions and probes each one directly on Homey.",
     "no": "Intern: forbedret zaptec-test diagnose-endepunkt — viser alle Zaptec flow-actions og prober dem direkte på Homey."
