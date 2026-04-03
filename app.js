@@ -2680,9 +2680,16 @@ class PowerGuardApp extends Homey.App {
         // Listen to charging_button changes (Zaptec specific)
         if (caps.includes('charging_button')) {
           const btnInst = device.makeCapabilityInstance('charging_button', (value) => {
-            if (this._evPowerData[entry.deviceId]) {
-              this._evPowerData[entry.deviceId].isCharging = value !== false;
-              this.log(`[EV] ${entry.name} charging_button changed to: ${value}`);
+            const d = this._evPowerData[entry.deviceId];
+            if (d) {
+              const btnOn = value !== false;
+              d.isCharging = btnOn;
+              if (!btnOn && d.carConnectedAlarm === true && (d.powerW || 0) < 100) {
+                d.chargerStatus = 'Completed'; // lading ferdig — Zaptec has no status capability
+              } else if (btnOn && d.chargerStatus === 'Completed') {
+                d.chargerStatus = null; // new session
+              }
+              this.log(`[EV] ${entry.name} charging_button changed to: ${value} → chargerStatus: ${d.chargerStatus ?? 'n/a'}`);
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_charging_button'] = btnInst;
@@ -2815,8 +2822,20 @@ class PowerGuardApp extends Homey.App {
           data.isConnected = this._isCarConnected(entry.deviceId);
         }
         // Update charging_button (Zaptec)
+        // Zaptec Go has no charger_status capability, so we synthesise 'Completed' when:
+        //   charging_button = false  (Zaptec says "not charging")
+        //   car_connected   = true   (car still physically plugged in)
+        //   powerW          = 0      (no actual power draw)
+        // Without this, _isCarConnected returns true forever (car_connected alarm) and
+        // _adjustEVChargersForPower keeps ramping current endlessly even though lading er ferdig.
         if (obj.charging_button && obj.charging_button.value != null) {
-          data.isCharging = obj.charging_button.value !== false;
+          const btnOn = obj.charging_button.value !== false;
+          data.isCharging = btnOn;
+          if (!btnOn && data.carConnectedAlarm === true && (data.powerW || 0) < 100) {
+            data.chargerStatus = 'Completed'; // synthesised — Zaptec "lading ferdig" + bil tilkoblet
+          } else if (btnOn && data.chargerStatus === 'Completed') {
+            data.chargerStatus = null; // new session started — clear synthesised status
+          }
         }
         // Update onoff
         if (obj.onoff && obj.onoff.value != null) {
