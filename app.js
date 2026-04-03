@@ -189,6 +189,9 @@ class PowerGuardApp extends Homey.App {
       this._settings = Object.assign({}, DEFAULT_SETTINGS);
     }
 
+    // Charge Now overrides — populated by charge-now driver devices
+    this._chargeNow = {};
+
     // Remove persisted mitigation entries whose action no longer matches the priority list
     // (e.g. user changed action in the UI between sessions, or removed a device)
     this._cleanStaleMitigatedEntries();
@@ -1716,6 +1719,25 @@ class PowerGuardApp extends Homey.App {
       // Store scan results for diagnostics (visible via getStatus), capped at 20
       this._lastMitigationScan = scanResults.slice(-20);
       this.log(`[Mitigation] Scan complete: ${JSON.stringify(scanResults)}`);
+
+      // ── All options exhausted but still over limit ─────────────────────────
+      // Fire flow trigger + timeline notification so the user can send push via Flow.
+      if (!mitigatedThisCycle && currentPower > this._getEffectiveLimit()) {
+        const now2 = Date.now();
+        const NOTIFY_COOLDOWN = 15 * 60 * 1000; // Max once per 15 minutes
+        if (!this._lastOverLimitNotifyTime || (now2 - this._lastOverLimitNotifyTime) >= NOTIFY_COOLDOWN) {
+          this._lastOverLimitNotifyTime = now2;
+          const limitW = Math.round(this._getEffectiveLimit());
+          const currentW = Math.round(currentPower);
+          const overW = currentW - limitW;
+          this._fireTrigger('all_devices_exhausted', { power: currentW, limit: limitW, over: overW });
+          this.homey.notifications.createNotification({
+            excerpt: `⚡ Power Guard: ${currentW}W — ${overW}W over grensen (${limitW}W). Alle enheter er dempet.`,
+          }).catch(err => this.error('[Notification] Failed:', err.message));
+          this.log(`[Mitigation] All devices exhausted, still ${overW}W over limit — trigger + notification sent`);
+          this._appLogEntry('mitigation', `Alle enheter uttømt: ${overW}W over grensen`);
+        }
+      }
     } finally {
       release();
     }
@@ -1945,6 +1967,7 @@ class PowerGuardApp extends Homey.App {
     this._triggerChargerCurrentChanged  = this.homey.flow.getTriggerCard('charger_should_change_current');
     this._triggerChargerShouldPause     = this.homey.flow.getTriggerCard('charger_should_pause');
     this._triggerChargerShouldResume    = this.homey.flow.getTriggerCard('charger_should_resume');
+    this._triggerAllDevicesExhausted    = this.homey.flow.getTriggerCard('all_devices_exhausted');
 
     const condEnabled = this.homey.flow.getConditionCard('guard_enabled');
     if (condEnabled) condEnabled.registerRunListener(() => this._settings.enabled);
@@ -2021,11 +2044,12 @@ class PowerGuardApp extends Homey.App {
 
   _fireTrigger(id, tokens) {
     const map = {
-      power_limit_exceeded: this._triggerPowerLimitExceeded,
-      mitigation_applied:   this._triggerMitigationApplied,
-      mitigation_cleared:   this._triggerMitigationCleared,
-      profile_changed:      this._triggerProfileChanged,
-      mode_changed:         this._triggerModeChanged,
+      power_limit_exceeded:   this._triggerPowerLimitExceeded,
+      mitigation_applied:     this._triggerMitigationApplied,
+      mitigation_cleared:     this._triggerMitigationCleared,
+      profile_changed:        this._triggerProfileChanged,
+      mode_changed:           this._triggerModeChanged,
+      all_devices_exhausted:  this._triggerAllDevicesExhausted,
     };
     const card = map[id];
     if (!card) return;
@@ -3364,7 +3388,8 @@ class PowerGuardApp extends Homey.App {
       const currentTargetA = alreadyTracked?.currentTargetA ?? null;
       const isPaused = currentTargetA === 0 || currentTargetA === null;
       const circuitLimitA = entry.circuitLimitA || 32;
-      const priceCap = this._getPriceCurrentCap(entry.deviceId, circuitLimitA);
+      const isChargeNow = !!(this._chargeNow && this._chargeNow[entry.deviceId]);
+      const priceCap = isChargeNow ? circuitLimitA : this._getPriceCurrentCap(entry.deviceId, circuitLimitA);
       // Use learnedMaxA if available — the charger's actual hardware ceiling, learned
       // by observing that offeredCurrent stopped increasing despite higher commands.
       // This prevents endless ramp-up attempts for chargers with a lower physical max
@@ -3391,7 +3416,27 @@ class PowerGuardApp extends Homey.App {
       const STEP_DOWN_COOLDOWN = 15000; // 15s between step-downs (normal)
       const stepDownReady = isEmergency || !cState.lastStepDownTime || (now - cState.lastStepDownTime) >= STEP_DOWN_COOLDOWN;
 
-      if (priceCap <= 0) {
+      if (isChargeNow && !overLimit) {
+        // Charge Now: jump directly to max current, skip all ramp cooldowns
+        targetCurrent = maxA;
+        if (isPaused || currentTargetA < maxA) {
+          this.log(`[EV] Charge Now: ${entry.name} → ${maxA}A (override)`);
+          this._appLogEntry('charger', `${entry.name}: Kriseknappen → ${maxA}A`);
+        }
+      } else if (isChargeNow && overLimit) {
+        // Charge Now but over watt limit: step down for safety, but never fully pause
+        if (isPaused) {
+          targetCurrent = CHARGER_DEFAULTS.minCurrent;
+        } else if (currentTargetA <= CHARGER_DEFAULTS.minCurrent) {
+          targetCurrent = CHARGER_DEFAULTS.minCurrent; // hold at minimum, don't pause
+        } else if (stepDownReady) {
+          targetCurrent = currentTargetA - 1;
+          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+          this._chargerState[entry.deviceId].lastStepDownTime = now;
+        } else {
+          targetCurrent = currentTargetA;
+        }
+      } else if (priceCap <= 0) {
         // Price engine wants charger fully off → pause
         targetCurrent = null;
       } else if (householdAloneExceedsLimit) {
@@ -5718,6 +5763,8 @@ class PowerGuardApp extends Homey.App {
           const wantOn = modePref.value === 'on';
           const wantOff = modePref.value === 'off';
           if (!wantOn && !wantOff) continue;
+          // Charge Now active — don't let mode engine pause this charger
+          if (wantOff && this._chargeNow && this._chargeNow[entry.deviceId]) continue;
           // Don't un-pause a charger that Power Guard is currently throttling
           const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
           if (wantOn && isMitigated) continue;

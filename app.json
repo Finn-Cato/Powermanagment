@@ -93,6 +93,36 @@
           "template": "add_devices"
         }
       ]
+    },
+    {
+      "id": "charge-now",
+      "name": {
+        "en": "Charge Now",
+        "no": "Kriseknappen"
+      },
+      "class": "other",
+      "connectivity": [],
+      "capabilities": [
+        "onoff"
+      ],
+      "images": {
+        "small": "/drivers/charge-now/assets/icon.svg",
+        "large": "/drivers/charge-now/assets/icon.svg",
+        "xlarge": "/drivers/charge-now/assets/icon.svg"
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
     }
   ],
   "api": {
@@ -411,6 +441,42 @@
               "no": "Startstrøm (A)"
             },
             "example": 6
+          }
+        ]
+      },
+      {
+        "id": "all_devices_exhausted",
+        "title": {
+          "en": "All devices exhausted — still over limit",
+          "no": "Alle enheter uttømt — fortsatt over grensen"
+        },
+        "tokens": [
+          {
+            "name": "power",
+            "type": "number",
+            "title": {
+              "en": "Current power (W)",
+              "no": "Nåværende forbruk (W)"
+            },
+            "example": 8500
+          },
+          {
+            "name": "limit",
+            "type": "number",
+            "title": {
+              "en": "Power limit (W)",
+              "no": "Effektgrense (W)"
+            },
+            "example": 7000
+          },
+          {
+            "name": "over",
+            "type": "number",
+            "title": {
+              "en": "Over limit by (W)",
+              "no": "Over grensen med (W)"
+            },
+            "example": 1500
           }
         ]
       }
