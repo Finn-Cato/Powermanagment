@@ -4088,14 +4088,15 @@ class PowerGuardApp extends Homey.App {
   async _setEaseeChargerCurrent(deviceId, currentA) {
     if (!this._api) return false;
 
+    // Route to flow-trigger handler FIRST — if user checked "flow-controlled",
+    // always use flow triggers regardless of detected brand.
+    const _plEntry = (this._settings.priorityList || []).find(e => e.deviceId === deviceId);
+    if (_plEntry?.flowControlled) return this._handleFlowControlledCharger(deviceId, _plEntry.name, currentA);
+
     // Route to brand-specific handler for non-Easee chargers
     const brand = this._getChargerBrand(deviceId);
     if (brand === 'zaptec') return this._setZaptecCurrent(deviceId, currentA);
     if (brand === 'enua') return this._setEnuaCurrent(deviceId, currentA);
-
-    // Route to flow-trigger handler for flow-controlled (externally-wired) chargers
-    const _plEntry = (this._settings.priorityList || []).find(e => e.deviceId === deviceId);
-    if (_plEntry?.flowControlled) return this._handleFlowControlledCharger(deviceId, _plEntry.name, currentA);
 
     // Skip if charger has no car connected
     if (!this._isCarConnected(deviceId)) return false;

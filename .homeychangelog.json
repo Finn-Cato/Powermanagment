@@ -1,4 +1,8 @@
 {
+  "0.8.74": {
+    "en": "Fix: flow-controlled charger mode now works correctly for Zaptec and other known brands. Previously, brand detection (Zaptec/Enua) ran before the flow-controlled check, so flow triggers were never fired even when enabled.",
+    "no": "Fiks: flyt-styrt lader-modus fungerer nå korrekt for Zaptec og andre kjente merker. Tidligere kjørte merkedeteksjon (Zaptec/Enua) før flyt-styrt-sjekken, slik at flow-triggere aldri ble utløst selv når det var aktivert."
+  },
   "0.8.73": {
     "en": "Fix: settings page failed to load (blank screen) due to an unescaped apostrophe in the help text introduced in v0.8.72.",
     "no": "Fiks: innstillingssiden lastet ikke (svart skjerm) på grunn av en uescapet apostrof i hjelpeteksten som ble innført i v0.8.72."
