@@ -318,14 +318,46 @@ module.exports = {
     const amps = parseInt(query?.amps ?? '7', 10);
     if (!deviceId) return { ok: false, error: 'deviceId required' };
 
-    // Discover what flow actions are available
-    let flowActions = [];
+    // Dump ALL flow actions from Zaptec app (runs locally on Homey — not via cloud)
+    let allZaptecActions = [];
+    let flowProbeResults = {};
     try {
       const all = await app._api.flow.getFlowCardActions();
-      flowActions = Object.values(all)
-        .filter(a => (a.uri||'').includes('zaptec'))
-        .map(a => a.id);
-    } catch(e) { flowActions = ['discovery error: ' + e.message]; }
+      allZaptecActions = Object.values(all)
+        .filter(a => (a.uri||'').toLowerCase().includes('zaptec'))
+        .map(a => ({ id: a.id, uri: a.uri, args: (a.args||[]).map(x => x.name||x.id) }));
+
+      // Try every Zaptec action that has 'current' in the name
+      const dev = await app._api.devices.getDevice({ id: deviceId });
+      const candidates = allZaptecActions.filter(a => /current|ampere|limit|str.m/i.test(a.id));
+      for (const act of candidates) {
+        try {
+          await app._api.flow.runFlowCardAction({
+            uri:  act.uri,
+            id:   act.id,
+            args: { device: { id: deviceId, name: dev.name }, current1: amps, current2: amps, current3: amps }
+          });
+          flowProbeResults[act.id] = 'OK';
+        } catch(e) {
+          flowProbeResults[act.id] = e.message;
+        }
+      }
+      if (candidates.length === 0) {
+        // No current-related actions — try the first 5 Zaptec actions to see what works
+        for (const act of allZaptecActions.slice(0, 5)) {
+          try {
+            await app._api.flow.runFlowCardAction({
+              uri:  act.uri,
+              id:   act.id,
+              args: { device: { id: deviceId, name: dev.name }, current1: amps, current2: amps, current3: amps }
+            });
+            flowProbeResults[act.id] = 'OK';
+          } catch(e) {
+            flowProbeResults[act.id] = e.message;
+          }
+        }
+      }
+    } catch(e) { allZaptecActions = [{ error: e.message }]; }
 
     // Read current state before
     let before = {};
@@ -363,7 +395,8 @@ module.exports = {
 
     return {
       ok: true,
-      flowActionsFound: flowActions,
+      allZaptecActions,
+      flowProbeResults,
       before,
       after,
       cmdResult,

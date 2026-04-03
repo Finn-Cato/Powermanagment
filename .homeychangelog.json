@@ -1,4 +1,8 @@
 {
+  "0.8.67": {
+    "en": "Internal: improved zaptec-test diagnostic endpoint — dumps all Zaptec flow actions and probes each one directly on Homey.",
+    "no": "Intern: forbedret zaptec-test diagnose-endepunkt — viser alle Zaptec flow-actions og prober dem direkte på Homey."
+  },
   "0.8.66": {
     "en": "Internal: register zaptec-test diagnostic API route in app.json.",
     "no": "Intern: registrerer zaptec-test diagnose-API-rute i app.json."
