@@ -203,8 +203,8 @@ class PowerGuardApp extends Homey.App {
     // Also re-broadcast priorityList so other open settings pages stay in sync.
     this.homey.settings.on('set', (key) => {
       this._loadSettings();
-      // Save to file immediately as backup
-      this._saveSettingsToFile().catch((err) => this.error('File save failed:', err));
+      // Debounced file backup — only for user-facing keys, ignores internal keys
+      this._scheduleSettingsFileSave(key);
       if (key === 'priorityList') {
         try { this.homey.api.realtime('priorityList', this.homey.settings.get('priorityList')); } catch (_) {}
         this._connectToEVChargers().catch(() => {});
@@ -541,6 +541,24 @@ class PowerGuardApp extends Homey.App {
     } catch (err) {
       this.error('Failed to save settings to file:', err);
     }
+  }
+
+  /**
+   * Debounced file save — only triggers for user-facing settings keys.
+   * Prevents disk-write spam when internal keys (_deviceCache, _dailyPeaks, etc.) are updated.
+   */
+  _scheduleSettingsFileSave(key) {
+    const publicKeys = new Set([
+      'enabled', 'profile', 'powerLimitW',
+      'phase1LimitA', 'phase2LimitA', 'phase3LimitA',
+      'smoothingWindow', 'spikeMultiplier', 'hysteresisCount', 'cooldownSeconds',
+      'priorityList', 'voltageSystem', 'mainCircuitA', 'selectedMeterDeviceId',
+    ]);
+    if (!publicKeys.has(key)) return;
+    clearTimeout(this._settingsFileSaveTimer);
+    this._settingsFileSaveTimer = setTimeout(() => {
+      this._saveSettingsToFile().catch(err => this.error('File save failed:', err));
+    }, 2000);
   }
 
   async _loadSettingsFromFile() {
@@ -1203,6 +1221,24 @@ class PowerGuardApp extends Homey.App {
   //  ✅ STABLE — DO NOT TOUCH unless absolutely necessary
   // ══════════════════════════════════════════════════════════════════
 
+  /**
+   * Get a YYYY-MM-DD date key in Europe/Oslo timezone.
+   * Fixes critical bug: toISOString() returns UTC which is wrong around midnight in Norway.
+   * Used for hourly energy, daily peaks, and 7-day calendar.
+   */
+  _getOsloDateKey(ts = Date.now()) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Oslo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(ts));
+    const map = Object.fromEntries(
+      parts.filter(p => p.type !== 'literal').map(p => [p.type, p.value])
+    );
+    return `${map.year}-${map.month}-${map.day}`;
+  }
+
   // ─── Hourly Energy Tracking ───────────────────────────────────────────────
 
   /**
@@ -1218,7 +1254,7 @@ class PowerGuardApp extends Homey.App {
       const completedKWh = Math.round(this._hourlyEnergy.accumulatedWh) / 1000;
       const entry = {
         hour: this._hourlyEnergy.currentHour,
-        date: new Date(now - 1).toISOString().slice(0, 10),  // Date of the completed hour
+        date: this._getOsloDateKey(now - 1),  // Date of the completed hour (Oslo timezone)
         kWh: Math.round(completedKWh * 1000) / 1000,         // 3 decimal places
       };
       this._hourlyEnergy.history.push(entry);
@@ -1365,7 +1401,7 @@ class PowerGuardApp extends Homey.App {
     const projectedKWh   = fractionOfHour > 0.01
       ? Math.round((currentHourKWh / fractionOfHour) * 1000) / 1000
       : 0;
-    const todayStr = now.toISOString().slice(0, 10);
+    const todayStr = this._getOsloDateKey(now.getTime());
     const todayPeak = this._dailyPeaks[todayStr] || 0;
     // Warn when the projected end-of-hour value would beat today's best completed hour
     const wouldBeNewDailyPeak = projectedKWh > todayPeak && fractionOfHour > 0.05;
@@ -1390,7 +1426,7 @@ class PowerGuardApp extends Homey.App {
         const cutoff = new Date(now);
         cutoff.setDate(cutoff.getDate() - 6);
         cutoff.setHours(0, 0, 0, 0);
-        const cutoffStr = cutoff.toISOString().slice(0, 10);
+        const cutoffStr = this._getOsloDateKey(cutoff.getTime());
         return Object.entries(this._dailyPeaks)
           .filter(([date]) => date >= cutoffStr)
           .map(([date, kw]) => ({ date, kw: Math.round(Number(kw) * 1000) / 1000 }))
@@ -4858,10 +4894,24 @@ class PowerGuardApp extends Homey.App {
   }
 
   async onUninit() {
-    if (this._watchdogInterval)        clearInterval(this._watchdogInterval);
-    if (this._cacheRefreshInterval)    clearInterval(this._cacheRefreshInterval);
-    if (this._hanPollInterval)         clearInterval(this._hanPollInterval);
-    if (this._resourceMonitorInterval) clearInterval(this._resourceMonitorInterval);
+    for (const key of [
+      '_watchdogInterval',
+      '_cacheRefreshInterval',
+      '_hanPollInterval',
+      '_resourceMonitorInterval',
+      '_queueProcessorInterval',
+      '_priceEngineInterval',
+      '_modeSchedulerInterval',
+    ]) {
+      if (this[key]) {
+        clearInterval(this[key]);
+        this[key] = null;
+      }
+    }
+    if (this._settingsFileSaveTimer) {
+      clearTimeout(this._settingsFileSaveTimer);
+      this._settingsFileSaveTimer = null;
+    }
     if (this._hanCapabilityInstance) {
       try { this._hanCapabilityInstance.destroy(); } catch (_) {}
     }
