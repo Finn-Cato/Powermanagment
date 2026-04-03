@@ -1,4 +1,8 @@
 {
+  "0.8.71": {
+    "en": "Zaptec Go: corrected in-app help to use the actual Zaptec flow action card names: 'Set available current to' (P1/P2/P3) for adjusting current, 'Stop charging' for pause, and 'Start charging' + 'Set available current to' for resume.",
+    "no": "Zaptec Go: korrigert innebygd hjelp til å bruke de faktiske Zaptec flow-aksjonskortnavnene: 'Sett tilgjengelig strøm til' (Strøm P1/P2/P3) for å endre strøm, 'Stopp lading' for pause og 'Start lading' + 'Sett tilgjengelig strøm til' for gjenoppta."
+  },
   "0.8.70": {
     "en": "Zaptec Go: in-app help now shows the 3 required Homey flows as visual cards (WHEN/THEN with colour-coded borders and token pills) so users can set up Power Guard integration without leaving the settings page.",
     "no": "Zaptec Go: innebygd hjelp viser nå de 3 nødvendige Homey-flowene som visuelle kort (NÅR/SÅ med fargekodede kanter og token-piller) slik at brukere kan sette opp Power Guard-integrasjon uten å forlate innstillingssiden."
