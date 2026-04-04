@@ -106,9 +106,9 @@
         "onoff"
       ],
       "images": {
-        "small": "/drivers/charge-now/assets/icon.svg",
-        "large": "/drivers/charge-now/assets/icon.svg",
-        "xlarge": "/drivers/charge-now/assets/icon.svg"
+        "small": "/drivers/charge-now/assets/small.png",
+        "large": "/drivers/charge-now/assets/large.png",
+        "xlarge": "/drivers/charge-now/assets/xlarge.png"
       },
       "pair": [
         {
