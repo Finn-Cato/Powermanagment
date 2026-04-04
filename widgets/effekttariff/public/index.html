@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:var(--homey-font-family,-apple-system,sans-serif); color:var(--homey-text-color); background:var(--homey-background-color); }
+    .wrap { padding:var(--homey-su-3,12px) var(--homey-su-4,16px); display:flex; flex-direction:column; gap:var(--homey-su-3,12px); }
+    .title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--homey-text-color-light,#888); }
+    .tier-row { display:flex; align-items:center; justify-content:space-between; }
+    .tier-val { font-size:28px; font-weight:700; line-height:1; }
+    .tier-label { font-size:12px; color:var(--homey-text-color-light,#888); margin-top:2px; }
+    .tier-badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:99px; }
+    .bar-section { display:flex; flex-direction:column; gap:4px; }
+    .bar-meta { display:flex; justify-content:space-between; font-size:11px; color:var(--homey-text-color-light,#888); }
+    .bar-wrap { height:6px; border-radius:99px; background:var(--homey-line-color,rgba(0,0,0,.1)); overflow:hidden; }
+    .bar-fill { height:100%; border-radius:99px; transition:width .5s; }
+    .peaks { display:flex; flex-direction:column; gap:3px; }
+    .peak-row { display:flex; justify-content:space-between; font-size:11px; }
+    .peak-label { color:var(--homey-text-color-light,#888); }
+    .divider { height:1px; background:var(--homey-line-color,rgba(0,0,0,.1)); }
+  </style>
+</head>
+<body class="homey-widget">
+  <div class="wrap" id="root"><div style="color:var(--homey-text-color-light);font-size:13px;">Laster...</div></div>
+  <script>
+    function onHomeyReady(Homey) {
+      var _data = null;
+      var _settings = Homey.getSettings() || {};
+
+      var tierColors = ['var(--homey-color-green-500,#34c759)','var(--homey-color-green-500,#34c759)','var(--homey-color-orange-500,#ff9500)','var(--homey-color-orange-500,#ff9500)','var(--homey-color-red-500,#ff3b30)'];
+      var dayNames = ['Søn','Man','Tir','Ons','Tor','Fre','Lør'];
+      var LIMIT_COL = '#ff9500';
+
+      function dateKey(d) {
+        return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      }
+      function peakMap(arr) {
+        var m = {};
+        (arr||[]).forEach(function(p){ m[p.date] = p.kw; });
+        return m;
+      }
+
+      // Bar chart with optional horizontal limit line
+      // opts: { limitKW, compact (bool), showTodayLabel (bool, default true) }
+      function barChart(days, tierCol, opts) {
+        opts = opts || {};
+        if (!days.length) return '<div style="font-size:11px;color:var(--homey-text-color-light);">Ingen data ennå</div>';
+        var limitKW = opts.limitKW != null ? opts.limitKW : null;
+        var compact  = !!opts.compact;
+        var gap      = compact ? '1px' : '2px';
+        var CHART_H  = 48;
+
+        var maxKw = Math.max.apply(null, days.map(function(d){ return d.kw||0; }));
+        // If limit exceeds all bars, scale up so line is visible
+        if (limitKW != null && limitKW > maxKw) maxKw = limitKW * 1.15;
+        if (maxKw < 0.01) maxKw = 1;
+
+        var html = '<div style="position:relative;display:flex;align-items:flex-end;gap:'+gap+';height:'+(CHART_H+4)+'px;">';
+        days.forEach(function(p) {
+          var bh = p.kw > 0 ? Math.max(compact ? 2 : 4, Math.round((p.kw / maxKw) * CHART_H)) : (compact ? 2 : 3);
+          var col = p.isToday ? tierCol
+                  : p.isFuture ? 'var(--homey-line-color,rgba(0,0,0,.12))'
+                  : 'var(--homey-text-color-light,#888)';
+          var opacity = p.isToday ? '1' : p.isFuture ? '1' : (p.kw > 0 ? '0.55' : '0.2');
+          if (compact) {
+            html += '<div style="flex:1;height:'+bh+'px;border-radius:1px 1px 0 0;background:'+col+';opacity:'+opacity+';align-self:flex-end;"></div>';
+          } else {
+            html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">';
+            if (p.isToday && p.kw > 0 && opts.showTodayLabel !== false) {
+              html += '<span style="font-size:8px;color:'+col+';font-weight:700;margin-bottom:1px;">'+p.kw.toFixed(1)+'</span>';
+            }
+            html += '<div style="width:100%;height:'+bh+'px;border-radius:2px 2px 0 0;background:'+col+';opacity:'+opacity+';"></div>';
+            html += '</div>';
+          }
+        });
+
+        // Limit line
+        if (limitKW != null) {
+          var lineBottom = Math.max(1, Math.min(CHART_H - 1, Math.round((limitKW / maxKw) * CHART_H)));
+          // Dashed line
+          html += '<div style="position:absolute;left:0;right:0;bottom:'+lineBottom+'px;height:1px;'
+               +  'background:repeating-linear-gradient(90deg,'+LIMIT_COL+' 0,'+LIMIT_COL+' 5px,transparent 5px,transparent 9px);'
+               +  'opacity:.85;pointer-events:none;"></div>';
+          // kW label right-aligned above the line
+          html += '<span style="position:absolute;right:2px;bottom:'+(lineBottom+2)+'px;font-size:8px;'
+               +  'color:'+LIMIT_COL+';font-weight:700;line-height:1;pointer-events:none;">'+limitKW.toFixed(1)+' kW</span>';
+        }
+        html += '</div>';
+
+        // Day labels
+        if (compact) {
+          html += '<div style="display:flex;gap:1px;margin-top:2px;">';
+          days.forEach(function(p, i) {
+            var show = [0,7,14,21,days.length-1].indexOf(i) >= 0 || p.isToday;
+            html += '<div style="flex:1;text-align:center;font-size:9px;overflow:hidden;'
+                 +  'color:'+(p.isToday ? tierCol : 'var(--homey-text-color-light,#888)')+';'
+                 +  'font-weight:'+(p.isToday ? '700' : '400')+';'
+                 +  'visibility:'+(show ? 'visible' : 'hidden')+';'
+                 +  '">'+p.label+'</div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div style="display:flex;gap:'+gap+';margin-top:2px;">';
+          days.forEach(function(p) {
+            html += '<div style="flex:1;text-align:center;font-size:9px;'
+                 +  'color:'+(p.isToday ? tierCol : 'var(--homey-text-color-light,#888)')+';'
+                 +  'font-weight:'+(p.isToday ? '700' : '400')+';">'+p.label+'</div>';
+          });
+          html += '</div>';
+        }
+        return html;
+      }
+
+      // Top-3 mini list (shown below every view)
+      function top3Section(top3, limitKW) {
+        if (!top3 || !top3.length) return '';
+        var medals = ['🥇','🥈','🥉'];
+        var html = '<div class="divider"></div>';
+        html += '<div class="peaks">';
+        top3.forEach(function(p, i) {
+          var overLimit = limitKW != null && p.kw > limitKW;
+          var col = overLimit ? 'var(--homey-color-red-500,#ff3b30)' : '';
+          html += '<div class="peak-row">'
+               +  '<span class="peak-label">'+medals[i]+' '+p.date+'</span>'
+               +  '<span'+(col?' style="color:'+col+'"':'')+'>'+p.kw.toFixed(2)+' kW</span>'
+               +  '</div>';
+        });
+        html += '</div>';
+        return html;
+      }
+
+      function render(d) {
+        _data = d;
+        var root = document.getElementById('root');
+        var e = d && d.effekttariff;
+        if (!e) { root.innerHTML = '<div style="color:var(--homey-text-color-light);font-size:13px;">Ingen effekttariff-data</div>'; Homey.setHeight(60); return; }
+
+        var tierCol  = tierColors[Math.min(e.tierIndex||0, tierColors.length-1)];
+        var limitKW  = (d.limitW || 10000) / 1000;
+        var top3     = e.top3 || [];
+        var now      = new Date();
+        var todayStr = dateKey(now);
+        var visning  = _settings.visning || 'time';
+
+        var html = '<div class="title">⚡ Effekttariff</div>';
+
+        // ── Always-visible header: monthly avg + tier ──────────────────────
+        html += '<div class="tier-row">';
+        html += '<div>'
+             +  '<div class="tier-val" style="color:'+tierCol+';">'+(e.monthlyKW!=null ? e.monthlyKW.toFixed(2)+' kW' : '–')+'</div>'
+             +  '<div class="tier-label">Snitt-topp (top3) denne måneden</div>'
+             +  '</div>';
+        html += '<span class="tier-badge" style="background:'+tierCol+'22;color:'+tierCol+';">Trinn '+((e.tierIndex||0)+1)+'</span>';
+        html += '</div>';
+        html += '<div class="divider"></div>';
+
+        if (visning === '24t') {
+          // ── I dag: kWh per time, 0 → currentH ─────────────────────────
+          var hist = {}; (e.hourlyHistory||[]).forEach(function(h){ if(h.date===todayStr) hist[h.hour]=h.kWh; });
+          var currentH = now.getHours();
+          var days24 = [];
+          for (var h=0; h<=currentH; h++) {
+            days24.push({ kw: h < currentH ? (hist[h]||0) : (e.currentHourKWh||0), label: h+'', isToday: h===currentH });
+          }
+          html += barChart(days24, tierCol, { limitKW: limitKW });
+          html += '<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--homey-text-color-light,#888);margin-top:1px;">'
+               +  '<span>0:00</span><span>kWh/time i dag</span><span>'+currentH+':00</span>'
+               +  '</div>';
+          html += top3Section(top3, limitKW);
+
+        } else if (visning === 'uke') {
+          // ── Denne uken: man → søn ───────────────────────────────────────
+          var dow = now.getDay();
+          var mondayOffset = (dow === 0) ? -6 : 1 - dow;
+          var monday = new Date(now);
+          monday.setDate(now.getDate() + mondayOffset);
+          monday.setHours(0,0,0,0);
+          var pm = peakMap(e.allPeaks);
+          var weekDays = [];
+          for (var i=0; i<7; i++) {
+            var day = new Date(monday);
+            day.setDate(monday.getDate() + i);
+            var dk = dateKey(day);
+            var isFut = dk > todayStr;
+            weekDays.push({ kw: pm[dk]||0, label: dayNames[day.getDay()], isToday: dk===todayStr, isFuture: isFut });
+          }
+          html += barChart(weekDays, tierCol, { limitKW: limitKW });
+          html += top3Section(top3, limitKW);
+
+        } else if (visning === 'maaned') {
+          // ── Denne måneden: alle dager ────────────────────────────────────
+          var ym = todayStr.slice(0,7);
+          var dim = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+          var pm2 = peakMap(e.allPeaks);
+          var mDays = [];
+          for (var d2=1; d2<=dim; d2++) {
+            var dk2 = ym+'-'+String(d2).padStart(2,'0');
+            mDays.push({ kw: pm2[dk2]||0, label: String(d2), isToday: dk2===todayStr, isFuture: dk2>todayStr });
+          }
+          html += barChart(mDays, tierCol, { limitKW: limitKW, compact: true });
+          html += top3Section(top3, limitKW);
+
+        } else {
+          // ── time (default): timesbudsjett + top-3 ────────────────────────
+          var lkW    = limitKW;
+          var used   = (d.hourlyEnergy && d.hourlyEnergy.currentHourKWh != null) ? d.hourlyEnergy.currentHourKWh : (e.currentHourKWh||0);
+          var frac   = e.fractionOfHour || 0;
+          var pct    = lkW > 0 ? Math.min(used / lkW, 1) : 0;
+          var barCol = pct < 0.75 ? 'var(--homey-color-green-500,#34c759)' : pct < 0.95 ? 'var(--homey-color-orange-500,#ff9500)' : 'var(--homey-color-red-500,#ff3b30)';
+
+          html += '<div class="bar-section">';
+          html += '<div class="bar-meta"><span>Timen: '+used.toFixed(3)+' kWh brukt</span><span>'+Math.round(frac*100)+'% av timen</span></div>';
+          html += '<div class="bar-wrap"><div class="bar-fill" style="width:'+Math.round(pct*100)+'%;background:'+barCol+';"></div></div>';
+          html += '<div class="bar-meta"><span>Grense: '+lkW.toFixed(1)+' kWh/t</span><span>'+((d.currentPowerW||0)/1000).toFixed(2)+' kW nå</span></div>';
+          html += '</div>';
+          html += top3Section(top3, limitKW);
+        }
+
+        root.innerHTML = html;
+        Homey.setHeight(root.scrollHeight + 24);
+      }
+
+      Homey.on('settings', function(s) {
+        _settings = s || {};
+        if (_data) render(_data);
+      });
+
+      function refresh() { Homey.api('GET','/',{}).then(render).catch(function(){}); }
+      refresh();
+      setInterval(refresh, 10000);
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

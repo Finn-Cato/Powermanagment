@@ -1,0 +1,20 @@
+{
+  "name": { "en": "Electricity Price", "no": "Strømpris" },
+  "height": 200,
+  "settings": [
+    {
+      "id": "diagram",
+      "type": "dropdown",
+      "value": "12t",
+      "label": { "en": "Chart period", "no": "Diagram" },
+      "values": [
+        { "id": "12t", "label": { "en": "Next 12 hours", "no": "Neste 12 timer" } },
+        { "id": "24t", "label": { "en": "Full day (24h)", "no": "Hele dagen (24t)" } },
+        { "id": "av", "label": { "en": "No chart", "no": "Uten diagram" } }
+      ]
+    }
+  ],
+  "api": {
+    "getData": { "method": "GET", "path": "/" }
+  }
+}

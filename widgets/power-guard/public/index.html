@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--homey-font-family, -apple-system, sans-serif);
+      color: var(--homey-text-color);
+      background: var(--homey-background-color);
+    }
+
+    .widget {
+      padding: var(--homey-su-3, 12px) var(--homey-su-4, 16px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--homey-su-3, 12px);
+    }
+
+    /* ── Power row ── */
+    .power-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    .power-value {
+      font-size: 32px;
+      font-weight: var(--homey-font-weight-bold, 700);
+      line-height: 1;
+      color: var(--homey-text-color);
+    }
+
+    .power-limit {
+      font-size: var(--homey-font-size-small, 13px);
+      color: var(--homey-text-color-light, #888);
+      padding-bottom: 3px;
+    }
+
+    .profile-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: rgba(0,122,255,0.15);
+      color: var(--homey-color-blue-500, #007aff);
+    }
+
+    .profile-badge.disabled {
+      background: rgba(142,142,147,0.15);
+      color: var(--homey-text-color-light, #888);
+    }
+
+    /* ── Progress bar ── */
+    .bar-wrap {
+      height: 6px;
+      border-radius: 99px;
+      background: var(--homey-line-color, rgba(0,0,0,0.1));
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.5s ease, background-color 0.3s;
+    }
+
+    /* ── EV chargers ── */
+    .ev-section {
+      display: flex;
+      flex-direction: column;
+      gap: var(--homey-su-2, 8px);
+    }
+
+    .ev-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--homey-text-color-light, #888);
+    }
+
+    .ev-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: var(--homey-su-2, 8px);
+    }
+
+    .ev-card {
+      background: var(--homey-color-mono-050, rgba(0,0,0,0.05));
+      border-radius: var(--homey-border-radius-default, 8px);
+      padding: var(--homey-su-2, 8px) var(--homey-su-3, 12px);
+    }
+
+    .ev-card-name {
+      font-size: 11px;
+      color: var(--homey-text-color-light, #888);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ev-card-watts {
+      font-size: 18px;
+      font-weight: var(--homey-font-weight-bold, 700);
+      line-height: 1.2;
+    }
+
+    .ev-card-status {
+      font-size: 11px;
+      margin-top: 1px;
+    }
+
+    /* ── Alert row ── */
+    .alert-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: var(--homey-font-size-small, 13px);
+      color: var(--homey-text-color-danger, #ff3b30);
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body class="homey-widget">
+  <div class="widget" id="root">
+    <div style="color:var(--homey-text-color-light);font-size:13px;">Laster...</div>
+  </div>
+
+  <script>
+    function onHomeyReady(Homey) {
+
+      function render(d) {
+        var root = document.getElementById('root');
+        if (!d) { root.innerHTML = '<div style="color:var(--homey-text-color-light);font-size:13px;">Ingen data</div>'; return; }
+
+        var pct   = d.limitW > 0 ? Math.min(d.currentPowerW / d.limitW, 1) : 0;
+        var barColor = pct < 0.75 ? 'var(--homey-color-green-500,#34c759)'
+                     : pct < 0.92 ? 'var(--homey-color-orange-500,#ff9500)'
+                     : 'var(--homey-color-red-500,#ff3b30)';
+
+        var profileLabels = { normal: 'Normal', strict: 'Strict', lav: 'Lav', low: 'Lav' };
+        var profileLabel  = profileLabels[d.profile] || d.profile || '–';
+
+        var html = '';
+
+        // Power row
+        html += '<div class="power-row">';
+        html += '<div>';
+        html += '<div class="power-value">' + (d.currentPowerW >= 1000
+          ? (d.currentPowerW / 1000).toFixed(1) + ' kW'
+          : d.currentPowerW + ' W') + '</div>';
+        html += '<div class="power-limit">av ' + Math.round(d.limitW / 100) / 10 + ' kW grense</div>';
+        html += '</div>';
+        html += '<span class="profile-badge' + (!d.enabled ? ' disabled' : '') + '">'
+              + (d.enabled ? profileLabel : 'Av') + '</span>';
+        html += '</div>';
+
+        // Bar
+        html += '<div class="bar-wrap"><div class="bar-fill" style="width:' + Math.round(pct * 100) + '%;background:' + barColor + ';"></div></div>';
+
+        // Alert
+        if (d.overLimitCount >= 3) {
+          html += '<div class="alert-row"><div class="dot" style="background:var(--homey-color-red-500,#ff3b30);"></div>Effektgrense overskredet</div>';
+        } else if (d.mitigatedCount > 0) {
+          html += '<div class="alert-row" style="color:var(--homey-color-orange-500,#ff9500);"><div class="dot" style="background:var(--homey-color-orange-500,#ff9500);"></div>' + d.mitigatedCount + ' enhet' + (d.mitigatedCount > 1 ? 'er' : '') + ' redusert</div>';
+        }
+
+        // EV chargers
+        var evs = d.evChargers || [];
+        if (evs.length) {
+          html += '<div class="ev-section">';
+          html += '<div class="ev-label">Elbilladere</div>';
+          html += '<div class="ev-grid">';
+          evs.forEach(function(c) {
+            var statusColor = c.status === 'paused'   ? 'var(--homey-color-red-500,#ff3b30)'
+                            : c.status === 'dynamic'  ? 'var(--homey-color-orange-500,#ff9500)'
+                            : c.status === 'charging' ? 'var(--homey-color-green-500,#34c759)'
+                            : c.status === 'waiting'  ? 'var(--homey-color-blue-500,#007aff)'
+                            : c.status === 'completed'? 'var(--homey-color-green-500,#34c759)'
+                            : 'var(--homey-text-color-light,#888)';
+            html += '<div class="ev-card">';
+            html += '<div class="ev-card-name">' + esc(c.name) + '</div>';
+            html += '<div class="ev-card-watts" style="color:' + statusColor + ';">'
+                  + (c.powerW >= 1000 ? (c.powerW/1000).toFixed(1)+' kW' : c.powerW + ' W') + '</div>';
+            html += '<div class="ev-card-status" style="color:' + statusColor + ';">' + esc(c.statusLabel || '') + '</div>';
+            html += '</div>';
+          });
+          html += '</div></div>';
+        }
+
+        root.innerHTML = html;
+        Homey.setHeight(root.scrollHeight + 24);
+      }
+
+      function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      function refresh() {
+        Homey.api('GET', '/', {})
+          .then(function(d) { render(d); })
+          .catch(function() {});
+      }
+
+      refresh();
+      setInterval(refresh, 5000);
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

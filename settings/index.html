@@ -906,7 +906,7 @@
         <span id="ev-burde-lade" style="display:none"></span>
         <span id="ev-mismatch-warn" style="display:none"></span>
 
-        <div id="ev-battery-state-panel" style="background:var(--bg-surface);border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:12px;" data-i18n-html="lastBatteryReports">🔋 <b>Last battery reports:</b></div>
+        <div id="ev-battery-state-panel" style="background:var(--bg-surface);border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:12px;display:none;"></div>
 
         <h2 style="margin:8px 0 6px;" data-i18n="chargingSchedule">Charging Schedule</h2>
 
@@ -1327,6 +1327,7 @@
       charsSuffix: ' chars)',
       no2: 'No',
       chargerModeLabel: 'Charger mode',
+      phaseShort: 'phase',
       monthlyMetric: 'Monthly metric (TOP3 avg)',
       currentTier: 'Current tier',
       thisHour: 'This hour: ',
@@ -1677,6 +1678,7 @@
       charsSuffix: ' tegn)',
       no2: 'Nei',
       chargerModeLabel: 'Ladermodus',
+      phaseShort: 'fase',
       monthlyMetric: 'M\u00e5nedlig metrikk (TOP3 snitt)',
       currentTier: 'N\u00e5v\u00e6rende trinn',
       thisHour: 'Denne timen: ',
@@ -2058,10 +2060,12 @@
                              c.status === 'waiting' ? '#007aff' :
                              c.status === 'completed' ? '#34c759' :
                              c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
+            var wpaLine = c.wattsPerAmp ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">1A = ' + c.wattsPerAmp + 'W (' + (c.detectedPhases ? c.detectedPhases + '-' + t('phaseShort') : '?') + ')</div>' : '';
             return '<div class="stat-box">' +
               '<div class="stat-label">' + escHtml(c.name || 'EV Charger') + '</div>' +
               '<div class="stat-value" id="ev-stat-val-' + c.deviceId + '">' + Math.round(c.powerW || 0) + ' W</div>' +
               '<div class="stat-sub" id="ev-stat-sub-' + c.deviceId + '" style="color:' + statusColor + '">' + escHtml(c.statusLabel || 'Idle') + '</div>' +
+              '<div id="ev-stat-wpa-' + c.deviceId + '">' + wpaLine + '</div>' +
               '</div>';
           }).join('');
         } else {
@@ -2076,6 +2080,8 @@
             var subEl = document.getElementById('ev-stat-sub-' + c.deviceId);
             if (valEl) valEl.textContent = Math.round(c.powerW || 0) + ' W';
             if (subEl) { subEl.textContent = c.statusLabel || 'Idle'; subEl.style.color = statusColor; }
+            var wpaEl = document.getElementById('ev-stat-wpa-' + c.deviceId);
+            if (wpaEl) wpaEl.innerHTML = c.wattsPerAmp ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">1A = ' + c.wattsPerAmp + 'W (' + (c.detectedPhases ? c.detectedPhases + '-' + t('phaseShort') : '?') + ')</div>' : '';
           });
         }
       } else {
@@ -4489,6 +4495,7 @@
             html += '<div class="stat-box" style="padding:4px 6px;"><div class="stat-label">' + t('shouldCharge') + '</div><div style="font-size:13px;">' + shouldIcon + ' ' + (c.shouldCharge ? t('yes') : t('no')) + '</div></div>';
             html += '<div class="stat-box" style="padding:4px 6px;"><div class="stat-label">' + t('chargerModeLabel') + '</div><div style="font-size:13px;color:' + cModeColor + ';">' + cModeLabel + '</div>' + (cModeHint ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">' + cModeHint + '</div>' : '') + '</div>';
             html += '</div>';
+
             if (c.mismatch) {
               html += '<div style="margin-top:6px;font-size:11px;color:#ff3b30;">' + t('chargeMismatch') + '</div>';
             }
@@ -4518,7 +4525,8 @@
     hApi('GET', '/ev-battery-state', null)
       .then(function(data) {
         var panel = document.getElementById('ev-battery-state-panel');
-        if (!panel || !data || !data.ok) return;
+        if (!panel) return;
+        if (!data || !data.ok) { panel.style.display = 'none'; return; }
         var state = data.batteryState || {};
         var entries = Object.entries(state);
         var now = Date.now();

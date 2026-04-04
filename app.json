@@ -1,8 +1,98 @@
 {
   "id": "no.powerguard",
   "version": "0.8.77",
-  "compatibility": ">=12.0.0",
+  "compatibility": ">=12.3.0",
   "sdk": 3,
+  "widgets": {
+    "power-guard": {
+      "id": "power-guard",
+      "name": { "en": "Power Guard", "no": "Power Guard" },
+      "height": 220,
+      "settings": [],
+      "api": {
+        "getStatus": { "method": "GET", "path": "/" }
+      }
+    },
+    "ev-chargers": {
+      "id": "ev-chargers",
+      "name": { "en": "EV Chargers", "no": "Elbilladere" },
+      "height": 160,
+      "settings": [],
+      "api": {
+        "getStatus": { "method": "GET", "path": "/" }
+      }
+    },
+    "effekttariff": {
+      "id": "effekttariff",
+      "name": { "en": "Capacity Tariff", "no": "Effekttariff" },
+      "height": 180,
+      "settings": [
+        {
+          "id": "visning",
+          "type": "dropdown",
+          "value": "time",
+          "label": { "en": "View", "no": "Visning" },
+          "values": [
+            { "id": "time", "label": { "en": "Current hour budget", "no": "Timesbudsjett (nå)" } },
+            { "id": "24t",  "label": { "en": "Today (24 hours)",     "no": "I dag (24 timer)" } },
+            { "id": "uke",  "label": { "en": "This week (Mon–Sun)", "no": "Denne uken (man–søn)" } },
+            { "id": "maaned", "label": { "en": "This month (all days)", "no": "Denne måneden" } }
+          ]
+        }
+      ],
+      "api": {
+        "getStatus": { "method": "GET", "path": "/" }
+      }
+    },
+    "aktivitet": {
+      "id": "aktivitet",
+      "name": { "en": "Activity Log", "no": "Aktivitetslogg" },
+      "height": 240,
+      "settings": [],
+      "api": {
+        "getLog": { "method": "GET", "path": "/" }
+      }
+    },
+    "mitigering": {
+      "id": "mitigering",
+      "name": { "en": "Mitigations", "no": "Mitigering" },
+      "height": 180,
+      "settings": [],
+      "api": {
+        "getStatus": { "method": "GET", "path": "/" }
+      }
+    },
+    "strompris": {
+      "id": "strompris",
+      "name": { "en": "Electricity Price", "no": "Strømpris" },
+      "height": 200,
+      "settings": [
+        {
+          "id": "diagram",
+          "type": "dropdown",
+          "value": "12t",
+          "label": { "en": "Chart period", "no": "Diagram" },
+          "values": [
+            { "id": "12t", "label": { "en": "Next 12 hours", "no": "Neste 12 timer" } },
+            { "id": "24t", "label": { "en": "Full day (24h)", "no": "Hele dagen (24t)" } },
+            { "id": "av", "label": { "en": "No chart", "no": "Uten diagram" } }
+          ]
+        }
+      ],
+      "api": {
+        "getData": { "method": "GET", "path": "/" }
+      }
+    },
+    "enhetsforbruk": {
+      "id": "enhetsforbruk",
+      "name": { "en": "Device Power", "no": "Enhetsforbruk" },
+      "height": 260,
+      "settings": [],
+      "api": {
+        "getData": { "method": "GET", "path": "/" }
+      }
+    }
+  },
   "brandColor": "#1E4A72",
   "name": {
     "en": "Power Guard",

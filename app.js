@@ -2975,6 +2975,8 @@ class PowerGuardApp extends Homey.App {
         if (_phaseDetectRef) {
           const { ratio } = _phaseDetectRef;
           const detected = ratio < 300 ? 1 : 3;
+          // Store the actual W/A ratio for phase-aware headroom calculation in ramp logic
+          data.wattsPerAmp = Math.round(ratio);
           if (!data._phaseVote || data._phaseVote.value !== detected) {
             data._phaseVote = { value: detected, count: 1 };
           } else {
@@ -3340,8 +3342,8 @@ class PowerGuardApp extends Homey.App {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    const HEADROOM_TO_RAMP         = 300;   // Minimum headroom (W) before stepping up 1A
-    const HEADROOM_AFTER_STEPDOWN  = 750;   // Higher headroom required for 60s after a step-down (anti-oscillation)
+    const HEADROOM_TO_RAMP_DEFAULT = 300;   // Fallback headroom (W) before stepping up 1A (used until phase detected)
+    const HEADROOM_AFTER_STEPDOWN_DEFAULT = 750; // Fallback post-stepdown headroom
     const STEPDOWN_GUARD_MS        = 60000; // Window after step-down where higher headroom applies
     const RAMP_UP_COOLDOWN         = 60000; // 1 minute between up-steps per charger
     const SETTLE_WINDOW            = 30000; // 30s shared settling — no charger ramps until meter confirms previous step
@@ -3414,6 +3416,12 @@ class PowerGuardApp extends Homey.App {
 
       const overLimit = smoothedPower > limit;
       const headroomW = limit - smoothedPower; // positive = under limit, negative = over
+      // Phase-aware headroom: use the charger's actual W/A ratio (learned from power/current)
+      // to ensure headroom covers the real cost of +1A. Fallback: phases × 700W (≈√3×400V, safe 3-phase TN).
+      // This prevents oscillation where 300W headroom looks sufficient but +1A actually costs ~690W (3-phase).
+      const evWpa = evDataNow?.wattsPerAmp || ((evDataNow?.detectedPhases || entry.chargerPhases || 3) * 700);
+      const HEADROOM_TO_RAMP = Math.max(HEADROOM_TO_RAMP_DEFAULT, Math.round(evWpa * 1.1));
+      const HEADROOM_AFTER_STEPDOWN = Math.max(HEADROOM_AFTER_STEPDOWN_DEFAULT, Math.round(evWpa * 1.2));
       // Anti-oscillation: require larger headroom for 60s after a step-down so the charger
       // doesn't immediately ramp back up into the same overload that triggered the step-down.
       const recentStepDown = cState.lastStepDownTime && (now - cState.lastStepDownTime) < STEPDOWN_GUARD_MS;
@@ -3512,8 +3520,8 @@ class PowerGuardApp extends Homey.App {
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._lastAnyChargerRampUpTime = now;
-          this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom${recentStepDown ? ', post-stepdown guard' : ''})`);
-          this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig${recentStepDown ? ', anti-osc' : ''})`);
+          this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom, need ${headroomThreshold}W${recentStepDown ? ', post-stepdown guard' : ''})`);
+          this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig, krav ${headroomThreshold}W${recentStepDown ? ', anti-osc' : ''})`);
         } else {
           targetCurrent = currentTargetA; // wait for cooldown or settling window
         }
@@ -4927,6 +4935,7 @@ class PowerGuardApp extends Homey.App {
           reliability: Math.round(((this._chargerState[entry.deviceId] || {}).reliability ?? 0.5) * 100),
           offeredCurrent: evData.offeredCurrent || null,
           detectedPhases: evData.detectedPhases || null,
+          wattsPerAmp: evData.wattsPerAmp || null,
         };
       });
 

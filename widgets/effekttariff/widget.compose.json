@@ -1,0 +1,21 @@
+{
+  "name": { "en": "Capacity Tariff", "no": "Effekttariff" },
+  "height": 180,
+  "settings": [
+    {
+      "id": "visning",
+      "type": "dropdown",
+      "value": "time",
+      "label": { "en": "View", "no": "Visning" },
+      "values": [
+        { "id": "time",   "label": { "en": "Current hour budget",    "no": "Timesbudsjett (nå)" } },
+        { "id": "24t",   "label": { "en": "Today (24 hours)",        "no": "I dag (24 timer)" } },
+        { "id": "uke",   "label": { "en": "This week (Mon–Sun)",    "no": "Denne uken (man–søn)" } },
+        { "id": "maaned","label": { "en": "This month (all days)",  "no": "Denne måneden" } }
+      ]
+    }
+  ],
+  "api": {
+    "getStatus": { "method": "GET", "path": "/" }
+  }
+}

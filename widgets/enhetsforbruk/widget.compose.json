@@ -1,0 +1,8 @@
+{
+  "name": { "en": "Device Power", "no": "Enhetsforbruk" },
+  "height": 260,
+  "settings": [],
+  "api": {
+    "getData": { "method": "GET", "path": "/" }
+  }
+}

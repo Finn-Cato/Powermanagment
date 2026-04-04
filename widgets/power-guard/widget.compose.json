@@ -1,0 +1,13 @@
+{
+  "name": {
+    "en": "Power Guard",
+    "no": "Power Guard"
+  },
+  "height": 220,
+  "api": {
+    "getStatus": {
+      "method": "GET",
+      "path": "/"
+    }
+  }
+}

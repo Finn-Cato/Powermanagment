@@ -1,0 +1,8 @@
+{
+  "name": { "en": "Activity Log", "no": "Aktivitetslogg" },
+  "height": 240,
+  "settings": [],
+  "api": {
+    "getLog": { "method": "GET", "path": "/" }
+  }
+}
