@@ -475,6 +475,8 @@ module.exports = {
           mismatch,
           powerW:      Math.round(c.powerW || 0),
           inGrace:     !!(c.isConnected && inGrace && !displayCharging),
+          detectedPhases: c.detectedPhases || null,
+          wattsPerAmp:    c.wattsPerAmp || null,
         };
       });
 

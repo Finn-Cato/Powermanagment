@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:var(--homey-font-family,-apple-system,sans-serif); color:var(--homey-text-color); background:var(--homey-background-color); }
+    .wrap { padding:var(--homey-su-3,12px) var(--homey-su-4,16px); display:flex; flex-direction:column; gap:var(--homey-su-3,12px); }
+    .top { display:flex; align-items:center; justify-content:space-between; }
+    .price-big { font-size:30px; font-weight:700; line-height:1; }
+    .price-sub { font-size:11px; color:var(--homey-text-color-light,#888); margin-top:3px; }
+    .badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:99px; }
+    .mode-row { display:flex; align-items:center; gap:6px; font-size:12px; }
+    .mode-label { color:var(--homey-text-color-light,#888); }
+    .mode-val { font-weight:600; }
+    .divider { height:1px; background:var(--homey-line-color,rgba(0,0,0,.1)); }
+    .chart { display:flex; align-items:flex-end; gap:2px; height:40px; }
+    .bar { flex:1; border-radius:2px 2px 0 0; min-width:4px; }
+    .chart-labels { display:flex; justify-content:space-between; font-size:9px; color:var(--homey-text-color-light,#888); margin-top:2px; }
+    .stats-row { display:flex; gap:var(--homey-su-3,12px); }
+    .stat { flex:1; text-align:center; }
+    .stat-val { font-size:13px; font-weight:600; }
+    .stat-lbl { font-size:10px; color:var(--homey-text-color-light,#888); }
+  </style>
+</head>
+<body class="homey-widget">
+  <div class="wrap" id="root"><div style="color:var(--homey-text-color-light);font-size:13px;">Laster...</div></div>
+  <script>
+    function onHomeyReady(Homey) {
+      var _data = null;
+      var _settings = Homey.getSettings() || {};
+
+      var levelColors = {
+        lav:    'var(--homey-color-green-500,#34c759)',
+        normal: 'var(--homey-color-orange-500,#ff9500)',
+        høy:    'var(--homey-color-red-500,#ff3b30)',
+        high:   'var(--homey-color-red-500,#ff3b30)',
+      };
+      var modeLabels = { maks:'Maks lading', normal:'Normal lading', lav:'Lav lading', av:'Av', off:'Av' };
+
+      function render(d) {
+        _data = d;
+        var root = document.getElementById('root');
+        if (!d || d.currentOre == null) {
+          root.innerHTML = '<div style="color:var(--homey-text-color-light);font-size:12px;">Ingen prisdata — konfigurer Tibber/spot i innstillinger</div>';
+          Homey.setHeight(60); return;
+        }
+        var levelCol = levelColors[d.level] || 'var(--homey-text-color-light,#888)';
+        var levelLabel = d.level === 'lav' ? 'Lav' : d.level === 'normal' ? 'Normal' : d.level === 'høy' || d.level === 'high' ? 'Høy' : d.level || '–';
+        var html = '';
+
+        // Top row: price + level badge
+        html += '<div class="top">';
+        html += '<div><div class="price-big" style="color:'+levelCol+';">'+d.currentOre.toFixed(1)+'<span style="font-size:16px;font-weight:400;"> øre</span></div>';
+        if (d.nextOre != null) html += '<div class="price-sub">Neste time: '+d.nextOre.toFixed(1)+' øre</div>';
+        html += '</div>';
+        html += '<span class="badge" style="background:'+levelCol+'22;color:'+levelCol+';">'+labelStr(levelLabel)+'</span>';
+        html += '</div>';
+
+        // Charge mode
+        var mode = d.chargeMode || 'normal';
+        html += '<div class="mode-row"><span class="mode-label">Lademodus:</span><span class="mode-val">'+(modeLabels[mode]||mode)+'</span></div>';
+
+        if (d.stats) {
+          html += '<div class="divider"></div>';
+          html += '<div class="stats-row">';
+          html += stat(d.stats.min.toFixed(1)+' ø','Min i dag');
+          html += stat(d.stats.mean.toFixed(1)+' ø','Snitt');
+          html += stat(d.stats.max.toFixed(1)+' ø','Maks i dag');
+          html += '</div>';
+        }
+
+        // Price bar chart
+        var diagram = _settings.diagram || '12t';
+        if (diagram !== 'av' && d.entries && d.entries.length > 1) {
+          var entries = d.entries;
+          if (diagram === '12t') entries = entries.slice(0, 12);
+          // diagram === '24t': use all (up to 24)
+
+          html += '<div class="divider"></div>';
+          var max = Math.max.apply(null, entries.map(function(e){ return e.ore; }));
+          var min = Math.min.apply(null, entries.map(function(e){ return e.ore; }));
+          var nowHour = new Date().getHours();
+
+          html += '<div class="chart">';
+          entries.forEach(function(e, i) {
+            var h = max > min ? Math.max(8, Math.round((e.ore - min) / (max - min) * 38) + 2) : 20;
+            var col = levelColors[e.level] || 'var(--homey-text-color-light,#888)';
+            var eHour = new Date(e.hour).getHours();
+            var isCurrent = eHour === nowHour;
+            html += '<div class="bar" style="height:'+h+'px;background:'+col+';opacity:'+(isCurrent?'1':'0.55')+';'+(isCurrent?'outline:1px solid '+col+';':'')+'"></div>';
+          });
+          html += '</div>';
+
+          // Time labels
+          html += '<div class="chart-labels">';
+          if (entries.length > 0) {
+            var first = new Date(entries[0].hour).getHours();
+            var mid   = new Date(entries[Math.floor(entries.length/2)].hour).getHours();
+            var last  = new Date(entries[entries.length-1].hour).getHours();
+            html += '<span>'+first+':00</span><span>'+mid+':00</span><span>'+last+':00</span>';
+          }
+          html += '</div>';
+        }
+
+        root.innerHTML = html;
+        Homey.setHeight(root.scrollHeight + 24);
+      }
+
+      function stat(val, lbl) {
+        return '<div class="stat"><div class="stat-val">'+val+'</div><div class="stat-lbl">'+lbl+'</div></div>';
+      }
+      function labelStr(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+      Homey.on('settings', function(s) {
+        _settings = s || {};
+        if (_data) render(_data);
+      });
+
+      function refresh() { Homey.api('GET','/',{}).then(render).catch(function(){}); }
+      refresh();
+      setInterval(refresh, 60000);
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

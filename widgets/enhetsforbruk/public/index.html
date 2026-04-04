@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:var(--homey-font-family,-apple-system,sans-serif); color:var(--homey-text-color); background:var(--homey-background-color); }
+    .wrap { padding:var(--homey-su-3,12px) var(--homey-su-4,16px); display:flex; flex-direction:column; gap:var(--homey-su-3,12px); }
+    .title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--homey-text-color-light,#888); }
+    .total-row { display:flex; align-items:baseline; gap:6px; }
+    .total-val { font-size:28px; font-weight:700; }
+    .total-lim { font-size:12px; color:var(--homey-text-color-light,#888); }
+    .phases { display:flex; gap:var(--homey-su-2,8px); }
+    .phase { flex:1; background:var(--homey-color-mono-050,rgba(0,0,0,.05)); border-radius:6px; padding:4px 8px; text-align:center; }
+    .phase-val { font-size:13px; font-weight:600; }
+    .phase-lbl { font-size:10px; color:var(--homey-text-color-light,#888); }
+    .divider { height:1px; background:var(--homey-line-color,rgba(0,0,0,.1)); }
+    .device-list { display:flex; flex-direction:column; gap:5px; }
+    .device-row { display:flex; align-items:center; gap:6px; }
+    .device-name { flex:1; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .device-bar-wrap { width:60px; height:4px; background:var(--homey-line-color,rgba(0,0,0,.1)); border-radius:99px; overflow:hidden; flex-shrink:0; }
+    .device-bar { height:100%; border-radius:99px; }
+    .device-watts { font-size:12px; font-weight:600; min-width:52px; text-align:right; flex-shrink:0; }
+    .device-pct { font-size:10px; color:var(--homey-text-color-light,#888); min-width:28px; text-align:right; flex-shrink:0; }
+  </style>
+</head>
+<body class="homey-widget">
+  <div class="wrap" id="root"><div style="color:var(--homey-text-color-light);font-size:13px;">Laster...</div></div>
+  <script>
+    function onHomeyReady(Homey) {
+      function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function fmtW(w){ return w>=1000?(w/1000).toFixed(1)+' kW':w+' W'; }
+
+      var classIcons = { socket:'🔌', light:'💡', thermostat:'🌡', heater:'🔥', ev_charger:'⚡', speaker:'🔊', tv:'📺', washing_machine:'🫧', dishwasher:'🍽', other:'📦' };
+
+      function render(d) {
+        var root = document.getElementById('root');
+        if (!d) { root.innerHTML = '<div style="color:var(--homey-text-color-light);font-size:13px;">Ingen data</div>'; return; }
+
+        var pct = d.limitW > 0 ? Math.min(d.totalW / d.limitW, 1) : 0;
+        var totalCol = pct < 0.75 ? 'var(--homey-color-green-500,#34c759)' : pct < 0.92 ? 'var(--homey-color-orange-500,#ff9500)' : 'var(--homey-color-red-500,#ff3b30)';
+
+        var html = '<div class="title">📊 Enhetsforbruk</div>';
+
+        // Total
+        html += '<div class="total-row">';
+        html += '<span class="total-val" style="color:'+totalCol+';">'+fmtW(d.totalW)+'</span>';
+        if (d.limitW) html += '<span class="total-lim">av '+fmtW(d.limitW)+' grense</span>';
+        html += '</div>';
+
+        // Phase currents
+        var pc = d.phaseCurrents || {};
+        var phases = [
+          ['L1', pc['measure_current.L1']],
+          ['L2', pc['measure_current.L2']],
+          ['L3', pc['measure_current.L3']],
+        ].filter(function(p){ return p[1] != null; });
+        if (phases.length) {
+          html += '<div class="phases">';
+          phases.forEach(function(p) {
+            var a = +p[1];
+            var col = a < 20 ? 'var(--homey-color-green-500,#34c759)' : a < 28 ? 'var(--homey-color-orange-500,#ff9500)' : 'var(--homey-color-red-500,#ff3b30)';
+            html += '<div class="phase"><div class="phase-val" style="color:'+col+';">'+a.toFixed(1)+'A</div><div class="phase-lbl">'+p[0]+'</div></div>';
+          });
+          html += '</div>';
+        }
+
+        // Device list
+        if (d.devices && d.devices.length) {
+          html += '<div class="divider"></div>';
+          html += '<div class="device-list">';
+          d.devices.forEach(function(dev) {
+            if (dev.current <= 0) return;
+            var icon = classIcons[dev.class] || '📦';
+            var barCol = dev.percent > 50 ? 'var(--homey-color-orange-500,#ff9500)' : 'var(--homey-color-blue-500,#007aff)';
+            html += '<div class="device-row">';
+            html += '<span style="font-size:12px;">'+icon+'</span>';
+            html += '<span class="device-name">'+esc(dev.name)+'</span>';
+            html += '<div class="device-bar-wrap"><div class="device-bar" style="width:'+Math.min(dev.percent,100)+'%;background:'+barCol+';"></div></div>';
+            html += '<span class="device-watts">'+fmtW(dev.current)+'</span>';
+            html += '<span class="device-pct">'+dev.percent+'%</span>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+
+        root.innerHTML = html;
+        Homey.setHeight(root.scrollHeight + 24);
+      }
+
+      function refresh() { Homey.api('GET','/',{}).then(render).catch(function(){}); }
+      refresh();
+      setInterval(refresh, 5000);
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--homey-font-family, -apple-system, sans-serif); color: var(--homey-text-color); background: var(--homey-background-color); }
+    .wrap { padding: var(--homey-su-3,12px) var(--homey-su-4,16px); display:flex; flex-direction:column; gap:var(--homey-su-2,8px); }
+    .header { display:flex; align-items:center; justify-content:space-between; }
+    .title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--homey-text-color-light,#888); }
+    .total { font-size:11px; color:var(--homey-text-color-light,#888); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:var(--homey-su-2,8px); }
+    .card { background:var(--homey-color-mono-050,rgba(0,0,0,.05)); border-radius:var(--homey-border-radius-default,8px); padding:var(--homey-su-2,8px) var(--homey-su-3,12px); }
+    .card-name { font-size:11px; color:var(--homey-text-color-light,#888); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .card-watts { font-size:22px; font-weight:700; line-height:1.2; }
+    .card-status { font-size:11px; margin-top:1px; }
+    .card-detail { font-size:10px; color:var(--homey-text-color-light,#888); margin-top:2px; }
+    .bar-wrap { height:3px; border-radius:99px; background:var(--homey-line-color,rgba(0,0,0,.1)); overflow:hidden; margin-top:4px; }
+    .bar-fill { height:100%; border-radius:99px; }
+  </style>
+</head>
+<body class="homey-widget">
+  <div class="wrap" id="root"><div style="color:var(--homey-text-color-light);font-size:13px;">Laster...</div></div>
+  <script>
+    function onHomeyReady(Homey) {
+      function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+      function fmtW(w) { return w>=1000 ? (w/1000).toFixed(1)+' kW' : w+' W'; }
+
+      function render(d) {
+        var root = document.getElementById('root');
+        var evs = (d && d.evChargers) || [];
+        if (!evs.length) { root.innerHTML = '<div style="color:var(--homey-text-color-light);font-size:13px;padding:8px 0;">Ingen elbilladere konfigurert</div>'; Homey.setHeight(60); return; }
+
+        var totalW = evs.reduce(function(a,c){ return a+(c.powerW||0); }, 0);
+        var html = '<div class="header"><span class="title">⚡ Elbilladere</span><span class="total">' + fmtW(totalW) + ' totalt</span></div>';
+        html += '<div class="grid">';
+        evs.forEach(function(c) {
+          var col = c.status==='paused'    ? 'var(--homey-color-red-500,#ff3b30)'
+                  : c.status==='dynamic'   ? 'var(--homey-color-orange-500,#ff9500)'
+                  : c.status==='charging'  ? 'var(--homey-color-green-500,#34c759)'
+                  : c.status==='waiting'   ? 'var(--homey-color-blue-500,#007aff)'
+                  : c.status==='completed' ? 'var(--homey-color-green-500,#34c759)'
+                  : 'var(--homey-text-color-light,#888)';
+          var pct = c.circuitLimitA > 0 && c.currentA > 0 ? Math.round(c.currentA / c.circuitLimitA * 100) : 0;
+          var barCol = pct < 60 ? 'var(--homey-color-green-500,#34c759)' : pct < 85 ? 'var(--homey-color-orange-500,#ff9500)' : 'var(--homey-color-red-500,#ff3b30)';
+          html += '<div class="card">';
+          html += '<div class="card-name">' + esc(c.name) + '</div>';
+          html += '<div class="card-watts" style="color:'+col+';">'+fmtW(c.powerW||0)+'</div>';
+          html += '<div class="card-status" style="color:'+col+';">'+esc(c.statusLabel||'')+'</div>';
+          if (c.wattsPerAmp) html += '<div class="card-detail">1A = '+c.wattsPerAmp+'W · '+(c.detectedPhases||'?')+'-fase</div>';
+          if (pct > 0) html += '<div class="bar-wrap"><div class="bar-fill" style="width:'+pct+'%;background:'+barCol+';"></div></div>';
+          html += '</div>';
+        });
+        html += '</div>';
+        root.innerHTML = html;
+        Homey.setHeight(root.scrollHeight + 24);
+      }
+
+      function refresh() { Homey.api('GET','/',{}).then(render).catch(function(){}); }
+      refresh();
+      setInterval(refresh, 5000);
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

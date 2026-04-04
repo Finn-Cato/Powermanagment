@@ -1,0 +1,8 @@
+{
+  "name": { "en": "EV Chargers", "no": "Elbilladere" },
+  "height": 160,
+  "settings": [],
+  "api": {
+    "getStatus": { "method": "GET", "path": "/" }
+  }
+}

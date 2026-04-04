@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:var(--homey-font-family,-apple-system,sans-serif); color:var(--homey-text-color); background:var(--homey-background-color); }
+    .wrap { padding:var(--homey-su-3,12px) var(--homey-su-4,16px); display:flex; flex-direction:column; gap:var(--homey-su-2,8px); }
+    .title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--homey-text-color-light,#888); }
+    .entry { display:flex; align-items:flex-start; gap:8px; padding:4px 0; border-bottom:1px solid var(--homey-line-color,rgba(0,0,0,.08)); }
+    .entry:last-child { border-bottom:none; }
+    .ts { font-size:10px; color:var(--homey-text-color-light,#888); white-space:nowrap; min-width:52px; padding-top:1px; }
+    .badge { font-size:9px; font-weight:600; padding:1px 5px; border-radius:4px; white-space:nowrap; text-transform:uppercase; }
+    .msg { font-size:11px; line-height:1.4; flex:1; }
+  </style>
+</head>
+<body class="homey-widget">
+  <div class="wrap" id="root"><div style="color:var(--homey-text-color-light);font-size:13px;">Laster...</div></div>
+  <script>
+    function onHomeyReady(Homey) {
+      var catColors = {
+        system:     ['#007aff','rgba(0,122,255,.12)'],
+        han:        ['#34c759','rgba(52,199,89,.12)'],
+        mitigation: ['#ff3b30','rgba(255,59,48,.12)'],
+        charger:    ['#ff9500','rgba(255,149,0,.12)'],
+        energy:     ['#5856d6','rgba(88,86,214,.12)'],
+        cache:      ['#8e8e93','rgba(142,142,147,.12)'],
+      };
+
+      function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+      function fmtTime(iso) {
+        try {
+          var d = new Date(iso);
+          var h = String(d.getHours()).padStart(2,'0');
+          var m = String(d.getMinutes()).padStart(2,'0');
+          var s = String(d.getSeconds()).padStart(2,'0');
+          return h+':'+m+':'+s;
+        } catch(e) { return iso; }
+      }
+
+      function render(d) {
+        var root = document.getElementById('root');
+        var entries = (d && d.entries) || [];
+        if (!entries.length) { root.innerHTML = '<div style="color:var(--homey-text-color-light);font-size:12px;">Ingen aktivitet ennå</div>'; Homey.setHeight(60); return; }
+
+        var html = '<div class="title">📋 Siste aktivitet</div>';
+        entries.forEach(function(e) {
+          var cc = catColors[e.category] || ['#8e8e93','rgba(142,142,147,.12)'];
+          html += '<div class="entry">';
+          html += '<span class="ts">'+fmtTime(e.time)+'</span>';
+          html += '<span class="badge" style="color:'+cc[0]+';background:'+cc[1]+';">'+esc(e.category)+'</span>';
+          html += '<span class="msg">'+esc(e.message)+'</span>';
+          html += '</div>';
+        });
+        root.innerHTML = html;
+        Homey.setHeight(Math.min(root.scrollHeight + 24, 500));
+      }
+
+      function refresh() { Homey.api('GET','/',{}).then(render).catch(function(){}); }
+      refresh();
+      setInterval(refresh, 5000);
+      Homey.ready();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": { "en": "Mitigations", "no": "Mitigering" },
+  "height": 180,
+  "settings": [],
+  "api": {
+    "getStatus": { "method": "GET", "path": "/" }
+  }
+}
