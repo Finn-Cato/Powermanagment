@@ -32,11 +32,15 @@ function clamp(value, min, max) {
 }
 
 /**
- * Format a timestamp for logging.
- * @returns {string}
+ * Format a timestamp for logging in local time (Homey timezone).
+ * @param {Date} [d] - Optional date, defaults to now
+ * @returns {string} Local ISO-like string without trailing Z
  */
-function timestamp() {
-  return new Date().toISOString();
+function timestamp(d) {
+  if (!d) d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const ms = String(d.getMilliseconds()).padStart(3, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${ms}`;
 }
 
 module.exports = { movingAverage, isSpike, clamp, timestamp };

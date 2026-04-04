@@ -856,11 +856,11 @@
           Set the desired state for each managed device in each mode. Power Guard still overrides these during high-power events.
         </p>
         <!-- Sub-tab bar -->
-        <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;">
-          <button id="msub-home"    onclick="showModeSubTab('home')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeHome">🏠 Home</button>
-          <button id="msub-night"   onclick="showModeSubTab('night')"   class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeNight">🌙 Night</button>
-          <button id="msub-away"    onclick="showModeSubTab('away')"    class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeAway">🚗 Away</button>
-          <button id="msub-holiday" onclick="showModeSubTab('holiday')" class="btn-secondary" style="font-size:12px;padding:5px 12px;" data-i18n="modeHoliday">❄️ Holiday</button>
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+          <button id="msub-home"    onclick="showModeSubTab('home')"    class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeHome">🏠 Home</button>
+          <button id="msub-night"   onclick="showModeSubTab('night')"   class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeNight">🌙 Night</button>
+          <button id="msub-away"    onclick="showModeSubTab('away')"    class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeAway">🚗 Away</button>
+          <button id="msub-holiday" onclick="showModeSubTab('holiday')" class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeHoliday">❄️ Holiday</button>
         </div>
         <div id="modes-dev-home"></div>
         <div id="modes-dev-night"   style="display:none"></div>
@@ -4708,13 +4708,26 @@
       if (!b) return;
       var isSelected = m === mode;
       var isActive   = m === activeMode;
-      var textColor  = isActive ? 'color:var(--orange);' : '';
-      var underline  = isSelected ? 'border-bottom:2px solid var(--orange);padding-bottom:1px;' : '';
-      b.style.fontWeight      = isSelected ? '700' : '';
-      b.style.color           = isActive ? 'var(--orange)' : '';
-      b.style.borderBottom    = '';
-      b.style.backgroundImage = '';
-      b.innerHTML = '<span style="' + textColor + underline + '">' + labels[m] + '</span>';
+      if (isSelected) {
+        b.style.background   = 'var(--orange)';
+        b.style.color        = '#fff';
+        b.style.fontWeight   = '700';
+        b.style.border       = '2px solid var(--orange)';
+        b.style.boxShadow    = '0 2px 8px rgba(249,115,22,0.3)';
+      } else if (isActive) {
+        b.style.background   = 'rgba(249,115,22,0.10)';
+        b.style.color        = 'var(--orange)';
+        b.style.fontWeight   = '600';
+        b.style.border       = '1.5px solid var(--orange)';
+        b.style.boxShadow    = '';
+      } else {
+        b.style.background   = '';
+        b.style.color        = '';
+        b.style.fontWeight   = '';
+        b.style.border       = '';
+        b.style.boxShadow    = '';
+      }
+      b.innerHTML = labels[m];
     });
   }
 

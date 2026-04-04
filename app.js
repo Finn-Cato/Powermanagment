@@ -44,8 +44,12 @@ class PowerGuardApp extends Homey.App {
   // ══════════════════════════════════════════════════════════════════
 
   async onInit() {
+    // Set process timezone to Homey's configured timezone so all Date methods return local time
+    const tz = this.homey.clock.getTimezone();
+    process.env.TZ = tz;
+
     this.log('========================================');
-    this.log('Power Guard initialising...');
+    this.log(`Power Guard initialising... (TZ=${tz})`);
     this.log('[Power Consumption] Tracking system initializing');
     this.log('========================================');
 
@@ -805,7 +809,7 @@ class PowerGuardApp extends Homey.App {
       spikeConsecutiveCount: this._spikeConsecutiveCount || 0,
       watchdogReconnects: this._hanWatchdogCount,
       rawLog: this._hanRawLog.slice(-20).map(function (e) {
-        return { time: new Date(e.time).toISOString(), value: e.value, source: e.source };
+        return { time: timestamp(new Date(e.time)), value: e.value, source: e.source };
       }),
       powerBuffer: this._powerBuffer.slice(-10),
       phaseCurrents: this._phaseCurrents || {},
@@ -2020,7 +2024,7 @@ class PowerGuardApp extends Homey.App {
     if (actSuspendHan) actSuspendHan.registerRunListener((args) => {
       const minutes = Math.min(Math.max(Number(args.duration_minutes) || 10, 1), 60);
       this._hanSuspendedUntil = Date.now() + minutes * 60 * 1000;
-      this.log(`[HAN] Monitoring suspended for ${minutes} min via Flow (until ${new Date(this._hanSuspendedUntil).toISOString()})`);
+      this.log(`[HAN] Monitoring suspended for ${minutes} min via Flow (until ${timestamp(new Date(this._hanSuspendedUntil))})`);
       this._appLogEntry('han', `HAN monitoring suspended for ${minutes} min via Flow`);
       this._cacheStatus();
     });
@@ -2088,7 +2092,7 @@ class PowerGuardApp extends Homey.App {
   }
 
   _appLogEntry(category, message) {
-    this._appLog.push({ time: new Date().toISOString(), category: category, message: message });
+    this._appLog.push({ time: timestamp(), category: category, message: message });
     if (this._appLog.length > 500) this._appLog.shift();
   }
 
@@ -2627,9 +2631,10 @@ class PowerGuardApp extends Homey.App {
         }
 
         // Store initial snapshot with full state
+        const initialPw = obj.measure_power ? (obj.measure_power.value || 0) : 0;
         this._evPowerData[entry.deviceId] = {
           name:           entry.name || device.name,
-          powerW:         obj.measure_power ? (obj.measure_power.value || 0) : 0,
+          powerW:         initialPw,
           isCharging:     obj.onoff ? obj.onoff.value !== false
                         : obj.toggleChargingCapability ? obj.toggleChargingCapability.value !== false
                         : obj.charging_button ? obj.charging_button.value !== false
@@ -2641,6 +2646,7 @@ class PowerGuardApp extends Homey.App {
           carConnectedAlarm: obj['alarm_generic.car_connected'] ? obj['alarm_generic.car_connected'].value : null,
           offeredCurrent: obj['measure_current.offered'] ? obj['measure_current.offered'].value : null,
           isConnected:    null,  // derived below
+          lastActiveMs:   initialPw > 100 ? Date.now() : 0,  // last time charger drew >100W
         };
 
         // Derive connected state using whitelist approach
@@ -2654,7 +2660,9 @@ class PowerGuardApp extends Homey.App {
         if (caps.includes('measure_power')) {
           const pwrInst = device.makeCapabilityInstance('measure_power', (value) => {
             if (this._evPowerData[entry.deviceId]) {
-              this._evPowerData[entry.deviceId].powerW = typeof value === 'number' ? value : 0;
+              const pw = typeof value === 'number' ? value : 0;
+              this._evPowerData[entry.deviceId].powerW = pw;
+              if (pw > 100) this._evPowerData[entry.deviceId].lastActiveMs = Date.now();
             }
           });
           this._evCapabilityInstances[entry.deviceId + '_power'] = pwrInst;
@@ -3102,6 +3110,13 @@ class PowerGuardApp extends Homey.App {
       const chargingDone = (evD?.powerW || 0) < 100 &&
         [4, 'completed', 'COMPLETED', 'Completed'].includes(evD?.chargerStatus);
       if (chargingDone) return false;
+      // Idle charger timeout — car plugged in but not charging for >5 min.
+      // Prevents disco-effect where heaters shed/restore repeatedly for a parked car.
+      const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+      const lastActive = evD?.lastActiveMs || 0;
+      if ((evD?.powerW || 0) < 100 && lastActive > 0 && (now - lastActive) > IDLE_TIMEOUT_MS) return false;
+      // Also exclude if charger has NEVER been active since app start (car was already idle)
+      if ((evD?.powerW || 0) < 100 && lastActive === 0) return false;
       return true;
     });
     const minBudgetNeeded = activeChargers.reduce((sum, e) => {
@@ -4357,10 +4372,10 @@ class PowerGuardApp extends Homey.App {
       })),
       powerBufferLen: this._powerBuffer.length,
       hanConnected: !!this._hanDeviceId,
-      lastHanReading: this._lastHanReading ? new Date(this._lastHanReading).toISOString() : null,
+      lastHanReading: this._lastHanReading ? timestamp(new Date(this._lastHanReading)) : null,
       hanSuspendedUntil: this._hanSuspendedUntil > Date.now() ? this._hanSuspendedUntil : null,
       cooldownSeconds: this._settings.cooldownSeconds,
-      lastMitigationTime: this._lastMitigationTime ? new Date(this._lastMitigationTime).toISOString() : null,
+      lastMitigationTime: this._lastMitigationTime ? timestamp(new Date(this._lastMitigationTime)) : null,
       easeeChargers: (this._settings.priorityList || []).filter(e => e.action === 'dynamic_current').map(e => ({
         name: e.name, deviceId: e.deviceId, circuitLimitA: e.circuitLimitA, enabled: e.enabled !== false,
         brand: this._getChargerBrand(e.deviceId)
@@ -4372,8 +4387,8 @@ class PowerGuardApp extends Homey.App {
   // ─── Debug Logging ───────────────────────────────────────────────────────
   _writeDebugLog(message) {
     try {
-      const timestamp = new Date().toISOString();
-      const line = `[${timestamp}] ${message}`;
+      const ts = new Date().toISOString();
+      const line = `[${ts}] ${message}`;
       // _powerConsumptionLog removed — use _appLog instead
     } catch (err) {
       // Silently fail
@@ -4619,7 +4634,7 @@ class PowerGuardApp extends Homey.App {
         mitigated: mitigated,
         mitigationStep: mitigationStep,
         capabilities: caps,
-        timestamp: new Date().toISOString()
+        timestamp: timestamp()
       });
     }
     
