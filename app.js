@@ -1606,7 +1606,7 @@ class PowerGuardApp extends Homey.App {
           if (entry.action === 'target_temperature' || entry.action === 'onoff' || entry.action === 'hoiax_power') {
             let isIdle = false;
             let idleReason = '';
-            if (caps.includes('measure_power') && obj.measure_power != null) {
+            if (!entry.ignorePowerCheck && caps.includes('measure_power') && obj.measure_power != null) {
               const pw = typeof obj.measure_power.value === 'number' ? obj.measure_power.value : obj.measure_power;
               if (pw < 50) { isIdle = true; idleReason = `measure_power=${Math.round(pw)}W`; }
             }
@@ -3006,8 +3006,17 @@ class PowerGuardApp extends Homey.App {
         if (_phaseDetectRef) {
           const { ratio } = _phaseDetectRef;
           const detected = ratio < 300 ? 1 : 3;
-          // Store the actual W/A ratio for phase-aware headroom calculation in ramp logic
-          data.wattsPerAmp = Math.round(ratio);
+          // Smooth W/A ratio with EMA (70% old, 30% new) to avoid display noise from
+          // HAN meter instant-reading variance (±100–200W on a fixed ampere setpoint).
+          // Do NOT update EMA when ratio is below minimum physical threshold — this
+          // prevents BMS end-of-charge limiting (e.g. 9 W/A at full battery) from
+          // corrupting the stored value. Min: 150 W/A (1-phase), 400 W/A (3-phase).
+          const _wpaMin = ratio < 300 ? 150 : 400;
+          if (ratio >= _wpaMin) {
+            data.wattsPerAmp = data.wattsPerAmp
+              ? Math.round(data.wattsPerAmp * 0.7 + ratio * 0.3)
+              : Math.round(ratio);
+          }
           if (!data._phaseVote || data._phaseVote.value !== detected) {
             data._phaseVote = { value: detected, count: 1 };
           } else {
@@ -3552,18 +3561,54 @@ class PowerGuardApp extends Homey.App {
           targetCurrent = currentTargetA; // not enough headroom yet or too soon — hold
         }
       } else if (headroomW >= headroomThreshold && currentTargetA < maxA && !cState.timedOut) {
-        // Under limit with headroom — ramp up 1A if both per-charger 60s and shared 30s settling are satisfied
-        const lastRampUp    = cState.lastRampUpTime || 0;
-        const sinceLastAny  = now - (this._lastAnyChargerRampUpTime || 0);
-        if (!madeIncrease && now - lastRampUp >= RAMP_UP_COOLDOWN && sinceLastAny >= SETTLE_WINDOW) {
-          targetCurrent = currentTargetA + 1;
-          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
-          this._chargerState[entry.deviceId].lastRampUpTime = now;
-          this._lastAnyChargerRampUpTime = now;
-          this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom, need ${headroomThreshold}W${recentStepDown ? ', post-stepdown guard' : ''})`);
-          this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig, krav ${headroomThreshold}W${recentStepDown ? ', anti-osc' : ''})`);
+        // Under limit with headroom — ramp up 1A if both per-charger 60s and shared 30s settling are satisfied.
+        // BMS ceiling detection: if the car consumes far less W/A than expected, the car's own BMS is
+        // limiting current (e.g. trickle at end-of-charge, or car max < circuit max).
+        // In this case stop ramping. After a grace period, step back to minimum so that if the car
+        // resumes full charging (e.g. BMS allows more again, or car reconnects) we don't have a large
+        // uncontrolled peak from a high commanded current suddenly being accepted.
+        const BMS_CEILING_WPA     = 50;             // W/A — below this = BMS is limiting hard
+        const BMS_STEP_DOWN_DELAY = 3 * 60 * 1000; // hold 3 min at ceiling before stepping back to min
+        const _wpaLearned = evDataNow?.wattsPerAmp; // EMA-smoothed, null/0 if not yet learned
+        const atBmsCeiling = _wpaLearned && _wpaLearned > 0 && _wpaLearned < BMS_CEILING_WPA;
+
+        if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+
+        if (atBmsCeiling) {
+          // Car is BMS-limiting — track how long we've been in this state
+          if (!cState.bmsLimitedSince) {
+            this._chargerState[entry.deviceId].bmsLimitedSince = now;
+            this.log(`[EV] BMS ceiling detected: ${entry.name} at ${currentTargetA}A — ${Math.round(_wpaLearned)}W/A < ${BMS_CEILING_WPA}W/A, holding`);
+          }
+          const limitedForMs = now - (this._chargerState[entry.deviceId].bmsLimitedSince || now);
+          if (limitedForMs >= BMS_STEP_DOWN_DELAY) {
+            // Car has been trickling for long enough → step back to minimum current.
+            // This avoids a sudden peak if the car decides to resume full charging.
+            // Also reset wattsPerAmp so next ramp-up session starts with a fresh measurement.
+            targetCurrent = CHARGER_DEFAULTS.minCurrent;
+            this._chargerState[entry.deviceId].bmsLimitedSince = 0;
+            if (this._evPowerData[entry.deviceId]) this._evPowerData[entry.deviceId].wattsPerAmp = 0;
+            this.log(`[EV] BMS ceiling: ${entry.name} stepping back to ${CHARGER_DEFAULTS.minCurrent}A after ${Math.round(limitedForMs / 60000)}min trickle (${Math.round(_wpaLearned)}W/A)`);
+            this._appLogEntry('charger', `${entry.name}: BMS-grense → tilbake til ${CHARGER_DEFAULTS.minCurrent}A (var ${Math.round(_wpaLearned)}W/A i ${Math.round(limitedForMs / 60000)}min)`);
+          } else {
+            targetCurrent = currentTargetA; // within grace period — hold, don't ramp
+          }
         } else {
-          targetCurrent = currentTargetA; // wait for cooldown or settling window
+          // Normal car response — clear any BMS ceiling state and ramp up as usual
+          if (cState.bmsLimitedSince) {
+            this._chargerState[entry.deviceId].bmsLimitedSince = 0;
+          }
+          const lastRampUp   = cState.lastRampUpTime || 0;
+          const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
+          if (!madeIncrease && now - lastRampUp >= RAMP_UP_COOLDOWN && sinceLastAny >= SETTLE_WINDOW) {
+            targetCurrent = currentTargetA + 1;
+            this._chargerState[entry.deviceId].lastRampUpTime = now;
+            this._lastAnyChargerRampUpTime = now;
+            this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom, need ${headroomThreshold}W${recentStepDown ? ', post-stepdown guard' : ''})`);
+            this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig, krav ${headroomThreshold}W${recentStepDown ? ', anti-osc' : ''})`);
+          } else {
+            targetCurrent = currentTargetA; // wait for cooldown or settling window
+          }
         }
       } else {
         targetCurrent = currentTargetA; // under limit, at max, or headroom too small — stay
