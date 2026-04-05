@@ -24,6 +24,13 @@ class ChargeNowDevice extends Homey.Device {
       } else {
         delete app._chargeNow[chargerId];
         this.log(`Charge Now OFF for ${chargerId}`);
+        // Force laderen tilbake til "pauset" tilstand så neste syklus
+        // starter fra 6A og sjekker pris/headroom på nytt (istedenfor å
+        // fortsette ved nåværende høye strøm fra kriseknapp-perioden).
+        const tracked = app._mitigatedDevices?.find(m => m.deviceId === chargerId);
+        if (tracked) {
+          tracked.currentTargetA = 0;
+        }
       }
       await this.setStoreValue('chargeNow', value);
       // Trigger immediate re-evaluation so effect is instant

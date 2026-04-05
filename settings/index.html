@@ -232,7 +232,7 @@
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label" data-i18n="tabHeaters">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label" data-i18n="tabLog">Log</span></button>
       <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Pris</span></button>
-      <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🏠</span><span class="tab-label">Modus</span></button>
+      <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🔄</span><span class="tab-label">Modus</span></button>
       <button class="tab-btn"        id="tb-ev"          onclick="showTab('ev')"><span class="tab-icon">🔌</span><span class="tab-label">Lader</span></button>
     </div>
 
@@ -2066,10 +2066,13 @@
                              c.status === 'completed' ? '#34c759' :
                              c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
             var wpaLine = c.wattsPerAmp ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">1A = ' + c.wattsPerAmp + 'W (' + (c.detectedPhases ? c.detectedPhases + '-' + t('phaseShort') : '?') + ')</div>' : '';
-            return '<div class="stat-box">' +
+            var cardBorder = c.chargeNow ? 'border:2px solid #ff9500;' : '';
+            var cnSubLine = c.chargeNow ? '<div id="ev-stat-cn-' + c.deviceId + '" style="font-size:10px;color:#ff9500;margin-top:2px;">Ignorerer pris - kriseknappen aktivert</div>' : '<div id="ev-stat-cn-' + c.deviceId + '" style="display:none;font-size:10px;color:#ff9500;margin-top:2px;"></div>';
+            return '<div class="stat-box" id="ev-card-' + c.deviceId + '" style="' + cardBorder + '">' +
               '<div class="stat-label">' + escHtml(c.name || 'EV Charger') + '</div>' +
               '<div class="stat-value" id="ev-stat-val-' + c.deviceId + '">' + Math.round(c.powerW || 0) + ' W</div>' +
               '<div class="stat-sub" id="ev-stat-sub-' + c.deviceId + '" style="color:' + statusColor + '">' + escHtml(c.statusLabel || 'Idle') + '</div>' +
+              cnSubLine +
               '<div id="ev-stat-wpa-' + c.deviceId + '">' + wpaLine + '</div>' +
               '</div>';
           }).join('');
@@ -2085,6 +2088,10 @@
             var subEl = document.getElementById('ev-stat-sub-' + c.deviceId);
             if (valEl) valEl.textContent = Math.round(c.powerW || 0) + ' W';
             if (subEl) { subEl.textContent = c.statusLabel || 'Idle'; subEl.style.color = statusColor; }
+            var cardEl = document.getElementById('ev-card-' + c.deviceId);
+            if (cardEl) cardEl.style.border = c.chargeNow ? '2px solid #ff9500' : '';
+            var cnEl = document.getElementById('ev-stat-cn-' + c.deviceId);
+            if (cnEl) { cnEl.style.display = c.chargeNow ? '' : 'none'; cnEl.style.color = '#ff9500'; cnEl.style.fontSize = '10px'; cnEl.textContent = c.chargeNow ? 'Ignorerer pris - kriseknappen aktivert' : ''; }
             var wpaEl = document.getElementById('ev-stat-wpa-' + c.deviceId);
             if (wpaEl) wpaEl.innerHTML = c.wattsPerAmp ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">1A = ' + c.wattsPerAmp + 'W (' + (c.detectedPhases ? c.detectedPhases + '-' + t('phaseShort') : '?') + ')</div>' : '';
           });
@@ -4282,6 +4289,8 @@
   var _priceAutoRefresh = null;
 
   function loadPriceData() {
+    // Also fetch EV status to get accurate neste_billige_time (deadline-aware)
+    loadEvChargingStatus();
     hApi('GET', '/price-data', null)
       .then(function(data) {
         renderPriceState(data.state);
@@ -4363,9 +4372,11 @@
     // there are no cheap or expensive hours to point to.
     document.getElementById('price-next-cheap').textContent = isFlat
       ? t('allEqual')
-      : (nextCheap
-        ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
-        : (lvl === 'billig' ? t('now') : '–'));
+      : (_cachedNesteBillige && _cachedNesteBillige !== 'flat_rate'
+        ? _cachedNesteBillige
+        : (nextCheap
+          ? new Date(nextCheap.hour).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' })
+          : (lvl === 'billig' ? t('now') : '–')));
 
     document.getElementById('price-next-expensive').textContent = isFlat
       ? t('allEqual')
@@ -4487,6 +4498,7 @@
 
   // ── EV Smart Charging ─────────────────────────────────────────────────────
   var _evStatusInterval = null;
+  var _cachedNesteBillige = null;
 
   function loadEvChargingStatus() {
     hApi('GET', '/ev-charging-status', null)
@@ -4515,8 +4527,14 @@
         lvlEl.textContent = levelLabels[lvl] || lvl || '–';
         lvlEl.style.color = levelColors[lvl] || '';
 
+        _cachedNesteBillige = data.neste_billige_time || null;
         document.getElementById('ev-neste-billig').textContent =
           data.neste_billige_time === 'flat_rate' ? t('allEqual') : (data.neste_billige_time || '–');
+        // Sync to Pris-tab if it exists
+        var priceNextEl = document.getElementById('price-next-cheap');
+        if (priceNextEl && _cachedNesteBillige) {
+          priceNextEl.textContent = _cachedNesteBillige === 'flat_rate' ? t('allEqual') : _cachedNesteBillige;
+        }
 
         // Per-charger rows
         var rowsEl = document.getElementById('ev-charger-rows');

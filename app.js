@@ -3481,14 +3481,7 @@ class PowerGuardApp extends Homey.App {
       const STEP_DOWN_COOLDOWN = 15000; // 15s between step-downs (normal)
       const stepDownReady = isEmergency || !cState.lastStepDownTime || (now - cState.lastStepDownTime) >= STEP_DOWN_COOLDOWN;
 
-      if (isChargeNow && !overLimit) {
-        // Charge Now: jump directly to max current, skip all ramp cooldowns
-        targetCurrent = maxA;
-        if (isPaused || currentTargetA < maxA) {
-          this.log(`[EV] Charge Now: ${entry.name} → ${maxA}A (override)`);
-          this._appLogEntry('charger', `${entry.name}: Kriseknappen → ${maxA}A`);
-        }
-      } else if (isChargeNow && overLimit) {
+      if (isChargeNow && overLimit) {
         // Charge Now but over watt limit: step down for safety, but never fully pause
         if (isPaused) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
@@ -4352,9 +4345,9 @@ class PowerGuardApp extends Homey.App {
 
         // Item 2: When resuming from pause, set current first then turn on
         const alreadyTracked = this._mitigatedDevices.find(m => m.deviceId === deviceId);
-        const wasPaused = alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null);
+        const isOff = device.capabilitiesObj?.onoff?.value === false;
+        const wasPaused = isOff || (alreadyTracked && (alreadyTracked.currentTargetA === 0 || alreadyTracked.currentTargetA === null));
         if (wasPaused && device.capabilities.includes('onoff')) {
-          const isOff = device.capabilitiesObj?.onoff?.value === false;
           if (isOff) {
             // Always resume at 6A (startCurrent = minCurrent) — ramps up 1A/min from there.
             const resumeCurrent = Math.min(CHARGER_DEFAULTS.startCurrent, currentA);
@@ -5021,6 +5014,7 @@ class PowerGuardApp extends Homey.App {
           offeredCurrent: evData.offeredCurrent || null,
           detectedPhases: evData.detectedPhases || null,
           wattsPerAmp: evData.wattsPerAmp || null,
+          chargeNow: !!(this._chargeNow && this._chargeNow[entry.deviceId]),
         };
       });
 

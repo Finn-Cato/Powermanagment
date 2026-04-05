@@ -501,15 +501,28 @@ module.exports = {
             const deadline = new Date(now);
             deadline.setHours(dhh, dmm || 0, 0, 0);
             if (deadline.getTime() <= now) deadline.setDate(deadline.getDate() + 1);
-            const hoursNeededRaw = typeof homey.settings.get('ev_ladebehov_timer') === 'number' && homey.settings.get('ev_ladebehov_timer') > 0
-              ? homey.settings.get('ev_ladebehov_timer') : null;
+            // Mirror app.js logic: prefer runtime battery state over manual setting
+            let hoursNeededRaw = null;
+            const evBatteryState = homey.app._evBatteryState || {};
+            const priceChargerEntries = (homey.settings.get('priorityList') || []).filter(e => e.batteryCapacityKwh || e.carDeviceId);
+            let maxEvHours = 0; let anyEvValid = false;
+            for (const pce of priceChargerEntries) {
+              const bst = evBatteryState[pce.deviceId];
+              if (!bst || Date.now() - bst.updatedAt > 24 * 3_600_000) continue;
+              if (typeof bst.hoursNeeded === 'number') { anyEvValid = true; maxEvHours = Math.max(maxEvHours, bst.hoursNeeded); }
+            }
+            if (anyEvValid) hoursNeededRaw = maxEvHours;
+            if (!hoursNeededRaw) {
+              const manual = homey.settings.get('ev_ladebehov_timer');
+              if (typeof manual === 'number' && manual > 0) hoursNeededRaw = manual;
+            }
             const windowEntries = priceState.entries
               .filter(e => { const t = new Date(e.hour).getTime(); return t > now && t < deadline.getTime(); })
-              .map(e => ({ ...e, ts: new Date(e.hour).getTime(), ore: e.ore }));
+              .map(e => ({ ...e, ts: new Date(e.hour).getTime() }));
             const effectiveN = hoursNeededRaw !== null ? Math.ceil(hoursNeededRaw) : windowEntries.length;
             if (windowEntries.length > 0) {
               const selectedTs = new Set(
-                [...windowEntries].sort((a, b) => a.ore - b.ore).slice(0, effectiveN).map(e => e.ts)
+                [...windowEntries].sort((a, b) => (a.adjustedOre ?? a.ore) - (b.adjustedOre ?? b.ore)).slice(0, effectiveN).map(e => e.ts)
               );
               const next = windowEntries.find(e => selectedTs.has(e.ts));
               if (next) {
