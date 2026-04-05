@@ -1,5 +1,7 @@
-{
-  "0.8.82": {
+{  "0.8.83": {
+    "en": "Fix: settings page failed to load (black screen) due to missing i18n key in help text for the new EV charger buffer setting. New: EV charger buffer setting — reserve watts for the rest of the house before the EV charger is allowed to ramp up (found in Settings, below Protection mode). Set to 0 to disable.",
+    "no": "Fiks: innstillingssiden lastet ikke (svart skjerm) på grunn av manglende i18n-nøkkel i hjelpeteksten for den nye EV-lader buffer-innstillingen. Nytt: EV-lader buffer-innstilling — reserver watt for resten av huset før elbilladeren får rampe opp (finnes i Innstillinger, under Beskyttelsesmodus). Sett til 0 for å deaktivere."
+  },  "0.8.82": {
     "en": "New: EV charger buffer setting — reserve a fixed number of watts (e.g. 500 W or 1000 W) for the rest of the house before the EV charger is allowed to ramp up. The charger still steps down immediately when the grid limit is exceeded. Set to 0 to disable (default). Found in Settings, just below Protection mode.",
     "no": "Nytt: EV-lader buffer-innstilling — reserver et fast antall watt (f.eks. 500 W eller 1000 W) for resten av huset f\u00f8r elbilladeren f\u00e5r lov til \u00e5 rampe opp. Laderen trapper fortsatt ned umiddelbart n\u00e5r nettgrensen overskrides. Sett til 0 for \u00e5 deaktivere (standard). Finnes i Innstillinger, rett under Beskyttelsesmodus."
   },
