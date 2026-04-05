@@ -2992,7 +2992,10 @@ class PowerGuardApp extends Homey.App {
         // Thresholds (W/A):  1-phase IT ≈133,  1-phase TN ≈230,  3-phase IT ≈400,  3-phase TN ≈690.
         // Threshold 300 separates 1-phase (≤230) from 3-phase (≥400) for both IT and TN networks.
         let _phaseDetectRef = null;
-        const _sentAmps = entry.currentTargetA || 0;
+        // For flow-controlled chargers, entry.currentTargetA is never updated (commands go via
+        // flow triggers, not written back to priorityList). Fall back to _chargerState.lastCommandA
+        // which _handleFlowControlledCharger always sets when sending a command.
+        const _sentAmps = entry.currentTargetA || this._chargerState[entry.deviceId]?.lastCommandA || 0;
         if (data.powerW > 200 && data.offeredCurrent > 0) {
           _phaseDetectRef = { method: 'offeredCurrent', ratio: data.powerW / data.offeredCurrent };
         } else if (data.powerW > 200 && _sentAmps >= 6) {
@@ -3514,9 +3517,16 @@ class PowerGuardApp extends Homey.App {
           targetCurrent = currentTargetA; // step-down cooldown active, hold
         }
       } else if (isPaused) {
-        // Resume from pause when enough headroom — always start at 6A
+        // Resume from pause when enough headroom — always start at 6A.
+        // Budget guard: verify headroom covers the actual cost of minCurrent amps.
+        // Uses learned wattsPerAmp (W/A ratio from real measurements) so a 1-phase charger
+        // uses ~170W/A and a 3-phase uses ~690W/A. Falls back to phases×230V if not yet learned.
+        // Without this guard a tightly loaded house (e.g. 560W headroom) would resume a
+        // charger that needs 1000W minimum → immediate overload → pause → disco loop.
+        const _wpa = evDataNow?.wattsPerAmp || ((evDataNow?.detectedPhases || entry.chargerPhases || 3) * 230);
+        const minResumeW = CHARGER_DEFAULTS.minCurrent * _wpa;
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
-        if (headroomW >= headroomThreshold && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
+        if (headroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
