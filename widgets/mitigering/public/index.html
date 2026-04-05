@@ -93,7 +93,13 @@
               stateLabel = 'Deaktivert';
             } else if (isMit) {
               dotCol = 'var(--homey-color-orange-500,#ff9500)';
-              stateLabel = 'Redusert';
+              var mitEntry = mitigatedById[entry.deviceId];
+              if (mitEntry && mitEntry.prevTemp != null) {
+                var newT = Math.max(5, mitEntry.prevTemp - 3);
+                stateLabel = mitEntry.prevTemp + '\u2192' + newT + '\u00b0C';
+              } else {
+                stateLabel = 'Redusert';
+              }
             } else if (lastResult && lastResult.indexOf('SUCCESS') >= 0) {
               dotCol = 'var(--homey-color-orange-500,#ff9500)';
               stateLabel = 'Aktiv';

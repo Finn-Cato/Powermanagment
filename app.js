@@ -1646,9 +1646,34 @@ class PowerGuardApp extends Homey.App {
 
           // ── Thermostat two-step logic ──────────────────────────────────────────
           // Step 1 (first mitigation):  lower temp by 3°C via applyAction
-          // Step 2 (re-mitigation):     turn thermostat OFF
+          // Step 2 (re-mitigation):     turn thermostat OFF — only after step 1 has had
+          //   time to take effect (THERMOSTAT_STEP2_DELAY_MS). This prevents the system from
+          //   turning off a thermostat that already reduced its load by 3°C — give the
+          //   reduction time to bring power under the limit first.
           // Restore:                    turn back ON → set to original temp
+          // Minimum time between step 1 and step 2 — gives room for thermal response
+          const THERMOSTAT_STEP2_MIN_MS = 3 * 60 * 1000; // 3 minutes absolute minimum
           if (existingMitigation && entry.action === 'target_temperature') {
+            if (!existingMitigation.step2Applied) {
+              const step1Age = now - (existingMitigation.mitigatedAt || 0);
+              // Absolute minimum wait
+              if (step1Age < THERMOSTAT_STEP2_MIN_MS) {
+                const waitSecs = Math.ceil((THERMOSTAT_STEP2_MIN_MS - step1Age) / 1000);
+                this.log(`[Mitigation] SKIP ${entry.name}: step-1 too recent (${waitSecs}s remaining before step 2 allowed)`);
+                scanResults.push({ name: entry.name, action: entry.action, result: `step2 delayed (${waitSecs}s left)` });
+                continue;
+              }
+              // Power-based guard: if device has measure_power and is now < 50W,
+              // the 3°C reduction has already cut the load — no need for step 2.
+              if (caps.includes('measure_power') && obj.measure_power != null) {
+                const pw = typeof obj.measure_power.value === 'number' ? obj.measure_power.value : Number(obj.measure_power);
+                if (pw < 50) {
+                  this.log(`[Mitigation] SKIP step 2 for ${entry.name}: measure_power=${Math.round(pw)}W — step-1 reduction already working, no turn-off needed`);
+                  scanResults.push({ name: entry.name, action: entry.action, result: `step2 skipped (power ${Math.round(pw)}W < 50W — step1 sufficient)` });
+                  continue;
+                }
+              }
+            }
             if (caps.includes('onoff')) {
               if (obj.onoff && obj.onoff.value === false) {
                 // Currently off — nothing more we can do
@@ -1700,8 +1725,11 @@ class PowerGuardApp extends Homey.App {
           this._persistMitigatedDevices();
           this._fireTrigger('mitigation_applied', { device_name: device.name, action: entry.action });
           await this._updateVirtualDevice({ alarm: true });
-          this.log(`[Mitigation] SUCCESS: ${entry.name} mitigated with action=${entry.action}`);
-          this._appLogEntry('mitigation', `Mitigated: ${entry.name} (action=${entry.action})`);
+          const _prevT = previousState && previousState.target_temperature != null ? previousState.target_temperature : null;
+          const _newT  = (_prevT != null && entry.action === 'target_temperature') ? Math.max(5, _prevT - 3) : null;
+          const _tempStr = _newT != null ? ` (${_prevT}→${_newT}°C)` : '';
+          this.log(`[Mitigation] SUCCESS: ${entry.name} mitigated with action=${entry.action}${_tempStr}`);
+          this._appLogEntry('mitigation', `Mitigert: ${entry.name}${_tempStr || ` (${entry.action})`}`);
           scanResults.push({ name: entry.name, action: entry.action, result: `SUCCESS` });
           mitigatedThisCycle = true;
           // Don't break — continue to build full scan results for diagnostics
@@ -3253,7 +3281,9 @@ class PowerGuardApp extends Homey.App {
 
     // ── Budget-based shed phase ───────────────────────────────────────────────
     // For chargers without chargerPriority: shed only when budget is too tight.
-    if (!connectedChargers.length || budgetSufficient) return;
+    // Use activeChargers (not connectedChargers) — a car with status=completed is physically
+    // plugged in but done charging. It needs no headroom, so don't shed heaters on its behalf.
+    if (!activeChargers.length || budgetSufficient) return;
     if (now - this._lastProactiveSheddingTime < 60000) return;
 
     const priorityList = [...(this._settings.priorityList || [])].sort((a, b) => a.priority - b.priority);
@@ -4946,7 +4976,11 @@ class PowerGuardApp extends Homey.App {
       rawPowerW:        this._powerBuffer.length > 0 ? this._powerBuffer[this._powerBuffer.length - 1] : null,
       limitW:           this._getEffectiveLimit(),
       overLimitCount:   this._overLimitCount,
-      mitigatedDevices: this._mitigatedDevices.map(m => ({ deviceId: m.deviceId, action: m.action })),
+      mitigatedDevices: this._mitigatedDevices.map(m => ({
+        deviceId: m.deviceId,
+        action:   m.action,
+        prevTemp: m.previousState && m.previousState.target_temperature != null ? m.previousState.target_temperature : null,
+      })),
       hanConnected:     !!this._hanDeviceId,
       hanDeviceName:    this._hanDeviceId ? this._getHANDeviceBrand() : null,
       hanLastSeen:      this._lastHanReading,
