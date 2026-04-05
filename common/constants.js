@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS = {
   missingPowerTimeoutS: 120, // seconds with no HAN reading before forcing mitigation (0 = disabled)
   dynamicRestoreGuard: true, // scale restore cooldown with time left in the hour
   dynamicHourlyBudget: false, // allow higher power mid-hour when hourly budget allows it
+  evHeadroomW: 0,           // watts to reserve for household before allowing EV ramp-up (0 = disabled)
   voltageSystem: 'auto',   // 'auto' | '230v-1phase' | '400v-3phase'
   phaseDistribution: 'balanced',  // charger phase distribution
   mainCircuitA: 25,               // main circuit breaker amperage

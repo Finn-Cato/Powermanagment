@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.8.81",
+  "version": "0.8.82",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "widgets": {

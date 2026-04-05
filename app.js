@@ -600,6 +600,7 @@ class PowerGuardApp extends Homey.App {
       missingPowerTimeoutS: s.get('missingPowerTimeoutS') ?? DEFAULT_SETTINGS.missingPowerTimeoutS,
       dynamicRestoreGuard: s.get('dynamicRestoreGuard') ?? DEFAULT_SETTINGS.dynamicRestoreGuard,
       dynamicHourlyBudget: false, // Always disabled — budget is informational only, not a control source
+      evHeadroomW:       s.get('evHeadroomW')       ?? DEFAULT_SETTINGS.evHeadroomW,
       voltageSystem:     s.get('voltageSystem')     ?? DEFAULT_SETTINGS.voltageSystem,
       phaseDistribution: s.get('phaseDistribution') ?? DEFAULT_SETTINGS.phaseDistribution,
       mainCircuitA:      s.get('mainCircuitA')      ?? DEFAULT_SETTINGS.mainCircuitA,
@@ -3458,6 +3459,10 @@ class PowerGuardApp extends Homey.App {
 
       const overLimit = smoothedPower > limit;
       const headroomW = limit - smoothedPower; // positive = under limit, negative = over
+      // EV headroom buffer: reserve evHeadroomW watts for household before allowing charger ramp-up.
+      // Step-down and emergency logic are unaffected — only ramp-up/resume decisions use this.
+      const evHeadroomBuffer = this._settings.evHeadroomW || 0;
+      const evEffectiveHeadroomW = headroomW - evHeadroomBuffer;
       // Phase-aware headroom: use the charger's actual W/A ratio (learned from power/current)
       // to ensure headroom covers the real cost of +1A. Fallback: phases × 700W (≈√3×400V, safe 3-phase TN).
       // This prevents oscillation where 300W headroom looks sufficient but +1A actually costs ~690W (3-phase).
@@ -3528,13 +3533,13 @@ class PowerGuardApp extends Homey.App {
         const _wpa = evDataNow?.wattsPerAmp || ((evDataNow?.detectedPhases || entry.chargerPhases || 3) * 230);
         const minResumeW = CHARGER_DEFAULTS.minCurrent * _wpa;
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
-        if (headroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
+        if (evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._lastAnyChargerRampUpTime = now;
-          this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(headroomW)}W headroom)`);
-          this._appLogEntry('charger', `${entry.name}: starter lading → ${targetCurrent}A (${Math.round(headroomW)}W ledig)`);
+          this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W eff. headroom${evHeadroomBuffer > 0 ? `, buf ${evHeadroomBuffer}W` : ''})`);
+          this._appLogEntry('charger', `${entry.name}: starter lading → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W ledig)`);
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
         }
@@ -3544,7 +3549,7 @@ class PowerGuardApp extends Homey.App {
         // The resume will clear timedOut=false so the next cycle can ramp up normally from 6A.
         const timedOutSince = cState.commandTime || 0;
         const TIMEOUT_RECOVERY_MS = 5 * 60 * 1000;
-        if (headroomW >= headroomThreshold && now - timedOutSince >= TIMEOUT_RECOVERY_MS) {
+        if (evEffectiveHeadroomW >= headroomThreshold && now - timedOutSince >= TIMEOUT_RECOVERY_MS) {
           this.log(`[EV] timedOut recovery: ${entry.name} — pausing then resuming to reset charger state (stuck ${Math.round((now - timedOutSince) / 60000)}min)`);
           this._appLogEntry('charger', `${entry.name}: nullstiller lader (ignorerte kommando i ${Math.round((now - timedOutSince) / 60000)}min)`);
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
@@ -3553,7 +3558,7 @@ class PowerGuardApp extends Homey.App {
         } else {
           targetCurrent = currentTargetA; // not enough headroom yet or too soon — hold
         }
-      } else if (headroomW >= headroomThreshold && currentTargetA < maxA && !cState.timedOut) {
+      } else if (evEffectiveHeadroomW >= headroomThreshold && currentTargetA < maxA && !cState.timedOut) {
         // Under limit with headroom — ramp up 1A if both per-charger 60s and shared 30s settling are satisfied.
         // BMS ceiling detection: if the car consumes far less W/A than expected, the car's own BMS is
         // limiting current (e.g. trickle at end-of-charge, or car max < circuit max).
@@ -3597,8 +3602,8 @@ class PowerGuardApp extends Homey.App {
             targetCurrent = currentTargetA + 1;
             this._chargerState[entry.deviceId].lastRampUpTime = now;
             this._lastAnyChargerRampUpTime = now;
-            this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W headroom, need ${headroomThreshold}W${recentStepDown ? ', post-stepdown guard' : ''})`);
-            this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(headroomW)}W ledig, krav ${headroomThreshold}W${recentStepDown ? ', anti-osc' : ''})`);
+            this.log(`[EV] Ramp up: ${entry.name} ${currentTargetA}A → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W eff. headroom, need ${headroomThreshold}W${evHeadroomBuffer > 0 ? `, buf ${evHeadroomBuffer}W` : ''}${recentStepDown ? ', post-stepdown guard' : ''})`);
+            this._appLogEntry('charger', `${entry.name}: ramp ${currentTargetA}A → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W ledig, krav ${headroomThreshold}W${recentStepDown ? ', anti-osc' : ''})`);
           } else {
             targetCurrent = currentTargetA; // wait for cooldown or settling window
           }
