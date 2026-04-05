@@ -253,11 +253,11 @@
       <div id="active-mode-card" style="display:none">
       <div class="card" style="padding:10px 14px;">
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);letter-spacing:.05em;margin-bottom:8px;" data-i18n="activeModeLabel">ACTIVE MODE</div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;">
-          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeHome">🏠&nbsp;Home</button>
-          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeNight">🌙&nbsp;Night</button>
-          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeAway">🚗&nbsp;Away</button>
-          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 4px;font-size:12px;white-space:nowrap;" data-i18n="modeHoliday">❄️&nbsp;Holiday</button>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <button id="mode-btn-home"    onclick="doActivateMode('home')"    class="btn-secondary" style="flex:1;padding:5px 2px;font-size:11px;white-space:nowrap;" data-i18n="modeHome">🏠&nbsp;Home</button>
+          <button id="mode-btn-night"   onclick="doActivateMode('night')"   class="btn-secondary" style="flex:1;padding:5px 2px;font-size:11px;white-space:nowrap;" data-i18n="modeNight">🌙&nbsp;Night</button>
+          <button id="mode-btn-away"    onclick="doActivateMode('away')"    class="btn-secondary" style="flex:1;padding:5px 2px;font-size:11px;white-space:nowrap;" data-i18n="modeAway">🚗&nbsp;Away</button>
+          <button id="mode-btn-holiday" onclick="doActivateMode('holiday')" class="btn-secondary" style="flex:1;padding:5px 2px;font-size:11px;white-space:nowrap;" data-i18n="modeHoliday">❄️&nbsp;Holiday</button>
         </div>
       </div>
       </div>
@@ -856,11 +856,11 @@
           Set the desired state for each managed device in each mode. Power Guard still overrides these during high-power events.
         </p>
         <!-- Sub-tab bar -->
-        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-          <button id="msub-home"    onclick="showModeSubTab('home')"    class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeHome">🏠 Home</button>
-          <button id="msub-night"   onclick="showModeSubTab('night')"   class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeNight">🌙 Night</button>
-          <button id="msub-away"    onclick="showModeSubTab('away')"    class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeAway">🚗 Away</button>
-          <button id="msub-holiday" onclick="showModeSubTab('holiday')" class="btn-secondary" style="font-size:13px;padding:8px 16px;border-radius:8px;transition:all .15s;" data-i18n="modeHoliday">❄️ Holiday</button>
+        <div style="display:flex;gap:4px;margin-bottom:14px;">
+          <button id="msub-home"    onclick="showModeSubTab('home')"    class="btn-secondary" style="flex:1;font-size:11px;padding:5px 2px;border-radius:8px;transition:all .15s;white-space:nowrap;" data-i18n="modeHome">🏠 Home</button>
+          <button id="msub-night"   onclick="showModeSubTab('night')"   class="btn-secondary" style="flex:1;font-size:11px;padding:5px 2px;border-radius:8px;transition:all .15s;white-space:nowrap;" data-i18n="modeNight">🌙 Night</button>
+          <button id="msub-away"    onclick="showModeSubTab('away')"    class="btn-secondary" style="flex:1;font-size:11px;padding:5px 2px;border-radius:8px;transition:all .15s;white-space:nowrap;" data-i18n="modeAway">🚗 Away</button>
+          <button id="msub-holiday" onclick="showModeSubTab('holiday')" class="btn-secondary" style="flex:1;font-size:11px;padding:5px 2px;border-radius:8px;transition:all .15s;white-space:nowrap;" data-i18n="modeHoliday">❄️ Holiday</button>
         </div>
         <div id="modes-dev-home"></div>
         <div id="modes-dev-night"   style="display:none"></div>
