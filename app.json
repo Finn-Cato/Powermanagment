@@ -856,6 +856,55 @@
         ]
       },
       {
+        "id": "report_ev_car_connected",
+        "title": {
+          "en": "Report EV car connected/disconnected",
+          "no": "Rapporter elbil tilkoblet/frakoblet"
+        },
+        "titleFormatted": {
+          "en": "Report [[charger]]: car [[connected]]",
+          "no": "Rapporter [[charger]]: bil [[connected]]"
+        },
+        "args": [
+          {
+            "name": "charger",
+            "type": "autocomplete",
+            "title": {
+              "en": "Charger",
+              "no": "Lader"
+            },
+            "placeholder": {
+              "en": "Select charger…",
+              "no": "Velg lader…"
+            }
+          },
+          {
+            "name": "connected",
+            "type": "dropdown",
+            "title": {
+              "en": "Status",
+              "no": "Status"
+            },
+            "values": [
+              {
+                "id": "true",
+                "label": {
+                  "en": "Connected",
+                  "no": "Tilkoblet"
+                }
+              },
+              {
+                "id": "false",
+                "label": {
+                  "en": "Disconnected",
+                  "no": "Frakoblet"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
         "id": "report_ev_battery",
         "title": {
           "en": "Report EV battery level",

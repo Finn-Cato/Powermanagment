@@ -1145,7 +1145,7 @@ class PowerGuardApp extends Homey.App {
 
     const smoothed = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
     this._updateVirtualDevice({ power: rawValue }).catch(() => {});  // raw = matches HAN sensor tile in real-time
-    this._checkLimits(smoothed).catch((err) => this.error('checkLimits error:', err));
+    this._checkLimits(smoothed, rawValue).catch((err) => this.error('checkLimits error:', err));
     
     // Update power consumption for all devices
     try {
@@ -1457,22 +1457,22 @@ class PowerGuardApp extends Homey.App {
 
   // ─── Limit checking ───────────────────────────────────────────────────────
 
-  async _checkLimits(smoothedPower) {
+  async _checkLimits(smoothedPower, rawPower) {
     this._refreshSettings();
     if (!this._settings.enabled) return;
 
     const limit = this._getEffectiveLimit();
     const overLimit = smoothedPower > limit;
 
-    // EV charger dynamic adjustment runs on EVERY reading — continuously optimizes
-    // charger current based on available headroom, not just when over limit.
-    // This keeps chargers charging as much as possible while staying under the limit.
+    // EV charger dynamic adjustment uses raw (unsmoothed) power for faster reaction.
+    // Smoothed power is still used for hysteresis and normal device mitigation.
+    const evPower = rawPower ?? smoothedPower;
     const hasEVChargers = (this._settings.priorityList || []).some(
       e => e.enabled !== false && e.action === 'dynamic_current'
     );
     if (hasEVChargers) {
-      await this._adjustEVChargersForPower(smoothedPower).catch(err => this.error('EV adjust error:', err));
-      await this._proactiveEVLoadShed(smoothedPower).catch(err => this.error('EV load shed error:', err));
+      await this._adjustEVChargersForPower(evPower).catch(err => this.error('EV adjust error:', err));
+      await this._proactiveEVLoadShed(evPower).catch(err => this.error('EV load shed error:', err));
     }
 
     if (overLimit) {
@@ -2071,6 +2071,27 @@ class PowerGuardApp extends Homey.App {
         const batteryPct = Number(args.battery_pct);
         if (!deviceId || isNaN(batteryPct)) throw new Error('Invalid charger or battery level');
         this.reportEvBattery(deviceId, batteryPct);
+      });
+    }
+
+    const actEvConnected = this.homey.flow.getActionCard('report_ev_car_connected');
+    if (actEvConnected) {
+      actEvConnected.registerArgumentAutocompleteListener('charger', async (query) => {
+        const list = (this._settings.priorityList || []).filter(e =>
+          e.enabled !== false && e.action === 'dynamic_current'
+        );
+        return list
+          .filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase()))
+          .map(e => ({ id: e.deviceId, name: e.name }));
+      });
+      actEvConnected.registerRunListener(async (args) => {
+        const deviceId  = args.charger && args.charger.id;
+        const connected = args.connected === 'true';
+        if (!deviceId) throw new Error('Invalid charger');
+        if (!this._evPowerData[deviceId]) this._evPowerData[deviceId] = {};
+        this._evPowerData[deviceId].carConnectedAlarm = connected;
+        this.log(`[EV] Flow reported car ${connected ? 'connected' : 'disconnected'}: ${args.charger.name}`);
+        this._addLog(`EV car ${connected ? 'tilkoblet' : 'frakoblet'} (flow): ${args.charger.name}`);
       });
     }
   }
@@ -3344,7 +3365,7 @@ class PowerGuardApp extends Homey.App {
     }
   }
 
-  async _adjustEVChargersForPower(smoothedPower) {
+  async _adjustEVChargersForPower(rawPower) {
     const now = Date.now();
 
     const chargerEntries = (this._settings.priorityList || []).filter(e =>
@@ -3353,7 +3374,7 @@ class PowerGuardApp extends Homey.App {
     if (!chargerEntries.length) return;
 
     const limit = this._getEffectiveLimit();
-    const totalOverload = Math.max(0, smoothedPower - limit);
+    const totalOverload = Math.max(0, rawPower - limit);
 
     // Detect emergency: power is significantly over limit (>500W)
     const isEmergency = totalOverload > 500;
@@ -3377,7 +3398,7 @@ class PowerGuardApp extends Homey.App {
       return (evData?.powerW || 0) > 200 || (evData?.offeredCurrent || 0) > 0;
     }).length;
     const activeChargerCount = Math.max(1, chargingCount);
-    const sharedNonChargerUsage = Math.max(0, smoothedPower - totalChargerPowerW);
+    const sharedNonChargerUsage = Math.max(0, rawPower - totalChargerPowerW);
     const sharedAvailableW = limit - sharedNonChargerUsage;
     const householdAloneExceedsLimit = sharedNonChargerUsage > (limit - 200);
     if (connectedEntries.length > 1) {
@@ -3457,8 +3478,8 @@ class PowerGuardApp extends Homey.App {
       const effectiveMax = cState?.learnedMaxA ?? circuitLimitA;
       const maxA = Math.min(CHARGER_DEFAULTS.maxCurrent, effectiveMax, priceCap > 0 ? priceCap : 0);
 
-      const overLimit = smoothedPower > limit;
-      const headroomW = limit - smoothedPower; // positive = under limit, negative = over
+      const overLimit = rawPower > limit;
+      const headroomW = limit - rawPower; // positive = under limit, negative = over
       // EV headroom buffer: reserve evHeadroomW watts for household before allowing charger ramp-up.
       // Step-down and emergency logic are unaffected — only ramp-up/resume decisions use this.
       const evHeadroomBuffer = this._settings.evHeadroomW || 0;
