@@ -1,4 +1,8 @@
-{  "0.8.83": {
+{  "0.8.84": {
+    "en": "Fix: EV charger step-down now reacts to raw (unsmoothed) power instead of the smoothed average — reaction time drops from ~35 seconds to ~4 seconds when a car switches from 1-phase to 3-phase mid-session. New: 'Report car connected/disconnected' flow action for chargers without a native connection signal (e.g. Defa via Modbus TCP) — use this in your flow to tell Power Guard when a car is plugged in or unplugged.",
+    "no": "Fiks: EV-lader steg-ned reagerer nå på rå (uutjevnet) strøm i stedet for gjennomsnittet — reaksjonstiden går fra ~35 sekunder til ~4 sekunder når en bil bytter fra 1-fase til 3-fase midt i en ladesøkt. Nytt: 'Rapporter elbil tilkoblet/frakoblet' flow-aksjon for ladere uten innebygd tilkoblingssignal (f.eks. Defa via Modbus TCP) — bruk denne i flowen din for å fortelle Power Guard når en bil kobles til eller fra."
+  },
+  "0.8.83": {
     "en": "Fix: settings page failed to load (black screen) due to missing i18n key in help text for the new EV charger buffer setting. New: EV charger buffer setting — reserve watts for the rest of the house before the EV charger is allowed to ramp up (found in Settings, below Protection mode). Set to 0 to disable.",
     "no": "Fiks: innstillingssiden lastet ikke (svart skjerm) på grunn av manglende i18n-nøkkel i hjelpeteksten for den nye EV-lader buffer-innstillingen. Nytt: EV-lader buffer-innstilling — reserver watt for resten av huset før elbilladeren får rampe opp (finnes i Innstillinger, under Beskyttelsesmodus). Sett til 0 for å deaktivere."
   },  "0.8.82": {
