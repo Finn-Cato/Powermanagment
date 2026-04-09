@@ -8,6 +8,7 @@ package-lock.json
 
 # Dev tools & scripts
 generate-images.ps1
+generate-widget-previews.ps1
 publish-helper.js
 tmpclaude-*
 *.pyc
