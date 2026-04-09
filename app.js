@@ -2074,6 +2074,28 @@ class PowerGuardApp extends Homey.App {
       });
     }
 
+    const actEvPower = this.homey.flow.getActionCard('report_ev_power');
+    if (actEvPower) {
+      actEvPower.registerArgumentAutocompleteListener('charger', async (query) => {
+        const list = (this._settings.priorityList || []).filter(e =>
+          e.enabled !== false && e.action === 'dynamic_current'
+        );
+        return list
+          .filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase()))
+          .map(e => ({ id: e.deviceId, name: e.name }));
+      });
+      actEvPower.registerRunListener(async (args) => {
+        const deviceId = args.charger && args.charger.id;
+        const powerW   = typeof args.power === 'number' ? args.power : parseFloat(args.power);
+        if (!deviceId) throw new Error('Invalid charger');
+        if (isNaN(powerW) || powerW < 0) throw new Error('Invalid power value');
+        if (!this._evPowerData[deviceId]) this._evPowerData[deviceId] = {};
+        this._evPowerData[deviceId].powerW = powerW;
+        if (powerW > 100) this._evPowerData[deviceId].lastActiveMs = Date.now();
+        this.log(`[EV] Flow reported power: ${args.charger.name} = ${powerW}W`);
+      });
+    }
+
     const actEvConnected = this.homey.flow.getActionCard('report_ev_car_connected');
     if (actEvConnected) {
       actEvConnected.registerArgumentAutocompleteListener('charger', async (query) => {
@@ -3523,14 +3545,23 @@ class PowerGuardApp extends Homey.App {
       } else if (priceCap <= 0) {
         // Price engine wants charger fully off → pause
         targetCurrent = null;
-      } else if (householdAloneExceedsLimit) {
-        // Household alone (without charger) exceeds limit → pause charger
-        targetCurrent = null;
+        if (!isPaused) {
+          this.log(`[EV] Price pause: ${entry.name} — Mode=av`);
+          this._appLogEntry('charger', `${entry.name}: pauset pga. pris (Mode=av)`);
+        }
       } else if (resumeImmune) {
         // Inside resume immunity window — Easee is still enforcing the new current limit.
-        // Hold at commanded current regardless of apparent overload (spike is temporary).
+        // Must be checked BEFORE householdAloneExceedsLimit: the raw power spike right after
+        // charger startup makes sharedNonChargerUsage look like the household alone is over
+        // limit (Easee's powerW is stale for ~15s), which would immediately re-pause and
+        // create a pause→resume→pause oscillation loop.
         targetCurrent = currentTargetA;
         this.log(`[EV] Resume immunity: ${entry.name} — holding ${currentTargetA}A (${Math.round((cState.resumeImmunityUntil - now) / 1000)}s left, overload=${Math.round(totalOverload)}W)`);
+      } else if (householdAloneExceedsLimit) {
+        // Household alone (without charger) exceeds limit → pause charger.
+        // Only reached outside the resume immunity window so the stale powerW issue
+        // (charger.powerW = 0 for ~15s after startup) cannot trigger a false pause.
+        targetCurrent = null;
       } else if (overLimit) {
         // Total power over limit — step down 1A, or pause if already at minimum.
         if (isPaused) {
@@ -3554,7 +3585,7 @@ class PowerGuardApp extends Homey.App {
         const _wpa = evDataNow?.wattsPerAmp || ((evDataNow?.detectedPhases || entry.chargerPhases || 3) * 230);
         const minResumeW = CHARGER_DEFAULTS.minCurrent * _wpa;
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
-        if (evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW) {
+        if (evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && priceCap > 0) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
