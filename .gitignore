@@ -18,3 +18,8 @@ Thumbs.db
 # Reference/working files
 _reference/
 *.code-workspace
+
+# Dev/diagnostic scripts
+generate-widget-previews.ps1
+_solvik_live.js
+solvik-diagnostic.json
