@@ -1,4 +1,8 @@
-{  "0.8.84": {
+{  "0.8.85": {
+    "en": "Fix: EV charger no longer oscillates (pause/resume/pause loop) when starting to charge while the house is heavily loaded. The resume immunity window (120s) is now correctly checked before the household-overload guard — previously the stale charger power reading (0W for ~15s after startup) made the house appear to exceed the limit alone, bypassing the immunity window and causing rapid re-pausing.",
+    "no": "Fiks: EV-laderen oscillerer ikke lenger (pause/resume/pause-loop) når den starter lading mens huset er tungt belastet. Resume-immunitetsvinduet (120s) sjekkes nå korrekt før husforbruk-grensevakten — tidligere gjorde foreldede effektverdier fra laderen (0W i ~15s etter oppstart) at huset så ut til å overskride grensen alene, noe som omgikk immunitetsvinduet og forårsaket rask gjeninnpausing."
+  },
+  "0.8.84": {
     "en": "Fix: EV charger step-down now reacts to raw (unsmoothed) power instead of the smoothed average — reaction time drops from ~35 seconds to ~4 seconds when a car switches from 1-phase to 3-phase mid-session. New: 'Report car connected/disconnected' flow action for chargers without a native connection signal (e.g. Defa via Modbus TCP) — use this in your flow to tell Power Guard when a car is plugged in or unplugged.",
     "no": "Fiks: EV-lader steg-ned reagerer nå på rå (uutjevnet) strøm i stedet for gjennomsnittet — reaksjonstiden går fra ~35 sekunder til ~4 sekunder når en bil bytter fra 1-fase til 3-fase midt i en ladesøkt. Nytt: 'Rapporter elbil tilkoblet/frakoblet' flow-aksjon for ladere uten innebygd tilkoblingssignal (f.eks. Defa via Modbus TCP) — bruk denne i flowen din for å fortelle Power Guard når en bil kobles til eller fra."
   },

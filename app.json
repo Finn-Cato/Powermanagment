@@ -1,6 +1,6 @@
 {
   "id": "no.powerguard",
-  "version": "0.8.84",
+  "version": "0.8.85",
   "compatibility": ">=12.3.0",
   "sdk": 3,
   "widgets": {
@@ -851,6 +851,46 @@
             "placeholder": {
               "en": "e.g. 10",
               "no": "f.eks. 10"
+            }
+          }
+        ]
+      },
+      {
+        "id": "report_ev_power",
+        "title": {
+          "en": "Report EV charger power consumption",
+          "no": "Rapporter effektforbruk for elbillader"
+        },
+        "titleFormatted": {
+          "en": "Report [[charger]]: [[power]] W",
+          "no": "Rapporter [[charger]]: [[power]] W"
+        },
+        "args": [
+          {
+            "name": "charger",
+            "type": "autocomplete",
+            "title": {
+              "en": "Charger",
+              "no": "Lader"
+            },
+            "placeholder": {
+              "en": "Select charger…",
+              "no": "Velg lader…"
+            }
+          },
+          {
+            "name": "power",
+            "type": "number",
+            "title": {
+              "en": "Power (W)",
+              "no": "Effekt (W)"
+            },
+            "min": 0,
+            "max": 50000,
+            "step": 1,
+            "placeholder": {
+              "en": "e.g. 6900",
+              "no": "f.eks. 6900"
             }
           }
         ]
