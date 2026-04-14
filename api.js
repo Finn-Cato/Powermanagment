@@ -465,7 +465,11 @@ module.exports = {
         const chargingComplete  = [4, 'completed', 'COMPLETED', 'Completed'].includes(c.chargerStatus)
                                 && (c.powerW || 0) < 100;
         const shouldCharge      = c.isConnected && !batteryFull && !chargingComplete && rawChargerMode !== null && rawChargerMode !== 'av';
-        const mismatch          = c.isConnected && shouldCharge && !effectiveCharging;
+        // Don't flag mismatch if Power Guard is intentionally holding back the charger
+        // (waiting for capacity or for price) — it knows about it and is handling it.
+        const pgWaiting = !!(homey.app._chargerState && homey.app._chargerState[deviceId] && homey.app._chargerState[deviceId].waitingForCapacity);
+        const priceHolding = rawChargerMode === 'av';
+        const mismatch = c.isConnected && shouldCharge && !effectiveCharging && !pgWaiting && !priceHolding;
         return {
           deviceId,
           name:        c.name || deviceId,

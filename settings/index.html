@@ -1651,7 +1651,7 @@
       no: 'Nei',
       chargingNow: 'Lader n\u00e5',
       shouldCharge: 'B\u00f8r lade',
-      chargeMismatch: '⚠️ Feil: b\u00f8r lade men gj\u00f8r det ikke (eller omvendt).',
+      chargeMismatch: '⚠️ Venter på å starte lading...',
       noEvChargers: 'Ingen elbilladere sporet — legg til en lader i Enheter-fanen.',
       chargerStatusError: 'Kunne ikke laste laderstatus.',
       noBatteryReports: 'Ingen rapporter enn\u00e5 — kj\u00f8r "Rapporter EV-batteri" Flow for \u00e5 oppdatere.',
@@ -2052,12 +2052,16 @@
                      c.status === 'dynamic' ? '#ff9500' :
                      c.status === 'charging' ? '#34c759' :
                      c.status === 'waiting' ? '#007aff' :
+                     c.status === 'waiting_capacity' ? '#ff9500' :
+                     c.status === 'waiting_price' ? '#007aff' :
                      c.status === 'completed' ? '#34c759' :
                      c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
           var icon = c.status === 'paused' ? '\u23f8' :
                     c.status === 'dynamic' ? '\u26a1' :
                     c.status === 'charging' ? '\ud83d\udd0b' :
                     c.status === 'waiting' ? '\u23f3' :
+                    c.status === 'waiting_capacity' ? '\u23f3' :
+                    c.status === 'waiting_price' ? '\ud83d\udcb0' :
                     c.status === 'completed' ? '\u2705' :
                     c.status === 'connected' ? '\ud83d\udd0c' : '\u2796';
           badge.style.color = color;
@@ -2100,15 +2104,21 @@
                              c.status === 'dynamic' ? '#ff9500' :
                              c.status === 'charging' ? '#34c759' :
                              c.status === 'waiting' ? '#007aff' :
+                             c.status === 'waiting_capacity' ? '#ff9500' :
+                             c.status === 'waiting_price' ? '#007aff' :
                              c.status === 'completed' ? '#34c759' :
                              c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
             var wpaLine = c.wattsPerAmp ? '<div style="font-size:10px;color:var(--text-muted);margin-top:1px;">1A = ' + c.wattsPerAmp + 'W (' + (c.detectedPhases ? c.detectedPhases + '-' + t('phaseShort') : '?') + ')</div>' : '';
+            var capLine = (c.status === 'waiting_capacity' && c.minResumeW && c.headroomW != null)
+              ? '<div id="ev-stat-cap-' + c.deviceId + '" style="font-size:10px;color:var(--text-muted);margin-top:1px;">Trenger ' + (c.minResumeW/1000).toFixed(1) + ' kW / Ledig ' + Math.max(0, c.headroomW/1000).toFixed(1) + ' kW</div>'
+              : '<div id="ev-stat-cap-' + c.deviceId + '" style="display:none;"></div>';
             var cardBorder = c.chargeNow ? 'border:2px solid #ff9500;' : '';
             var cnSubLine = c.chargeNow ? '<div id="ev-stat-cn-' + c.deviceId + '" style="font-size:10px;color:#ff9500;margin-top:2px;">Ignorerer pris - kriseknappen aktivert</div>' : '<div id="ev-stat-cn-' + c.deviceId + '" style="display:none;font-size:10px;color:#ff9500;margin-top:2px;"></div>';
             return '<div class="stat-box" id="ev-card-' + c.deviceId + '" style="' + cardBorder + '">' +
               '<div class="stat-label">' + escHtml(c.name || 'EV Charger') + '</div>' +
               '<div class="stat-value" id="ev-stat-val-' + c.deviceId + '">' + Math.round(c.powerW || 0) + ' W</div>' +
               '<div class="stat-sub" id="ev-stat-sub-' + c.deviceId + '" style="color:' + statusColor + '">' + escHtml(c.statusLabel || 'Idle') + '</div>' +
+              capLine +
               cnSubLine +
               '<div id="ev-stat-wpa-' + c.deviceId + '">' + wpaLine + '</div>' +
               '</div>';
@@ -2119,12 +2129,25 @@
                              c.status === 'dynamic' ? '#ff9500' :
                              c.status === 'charging' ? '#34c759' :
                              c.status === 'waiting' ? '#007aff' :
+                             c.status === 'waiting_capacity' ? '#ff9500' :
+                             c.status === 'waiting_price' ? '#007aff' :
                              c.status === 'completed' ? '#34c759' :
                              c.status === 'connected' ? 'var(--text-muted)' : '#8e8e93';
             var valEl = document.getElementById('ev-stat-val-' + c.deviceId);
             var subEl = document.getElementById('ev-stat-sub-' + c.deviceId);
             if (valEl) valEl.textContent = Math.round(c.powerW || 0) + ' W';
             if (subEl) { subEl.textContent = c.statusLabel || 'Idle'; subEl.style.color = statusColor; }
+            var capEl = document.getElementById('ev-stat-cap-' + c.deviceId);
+            if (capEl) {
+              if (c.status === 'waiting_capacity' && c.minResumeW && c.headroomW != null) {
+                capEl.style.display = '';
+                capEl.style.fontSize = '10px';
+                capEl.style.color = 'var(--text-muted)';
+                capEl.textContent = 'Trenger ' + (c.minResumeW/1000).toFixed(1) + ' kW / Ledig ' + Math.max(0, c.headroomW/1000).toFixed(1) + ' kW';
+              } else {
+                capEl.style.display = 'none';
+              }
+            }
             var cardEl = document.getElementById('ev-card-' + c.deviceId);
             if (cardEl) cardEl.style.border = c.chargeNow ? '2px solid #ff9500' : '';
             var cnEl = document.getElementById('ev-stat-cn-' + c.deviceId);
@@ -2710,6 +2733,8 @@
                         liveStatus.status === 'dynamic' ? '#ff9500' :
                         liveStatus.status === 'charging' ? '#34c759' :
                         liveStatus.status === 'waiting' ? '#007aff' :
+                        liveStatus.status === 'waiting_capacity' ? '#ff9500' :
+                        liveStatus.status === 'waiting_price' ? '#007aff' :
                         liveStatus.status === 'completed' ? '#34c759' :
                         liveStatus.status === 'connected' ? 'var(--text-muted)' :
                         '#8e8e93';
@@ -2717,6 +2742,8 @@
                        liveStatus.status === 'dynamic' ? '⚡' :
                        liveStatus.status === 'charging' ? '🔋' :
                        liveStatus.status === 'waiting' ? '⏳' :
+                       liveStatus.status === 'waiting_capacity' ? '⏳' :
+                       liveStatus.status === 'waiting_price' ? '💰' :
                        liveStatus.status === 'completed' ? '✅' :
                        liveStatus.status === 'connected' ? '🔌' :
                        '➖';
@@ -3846,66 +3873,85 @@
     }
 
     // Load all data via Homey.api('GET', '/all', ...)
-    hApi('GET', '/all', null)
-      .then(function(data) {
-        dbg('API connected! Keys: ' + Object.keys(data).join(', '));
-        showMain();
+    // Wrapped in a retryable function — app may still be starting after install/restart.
+    var _initAttempts = 0;
+    var _initIntervalsDone = false;
+    function _doInitialConnect() {
+      hApi('GET', '/all', null)
+        .then(function(data) {
+          dbg('API connected! Keys: ' + Object.keys(data).join(', '));
+          _initAttempts = 0;
+          clearError();
+          showMain();
 
-        var settings = data.settings || {};
-        var defs = {
-          enabled: true, profile: 'normal', powerLimitW: 10000,
-          phase1LimitA: 0, phase2LimitA: 0, phase3LimitA: 0,
-          smoothingWindow: 5, spikeMultiplier: 2.0,
-          hysteresisCount: 3, cooldownSeconds: 30, priorityList: []
-        };
-        Object.keys(defs).forEach(function(k) {
-          if (settings[k] == null) settings[k] = defs[k];
+          var settings = data.settings || {};
+          var defs = {
+            enabled: true, profile: 'normal', powerLimitW: 10000,
+            phase1LimitA: 0, phase2LimitA: 0, phase3LimitA: 0,
+            smoothingWindow: 5, spikeMultiplier: 2.0,
+            hysteresisCount: 3, cooldownSeconds: 30, priorityList: []
+          };
+          Object.keys(defs).forEach(function(k) {
+            if (settings[k] == null) settings[k] = defs[k];
+          });
+
+          _detectedVoltageSystem = data.detectedVoltageSystem || '230v-1phase';
+          applySettings(settings);
+          updateStatusUI(data.status || {});
+          availableDevices = Array.isArray(data.devices) ? data.devices : [];
+          renderAllDevices();
+          renderChargerDetails();  // Initial render of charger power details
+          syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
+          dbg('Initial load: ' + availableDevices.length + ' devices');
+
+          // Immediately update cache status bar since devices are loaded
+          if (availableDevices.length > 0) {
+            var _l = document.getElementById('cache-loading');
+            var _s = document.getElementById('cache-status-text');
+            var _r = document.getElementById('cache-refresh-btn');
+            if (_l) _l.style.display = 'none';
+            if (_s) { _s.style.display = 'inline'; _s.textContent = availableDevices.length + t('devicesLoaded'); _s.style.color = '#34c759'; }
+            if (_r) _r.style.display = 'inline';
+          }
+
+          // One-time interval setup — guard prevents duplicates if _doInitialConnect retried
+          if (!_initIntervalsDone) {
+            _initIntervalsDone = true;
+            startCacheStatusPolling();
+
+            // Poll live status every 2 seconds for responsive updates
+            setInterval(function() {
+              if (document.hidden) return;
+              hApi('GET', '/status', null)
+                .then(function(s) { if (s) updateStatusUI(s); })
+                .catch(function(err) { dbg('Status poll error: ' + (err.message || err)); });
+            }, 2000);
+
+            // Full data refresh every 30 seconds to keep everything in sync
+            setInterval(function() {
+              if (document.hidden) return;
+              guardedLoadAll();
+            }, 30000);
+          }
+
+          // Load overview-specific data (price control toggle + active mode badge)
+          loadPriceData();
+          loadModesSettings();
+        })
+        .catch(function(err) {
+          dbg('Initial load error: ' + (err.message || err));
+          showError('Cannot connect: ' + (err.message || err));
+          showMain();
+          // Try price data so tab visibility is set as soon as possible
+          loadPriceData();
+          // Retry — app may still be starting up (e.g. just installed/restarted)
+          _initAttempts++;
+          if (_initAttempts <= 6) {
+            setTimeout(_doInitialConnect, 5000);
+          }
         });
-
-        _detectedVoltageSystem = data.detectedVoltageSystem || '230v-1phase';
-        applySettings(settings);
-        updateStatusUI(data.status || {});
-        availableDevices = Array.isArray(data.devices) ? data.devices : [];
-        renderAllDevices();
-        renderChargerDetails();  // Initial render of charger power details
-        syncChargerLimitsFromDevices(true);  // Auto-sync live values from charger devices (silent)
-        dbg('Initial load: ' + availableDevices.length + ' devices');
-
-        // Immediately update cache status bar since devices are loaded
-        if (availableDevices.length > 0) {
-          var _l = document.getElementById('cache-loading');
-          var _s = document.getElementById('cache-status-text');
-          var _r = document.getElementById('cache-refresh-btn');
-          if (_l) _l.style.display = 'none';
-          if (_s) { _s.style.display = 'inline'; _s.textContent = availableDevices.length + t('devicesLoaded'); _s.style.color = '#34c759'; }
-          if (_r) _r.style.display = 'inline';
-        }
-
-        startCacheStatusPolling();
-
-        // Poll live status every 2 seconds for responsive updates
-        setInterval(function() {
-          if (document.hidden) return;
-          hApi('GET', '/status', null)
-            .then(function(s) { if (s) updateStatusUI(s); })
-            .catch(function(err) { dbg('Status poll error: ' + (err.message || err)); });
-        }, 2000);
-
-        // Load overview-specific data (price control toggle + active mode badge)
-        loadPriceData();
-        loadModesSettings();
-
-        // Full data refresh every 30 seconds to keep everything in sync
-        setInterval(function() {
-          if (document.hidden) return;
-          guardedLoadAll();
-        }, 30000);
-      })
-      .catch(function(err) {
-        dbg('Initial load error: ' + (err.message || err));
-        showError('Cannot connect: ' + (err.message || err));
-        showMain();
-      });
+    }
+    _doInitialConnect();
 
     // Realtime events (per SDK docs: Homey.on(event, callback))
     try {
@@ -4465,8 +4511,15 @@
       ago != null ? t('lastUpdatedLabel') + (ago < 1 ? t('justNow') : ago + t('minAgo')) : '';
   }
 
+  // Guard: priceSaveSettings() must not fire until the form has been populated
+  // from the server. Without this, onchange events triggered during page load
+  // (before renderPriceSettings runs) would overwrite saved settings with
+  // HTML defaults (NO4, norgespris off, etc.).
+  var _priceSettingsReady = false;
+
   function renderPriceSettings(cfg) {
     if (!cfg) return;
+    _priceSettingsReady = false;  // block saves while we set values
     var enabledEl = document.getElementById('ps-enabled');
     if (enabledEl) enabledEl.checked = !!cfg.enabled;
     var areaEl = document.getElementById('ps-priceArea');
@@ -4485,6 +4538,7 @@
     var npFlatEl = document.getElementById('ps-norgesprisFlatOre');
     if (npFlatEl) npFlatEl.value = cfg.norgesprisFlatOre != null ? cfg.norgesprisFlatOre : 50;
     _updateHeaterTabVisibility(!!cfg.enabled);
+    _priceSettingsReady = true;  // form is now populated — allow saves
   }
 
   function _updateHeaterTabVisibility(priceEnabled) {
@@ -4685,6 +4739,7 @@
   }
 
   function priceSaveSettings() {
+    if (!_priceSettingsReady) return;  // form not yet populated from server — ignore
     var enabled    = document.getElementById('ps-enabled').checked;
     _updateHeaterTabVisibility(enabled);
     var area       = document.getElementById('ps-priceArea').value;

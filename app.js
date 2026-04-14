@@ -993,12 +993,13 @@ class PowerGuardApp extends Homey.App {
           // Only log to appLog when entering fallback mode (not every poll cycle)
           if (!this._hanInFallbackMode) {
             this._hanInFallbackMode = true;
-            this._appLogEntry('han', `Poll fallback active: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
+            this._appLogEntry('han', `Poll fallback active: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s) — control frozen until events resume`);
           }
           this.log(`[HAN Poll] Fallback reading: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
           this._hanPollCount++;
           this._pushHanRawLog(value, 'poll');
-          this._onPowerReading(value);
+          // Do NOT call _onPowerReading during fallback — stale poll data could cause
+          // incorrect ramp/mitigation decisions. All control is frozen until HAN events resume.
         }
 
         // Always update per-phase current data from poll regardless of event age
@@ -3458,8 +3459,20 @@ class PowerGuardApp extends Homey.App {
         // Only treat as "charging complete" when BOTH the status says Completed AND
         // the charger is drawing less than 500W. Easee sometimes sends spurious
         // Completed events mid-session while the car is still pulling full current.
+        //
+        // IMPORTANT: Easee also reports status=Completed when PG turned it off with onoff=false
+        // (e.g. during a price-pause). In that case the car is NOT actually full — the Easee
+        // just reports Completed whenever it's switched off. We must NOT skip the charger in
+        // this case or it will never start again.
+        //
+        // Guard: only honour Completed if PG has actively been charging this session
+        // (alreadyTracked with currentTargetA > 0). If PG never sent a start command this
+        // session, Completed is stale/Easee-generated and should be ignored.
+        const _tracked = this._mitigatedDevices.find(m => m.deviceId === entry.deviceId);
+        const _pgWasCharging = _tracked && (_tracked.currentTargetA > 0);
         const isChargingComplete = [4, 'completed', 'COMPLETED', 'Completed'].includes(cs)
-                                && (evData?.powerW || 0) < 500;
+                                && (evData?.powerW || 0) < 500
+                                && _pgWasCharging;
         if (isChargingComplete) {
           const stale = this._mitigatedDevices.findIndex(m => m.deviceId === entry.deviceId);
           if (stale >= 0) {
@@ -3545,6 +3558,11 @@ class PowerGuardApp extends Homey.App {
       } else if (priceCap <= 0) {
         // Price engine wants charger fully off → pause
         targetCurrent = null;
+        if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+        // Clear capacity-wait flag — charger is stopped by price, not capacity shortage
+        this._chargerState[entry.deviceId].waitingForCapacity = false;
+        this._chargerState[entry.deviceId].minResumeW = null;
+        this._chargerState[entry.deviceId].headroomW  = null;
         if (!isPaused) {
           this.log(`[EV] Price pause: ${entry.name} — Mode=av`);
           this._appLogEntry('charger', `${entry.name}: pauset pga. pris (Mode=av)`);
@@ -3582,18 +3600,68 @@ class PowerGuardApp extends Homey.App {
         // uses ~170W/A and a 3-phase uses ~690W/A. Falls back to phases×230V if not yet learned.
         // Without this guard a tightly loaded house (e.g. 560W headroom) would resume a
         // charger that needs 1000W minimum → immediate overload → pause → disco loop.
-        const _wpa = evDataNow?.wattsPerAmp || ((evDataNow?.detectedPhases || entry.chargerPhases || 3) * 230);
+        // Conservative W/A floor: take max of learned value and phases×230V.
+        // Prevents a transient 1-phase flicker from corrupting wattsPerAmp to ~40 W/A,
+        // which would underestimate minResumeW (6×40=240W vs correct 6×690=4140W)
+        // and cause spurious resume that immediately overloads the circuit.
+        const _phases = evDataNow?.detectedPhases || entry.chargerPhases || 3;
+        const _wpa = Math.max(evDataNow?.wattsPerAmp || 0, _phases * 230);
         const minResumeW = CHARGER_DEFAULTS.minCurrent * _wpa;
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
+        if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
         if (evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && priceCap > 0) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
-          if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
           this._chargerState[entry.deviceId].lastRampUpTime = now;
+          this._chargerState[entry.deviceId].waitingForCapacity = false;
           this._lastAnyChargerRampUpTime = now;
           this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W eff. headroom${evHeadroomBuffer > 0 ? `, buf ${evHeadroomBuffer}W` : ''})`);
           this._appLogEntry('charger', `${entry.name}: starter lading → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W ledig)`);
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
+          // Track capacity-waiting state: set on first transition, clear when headroom recovers
+          const notEnoughCapacity = evEffectiveHeadroomW < minResumeW;
+          if (notEnoughCapacity) {
+            // Always keep minResumeW/headroomW fresh so the UI shows current numbers
+            this._chargerState[entry.deviceId].minResumeW = minResumeW;
+            this._chargerState[entry.deviceId].headroomW  = evEffectiveHeadroomW;
+            if (!this._chargerState[entry.deviceId].waitingForCapacity) {
+              this._chargerState[entry.deviceId].waitingForCapacity = true;
+              this._chargerState[entry.deviceId].waitingSince = now;
+              this.log(`[EV] Venter på kapasitet: ${entry.name} — trenger ${Math.round(minResumeW)}W (${_phases}-fase, ${Math.round(_wpa)}W/A), ${Math.round(evEffectiveHeadroomW)}W ledig`);
+              this._appLogEntry('charger', `${entry.name}: venter på ledig kapasitet (trenger ${Math.round(minResumeW)}W, ${Math.round(evEffectiveHeadroomW)}W ledig)`);
+            } else {
+              // Still waiting — re-log every 60s so the log shows we're alive and current numbers
+              const waitingSince = this._chargerState[entry.deviceId].waitingSince || now;
+              const lastWaitLog  = this._chargerState[entry.deviceId].lastWaitLog  || 0;
+              if (now - lastWaitLog >= 60000) {
+                this._chargerState[entry.deviceId].lastWaitLog = now;
+                const waitedMin = Math.round((now - waitingSince) / 60000);
+                this.log(`[EV] Fremdeles venter: ${entry.name} — ledig ${Math.round(evEffectiveHeadroomW)}W, trenger ${Math.round(minResumeW)}W (ventet ${waitedMin}min)`);
+                this._appLogEntry('charger', `${entry.name}: venter på kapasitet — ${Math.round(evEffectiveHeadroomW)}W ledig, trenger ${Math.round(minResumeW)}W (${waitedMin}min)`);
+              }
+            }
+          } else {
+            // Headroom is now sufficient — blocked by settling window or madeIncrease, not capacity
+            this._chargerState[entry.deviceId].waitingForCapacity = false;
+            this._chargerState[entry.deviceId].minResumeW = null;
+            this._chargerState[entry.deviceId].headroomW  = null;
+            this._chargerState[entry.deviceId].waitingSince = null;
+            this._chargerState[entry.deviceId].lastWaitLog  = null;
+            // Log why we're still paused despite sufficient headroom (debugging aid)
+            const _blockReasons = [];
+            if (madeIncrease)               _blockReasons.push('annen lader rampet opp denne syklusen');
+            if (sinceLastAny < SETTLE_WINDOW) _blockReasons.push(`settling (${Math.round((SETTLE_WINDOW - sinceLastAny) / 1000)}s igjen)`);
+            if (priceCap <= 0)              _blockReasons.push('pris blokkerer');
+            if (_blockReasons.length > 0) {
+              const lastBlockLog = this._chargerState[entry.deviceId].lastBlockLog || 0;
+              if (now - lastBlockLog >= 60000) {
+                this._chargerState[entry.deviceId].lastBlockLog = now;
+                this.log(`[EV] Nok kapasitet men venter: ${entry.name} — ${_blockReasons.join(', ')}`);
+              }
+            } else {
+              this._chargerState[entry.deviceId].lastBlockLog = null;
+            }
+          }
         }
       } else if (cState.timedOut && !isPaused && (evDataNow?.offeredCurrent || 0) < 1) {
         // timedOut=true means the charger ignored our last command (offered 0A when we commanded >0A).
@@ -5017,8 +5085,13 @@ class PowerGuardApp extends Homey.App {
         } else if (mitigated) {
           // Power Guard is controlling this charger
           if (mitigated.currentTargetA === 0 || mitigated.currentTargetA === null) {
-            status = 'paused';
-            statusLabel = 'Paused by Power Guard';
+            if (this._chargerState[entry.deviceId]?.waitingForCapacity) {
+              status = 'waiting_capacity';
+              statusLabel = 'Venter på ledig kapasitet';
+            } else {
+              status = 'paused';
+              statusLabel = 'Paused by Power Guard';
+            }
             currentA = 0;
           } else if (mitigated.currentTargetA >= (entry.circuitLimitA || 32)) {
             status = 'charging';
@@ -5044,9 +5117,15 @@ class PowerGuardApp extends Homey.App {
           statusLabel = 'Completed';
           currentA = 0;
         } else if (isConnected) {
-          // Connected but not drawing power — could be full, or scheduled
-          status = 'connected';
-          statusLabel = 'Connected';
+          // Connected but not drawing power — check if price control is holding it back
+          const _priceCapNow = this._getPriceCurrentCap(entry.deviceId, entry.circuitLimitA || 32);
+          if (_priceCapNow <= 0) {
+            status = 'waiting_price';
+            statusLabel = 'Venter på billig time';
+          } else {
+            status = 'connected';
+            statusLabel = 'Connected';
+          }
           currentA = 0;
         } else {
           // Unknown state
@@ -5072,6 +5151,8 @@ class PowerGuardApp extends Homey.App {
           detectedPhases: evData.detectedPhases || null,
           wattsPerAmp: evData.wattsPerAmp || null,
           chargeNow: !!(this._chargeNow && this._chargeNow[entry.deviceId]),
+          minResumeW: (this._chargerState[entry.deviceId] || {}).minResumeW || null,
+          headroomW:  (this._chargerState[entry.deviceId] || {}).headroomW  != null ? (this._chargerState[entry.deviceId] || {}).headroomW : null,
         };
       });
 
@@ -5431,6 +5512,21 @@ class PowerGuardApp extends Homey.App {
     if (saved && typeof saved === 'object') {
       this._priceSettings = Object.assign({}, PRICE_DEFAULTS, saved);
     }
+    // Restore last known price state so price control is active immediately on restart,
+    // before the first API fetch completes. Without this, _priceState = null for the
+    // duration of the fetch → _getPriceCurrentCap() returns circuitLimitA (no restriction),
+    // which means a charger paused for high price may briefly start drawing power.
+    const savedState = this.homey.settings.get('priceStateCache');
+    if (savedState && typeof savedState === 'object' && savedState.updatedAt) {
+      // Only use cache if it's less than 2 hours old (prices change hourly)
+      const ageMs = Date.now() - (savedState.updatedAt || 0);
+      if (ageMs < 2 * 60 * 60 * 1000) {
+        this._priceState = savedState;
+        this.log(`[Price] Restored cached price state (${Math.round(ageMs / 60000)}min old): level=${savedState.level} mode=${savedState.chargeMode}`);
+      } else {
+        this.log(`[Price] Cached price state too old (${Math.round(ageMs / 60000)}min), waiting for fresh fetch`);
+      }
+    }
     await this._fetchAndEvaluatePrices();
     // Refresh every 30 minutes
     this._priceEngineInterval = setInterval(async () => { const _t = Date.now(); await this._fetchAndEvaluatePrices().catch(err => this.error('[Price] Fetch error:', err)); this._trackCallTime('priceEngine', Date.now() - _t); }, 30 * 60 * 1000);
@@ -5512,6 +5608,10 @@ class PowerGuardApp extends Homey.App {
       };
 
       this._appLogEntry('system', `[Price] Level=${finalLevel} (${r2(currentEntry.adjustedOre)}øre) Mode=${finalMode}`);
+
+      // Persist price state so it can be restored immediately on next app restart,
+      // preventing a price-control blackout while waiting for the first API fetch.
+      this.homey.settings.set('priceStateCache', this._priceState);
 
       // Auto-update EV battery state from linked car devices (every 30 min price cycle)
       this._pollAllCarBatteries().catch(err => this.error('[CarBattery] Poll error:', err));

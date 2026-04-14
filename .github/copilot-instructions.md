@@ -78,3 +78,46 @@ Some sections of `app.js` are considered stable and must not be changed without 
 - NEVER run `homey app publish` unless the user explicitly asks to publish to the App Store.
 - After every code change: use `homey app install` (permanent, keeps settings) — NOT `homey app run` (temporary debug session only).
 - `CLAUDE.md` and `.github/copilot-instructions.md` must always be kept identical. If one is updated, update the other immediately to match.
+
+---
+
+## Koble til Homey og lese live app-status
+
+**Homey IP:** `192.168.10.173`  
+**Auth token:** hentes fra `C:\Users\FinnCatoAndersen\AppData\Roaming\athom-cli\settings.json` — nøkkelen starter med `homey-`  
+**App ID:** `no.powerguard`  
+**Hjelper-script:** `C:\Github\Powermanagment\fetch_pg.js` — kjør med `node fetch_pg.js` for rask logg-dump
+
+**Hente full live-status (lader, power, mitigation, logg):**
+```javascript
+// Kjør fra C:\Github\Powermanagment:
+node -e "
+const http=require('http'),fs=require('fs'),path=require('path'),os=require('os');
+const c=JSON.parse(fs.readFileSync(path.join(os.homedir(),'AppData','Roaming','athom-cli','settings.json'),'utf8'));
+const k=Object.keys(c.homeyApi).find(k=>k.startsWith('homey-'));
+const token=c.homeyApi[k].token;
+const req=http.request({host:'192.168.10.173',port:80,path:'/api/app/no.powerguard/all',method:'GET',headers:{Authorization:'Bearer '+token}},r=>{
+  let b='';r.on('data',d=>b+=d);r.on('end',()=>{
+    const st=JSON.parse(b).status||{};
+    console.log('Power:',st.currentPowerW+'W / '+st.limitW+'W  overLimit:'+st.overLimitCount);
+    (st.evChargers||[]).forEach(ch=>console.log(ch.name+': '+ch.statusLabel+' | '+ch.powerW+'W | offered='+ch.offeredCurrent+'A'));
+    (st.lastMitigationScan||[]).forEach(m=>console.log(m.name+': '+m.result));
+    (st.log||[]).slice(-20).forEach(l=>console.log(l.time.slice(11,19)+' ['+l.category+'] '+l.message));
+  });
+});
+req.on('error',e=>console.error(e.message));req.setTimeout(10000,()=>req.destroy());req.end();
+"
+```
+
+**Viktige felt i `status`-objektet:**
+- `evChargers[]` — lader-tilstand: `statusLabel`, `powerW`, `offeredCurrent`, `currentA`, `chargeNow`
+- `currentPowerW` / `limitW` / `overLimitCount` — nåværende belastning
+- `mitigatedDevices[]` — enheter PG kontrollerer akkurat nå
+- `lastMitigationScan[]` — siste kjøring av mitigation-listen (årsak til skip/handling)
+- `log[]` — app-logg (kategori: `charger`, `han`, `mitigation`, `system`, `energy`)
+
+**Alle Homey-enheter med measure_power:**
+```javascript
+node -e "... path:'/api/manager/devices/device' ..."
+// Se tidligere kjøringer i chat-historikk for full versjon
+```
