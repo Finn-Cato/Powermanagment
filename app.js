@@ -96,6 +96,7 @@ class PowerGuardApp extends Homey.App {
     this._phaseCurrents = {};    // Latest per-phase amps from HAN: {capId: amps}
     this._evPowerData = {};
     this._evBatteryState = {};    // Per-charger battery reports: {deviceId: {pct, hoursNeeded, updatedAt}}
+    this._activeCarOverride = {};  // Temporary per-charger override: {deviceId: {capacityKwh, targetPct, setAt}}
     this._evCapabilityInstances = {};
     this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
     this._powerCapabilityInstances = {}; // measure_power capability instances keyed by deviceId
@@ -2117,6 +2118,37 @@ class PowerGuardApp extends Homey.App {
         this._addLog(`EV car ${connected ? 'tilkoblet' : 'frakoblet'} (flow): ${args.charger.name}`);
       });
     }
+
+    const actSetActiveCar = this.homey.flow.getActionCard('set_active_car');
+    if (actSetActiveCar) {
+      actSetActiveCar.registerArgumentAutocompleteListener('charger', async (query) => {
+        const list = (this._settings.priorityList || []).filter(e =>
+          e.enabled !== false && e.action === 'dynamic_current'
+        );
+        return list
+          .filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase()))
+          .map(e => ({ id: e.deviceId, name: e.name }));
+      });
+      actSetActiveCar.registerRunListener(async (args) => {
+        const deviceId   = args.charger && args.charger.id;
+        const batteryKwh = Number(args.battery_kwh);
+        const targetPct  = Number(args.target_pct);
+        if (!deviceId) throw new Error('Invalid charger');
+        if (isNaN(batteryKwh) || batteryKwh <= 0) throw new Error('Invalid battery capacity');
+        if (isNaN(targetPct) || targetPct < 0 || targetPct > 100) throw new Error('Invalid target percentage');
+        if (!this._activeCarOverride) this._activeCarOverride = {};
+        this._activeCarOverride[deviceId] = { capacityKwh: batteryKwh, targetPct, setAt: Date.now() };
+        this.log(`[EV] Active car override: ${args.charger.name} → ${batteryKwh}kWh, target ${targetPct}%`);
+        this._appLogEntry('charger', `Aktiv bil satt for ${args.charger.name}: ${batteryKwh}kWh, mål ${targetPct}%`);
+        // Re-calculate hoursNeeded immediately using current battery % if known
+        const bst = this._evBatteryState[deviceId];
+        if (bst && typeof bst.pct === 'number') {
+          this.reportEvBattery(deviceId, bst.pct);
+        } else {
+          this._fetchAndEvaluatePrices().catch(() => {});
+        }
+      });
+    }
   }
 
   _fireTrigger(id, tokens) {
@@ -2575,8 +2607,13 @@ class PowerGuardApp extends Homey.App {
       return;
     }
 
-    const capacityKwh = entry.batteryCapacityKwh;
-    const targetPct   = entry.targetChargePercent ?? 80;
+    // Use temporary override (set_active_car flow) if present and recent (48h)
+    const override = this._activeCarOverride && this._activeCarOverride[deviceId];
+    const overrideAge = override ? Date.now() - override.setAt : Infinity;
+    const useOverride = override && overrideAge < 48 * 3600 * 1000;
+
+    const capacityKwh = useOverride ? override.capacityKwh : entry.batteryCapacityKwh;
+    const targetPct   = useOverride ? override.targetPct   : (entry.targetChargePercent ?? 80);
     const phases      = entry.chargerPhases       || 1;
     const circuitA    = entry.circuitLimitA       || 16;
     const chargerKw   = (circuitA * 230 * phases) / 1000;
@@ -3480,6 +3517,9 @@ class PowerGuardApp extends Homey.App {
             this._persistMitigatedDevices();
             this._fireTrigger('mitigation_cleared', { device_name: entry.name });
             this.log(`[EV] Removed mitigation for fully-charged car: ${entry.name} (status=${cs})`);
+            this.homey.notifications.createNotification({
+              excerpt: `✅ ${entry.name}: ferdig ladet`,
+            }).catch(() => {});
           }
           continue;
         }
@@ -3566,6 +3606,16 @@ class PowerGuardApp extends Homey.App {
         if (!isPaused) {
           this.log(`[EV] Price pause: ${entry.name} — Mode=av`);
           this._appLogEntry('charger', `${entry.name}: pauset pga. pris (Mode=av)`);
+          // Timeline notification — once per price-pause event (cooldown 30 min)
+          const _ppState = this._chargerState[entry.deviceId] || {};
+          const _ppAge = now - (_ppState.lastPricePauseNotifyAt || 0);
+          if (_ppAge >= 30 * 60 * 1000) {
+            if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+            this._chargerState[entry.deviceId].lastPricePauseNotifyAt = now;
+            this.homey.notifications.createNotification({
+              excerpt: `⏸ ${entry.name}: ladingen er pauset — dyr strøm`,
+            }).catch(() => {});
+          }
         }
       } else if (resumeImmune) {
         // Inside resume immunity window — Easee is still enforcing the new current limit.
@@ -3616,6 +3666,14 @@ class PowerGuardApp extends Homey.App {
           this._lastAnyChargerRampUpTime = now;
           this.log(`[EV] Resume: ${entry.name} → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W eff. headroom${evHeadroomBuffer > 0 ? `, buf ${evHeadroomBuffer}W` : ''})`);
           this._appLogEntry('charger', `${entry.name}: starter lading → ${targetCurrent}A (${Math.round(evEffectiveHeadroomW)}W ledig)`);
+          // Timeline notification when resuming from a price pause
+          const _priceWasPaused = (this._chargerState[entry.deviceId] || {}).lastPricePauseNotifyAt > 0;
+          if (_priceWasPaused) {
+            this.homey.notifications.createNotification({
+              excerpt: `▶ ${entry.name}: starter lading — billig time`,
+            }).catch(() => {});
+            this._chargerState[entry.deviceId].lastPricePauseNotifyAt = 0;
+          }
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
           // Track capacity-waiting state: set on first transition, clear when headroom recovers
@@ -3741,6 +3799,11 @@ class PowerGuardApp extends Homey.App {
       const chargerActuallyRunning = (evDataNow?.powerW || 0) > 200 || (evDataNow?.offeredCurrent || 0) > 0;
       if (targetCurrent === null && isPaused && !chargerActuallyRunning) continue;
       if (targetCurrent === null && isPaused && chargerActuallyRunning) {
+        // Easee retains offeredCurrent=6 internally even after charging completes.
+        // Without this guard: isChargingComplete removes the charger from tracking → next cycle
+        // sees offeredCurrent>0 → "tar kontroll" restarts → car rejects (full) → Completed again → loop.
+        const completedStatuses = [4, 'completed', 'COMPLETED', 'Completed'];
+        if (completedStatuses.includes(evDataNow?.chargerStatus) && (evDataNow?.powerW || 0) < 200) continue;
         targetCurrent = CHARGER_DEFAULTS.minCurrent;
         this.log(`[EV] Taking control: ${entry.name} drawing ${Math.round(evDataNow?.powerW||0)}W untracked — forcing to ${CHARGER_DEFAULTS.minCurrent}A`);
         this._appLogEntry('charger', `${entry.name}: tar kontroll → ${CHARGER_DEFAULTS.minCurrent}A (var ${Math.round(evDataNow?.powerW||0)}W ukontrollert)`);

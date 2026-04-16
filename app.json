@@ -983,6 +983,65 @@
             "step": 1
           }
         ]
+      },
+      {
+        "id": "set_active_car",
+        "title": {
+          "en": "Set active car for charger",
+          "no": "Velg aktiv bil for lader"
+        },
+        "titleFormatted": {
+          "en": "Set active car: [[charger]] — [[battery_kwh]] kWh, target [[target_pct]]%",
+          "no": "Velg aktiv bil: [[charger]] — [[battery_kwh]] kWh, mål [[target_pct]]%"
+        },
+        "hint": {
+          "en": "Use this when two cars share the same charger. Call this action when a new car connects so Power Guard uses the correct battery size and target level.",
+          "no": "Bruk dette når to biler deler samme lader. Kall denne handlingen når en ny bil kobler til, slik at Power Guard bruker riktig batteristørrelse og målnivå."
+        },
+        "args": [
+          {
+            "name": "charger",
+            "type": "autocomplete",
+            "title": {
+              "en": "Charger",
+              "no": "Lader"
+            },
+            "placeholder": {
+              "en": "Select charger…",
+              "no": "Velg lader…"
+            }
+          },
+          {
+            "name": "battery_kwh",
+            "type": "number",
+            "title": {
+              "en": "Battery capacity (kWh)",
+              "no": "Batterikapasitet (kWh)"
+            },
+            "placeholder": {
+              "en": "e.g. 77",
+              "no": "f.eks. 77"
+            },
+            "min": 5,
+            "max": 200,
+            "step": 1
+          },
+          {
+            "name": "target_pct",
+            "type": "number",
+            "title": {
+              "en": "Charge to (%)",
+              "no": "Lad til (%)"
+            },
+            "placeholder": {
+              "en": "e.g. 80",
+              "no": "f.eks. 80"
+            },
+            "min": 10,
+            "max": 100,
+            "step": 5
+          }
+        ]
       }
     ]
   }
