@@ -19,6 +19,10 @@ Do all of the following automatically — no need to ask the user for confirmati
 - Use those commits to write the changelog entry — do not make it up.
 - Add the entry to `.homeychangelog.json` in **both** `en` (English) and `no` (Norwegian Bokmål).
 - Do this automatically without asking the user.
+- **Changelog style: short bullet lines only.** Each change gets one short line, no long sentences. Example:
+  - `Fix: EV charger no longer restarts after completed session`
+  - `New: Timeline notification when charging is done`
+  - `Fix: HAN poll no longer triggers mitigation engine`
 
 ### 3. Update the Help tab before publishing
 - Before publishing, review the Help tab content in `settings/index.html` and make sure it reflects any feature changes included in this release.
@@ -72,6 +76,7 @@ Some sections of `app.js` are considered stable and must not be changed without 
 ---
 
 ## General
+- **EXPLAIN BEFORE CHANGING — THIS IS CRITICAL:** When the user asks a question or asks to investigate something, always explain the finding and proposed change in chat first. Never edit code as part of an investigation or analysis. Only make code changes after the user has confirmed with "ja" or equivalent explicit approval.
 - Never bump the version without also updating `.homeychangelog.json`.
 - Never publish without checking the Help tab is up to date.
 - The `.homeyignore` file must exclude all dev-only files (audit reports, internal docs, etc.).
