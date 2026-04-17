@@ -3517,9 +3517,14 @@ class PowerGuardApp extends Homey.App {
             this._persistMitigatedDevices();
             this._fireTrigger('mitigation_cleared', { device_name: entry.name });
             this.log(`[EV] Removed mitigation for fully-charged car: ${entry.name} (status=${cs})`);
-            this.homey.notifications.createNotification({
-              excerpt: `✅ ${entry.name}: ferdig ladet`,
-            }).catch(() => {});
+            // Only notify once per charging session — flag reset when a new session begins
+            if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+            if (!this._chargerState[entry.deviceId].chargingCompleteNotified) {
+              this._chargerState[entry.deviceId].chargingCompleteNotified = true;
+              this.homey.notifications.createNotification({
+                excerpt: `✅ ${entry.name}: ferdig ladet`,
+              }).catch(() => {});
+            }
           }
           continue;
         }
@@ -3853,6 +3858,14 @@ class PowerGuardApp extends Homey.App {
       // Update per-charger state
       if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
       this._chargerState[entry.deviceId].lastAdjustTime = now;
+      // New session starting (charger not yet tracked) — reset the charging-complete
+      // notification flag so the next completed session sends a fresh notification.
+      // This only runs when PG sends its first command of a new session; the 'tar kontroll'
+      // guard (status=Completed, powerW<200 → continue) ensures a completed charger
+      // cycling in the background never reaches this point.
+      if (!alreadyTracked) {
+        this._chargerState[entry.deviceId].chargingCompleteNotified = false;
+      }
 
       if (targetCurrent !== null && targetCurrent < (entry.circuitLimitA || 32)) {
         // Charger is being limited (but still charging)
