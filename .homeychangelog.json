@@ -1,4 +1,8 @@
-{  "0.8.87": {
+{  "0.8.88": {
+    "en": "Fix: price-pause no longer causes a pause/resume loop — when the price engine stops charging (expensive hour), Power Guard now ignores the charger's residual offeredCurrent signal while Easee winds down instead of re-taking control and immediately re-pausing. Fix: 'Charging complete' notification no longer repeats on Norgespris/flat-rate — the per-session flag is now reset only on a true physical reconnect (car unplugged and replugged) instead of on any first command, preventing repeated notifications when Power Guard resumes a charger after a completed session.",
+    "no": "Fiks: prispause utløser ikke lenger pause/resume-løkke — når prismotoren stopper lading (dyr time), ignorerer Power Guard nå laderens resterende offeredCurrent-signal mens Easee bremser ned, i stedet for å ta kontroll på nytt og umiddelbart pause igjen. Fiks: 'Ferdig ladet'-varsel gjentas ikke lenger ved Norgespris/flattakst — per-sesjon-flagget nullstilles nå kun ved ekte fysisk gjenkobling (bil koblet ut og inn igjen) i stedet for ved første kommando, noe som hindrer gjentatte varsler når Power Guard gjenopptar en lader etter en fullført ladesøkt."
+  },
+  "0.8.87": {
     "en": "Fix: 'Charging complete' notification now fires only once per session (no repeated alerts when charger cycles after full charge)",
     "no": "Fiks: 'Ferdig ladet'-varselet sendes nå kun én gang per ladesøkt (ingen gjentatte varsler når laderen sykler etter fullading)"
   },

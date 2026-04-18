@@ -2790,6 +2790,13 @@ class PowerGuardApp extends Homey.App {
               // Car just connected — poll battery from linked car device
               if (!wasConnected && this._evPowerData[entry.deviceId].isConnected) {
                 this._pollCarBattery(entry.deviceId).catch(() => {});
+                // New physical session (car unplugged + replugged) — reset the charging-complete
+                // notification flag so the next completed charge sends a fresh notification.
+                // This is the ONLY place this flag should be reset — doing it here (on true
+                // disconnect→connect transition) prevents Norgespris/flat-rate users from getting
+                // repeated notifications when PG resumes the charger after a completed session.
+                if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
+                this._chargerState[entry.deviceId].chargingCompleteNotified = false;
               }
               // Charger reported Completed mid-session: re-issue the current command so
               // the session restarts. This happens when the car briefly resets after a
@@ -3809,6 +3816,10 @@ class PowerGuardApp extends Homey.App {
         // sees offeredCurrent>0 → "tar kontroll" restarts → car rejects (full) → Completed again → loop.
         const completedStatuses = [4, 'completed', 'COMPLETED', 'Completed'];
         if (completedStatuses.includes(evDataNow?.chargerStatus) && (evDataNow?.powerW || 0) < 200) continue;
+        // Price engine wants charger off — don't fight it while Easee winds down (offeredCurrent
+        // stays > 0 for ~20s after a pause command, which would otherwise trigger "tar kontroll"
+        // and cause a pause → resume → pause loop until Easee fully stops).
+        if (priceCap <= 0) continue;
         targetCurrent = CHARGER_DEFAULTS.minCurrent;
         this.log(`[EV] Taking control: ${entry.name} drawing ${Math.round(evDataNow?.powerW||0)}W untracked — forcing to ${CHARGER_DEFAULTS.minCurrent}A`);
         this._appLogEntry('charger', `${entry.name}: tar kontroll → ${CHARGER_DEFAULTS.minCurrent}A (var ${Math.round(evDataNow?.powerW||0)}W ukontrollert)`);
@@ -3858,14 +3869,6 @@ class PowerGuardApp extends Homey.App {
       // Update per-charger state
       if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
       this._chargerState[entry.deviceId].lastAdjustTime = now;
-      // New session starting (charger not yet tracked) — reset the charging-complete
-      // notification flag so the next completed session sends a fresh notification.
-      // This only runs when PG sends its first command of a new session; the 'tar kontroll'
-      // guard (status=Completed, powerW<200 → continue) ensures a completed charger
-      // cycling in the background never reaches this point.
-      if (!alreadyTracked) {
-        this._chargerState[entry.deviceId].chargingCompleteNotified = false;
-      }
 
       if (targetCurrent !== null && targetCurrent < (entry.circuitLimitA || 32)) {
         // Charger is being limited (but still charging)
