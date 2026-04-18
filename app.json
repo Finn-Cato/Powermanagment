@@ -258,6 +258,9 @@
       },
       "class": "sensor",
       "connectivity": [],
+      "energy": {
+        "batteries": ["OTHER"]
+      },
       "capabilities": [
         "ev_battery_input",
         "measure_battery"
