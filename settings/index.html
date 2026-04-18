@@ -4717,7 +4717,8 @@
           var age = Math.round((now - bst.updatedAt) / 60000);
           var ageStr = age < 60 ? age + t('minAgo') : Math.round(age/60) + t('hAgo');
           var hoursStr = bst.hoursNeeded !== null ? bst.hoursNeeded + t('hNeeded') : t('capacityNotSet');
-          html += '<div style="margin-top:2px;">' + escHtml(name) + ': <b>' + bst.pct + '%</b> → ' + hoursStr + ' <span style="color:var(--text-muted)">(' + ageStr + ')</span></div>';
+          var sourceStr = bst.sourceLabel ? ' <span style="color:var(--text-muted);font-size:10px;">(' + escHtml(bst.sourceLabel) + ')</span>' : '';
+          html += '<div style="margin-top:2px;">' + escHtml(name) + ': <b>' + bst.pct + '%</b> → ' + hoursStr + sourceStr + ' <span style="color:var(--text-muted)">(' + ageStr + ')</span></div>';
         });
         panel.innerHTML = html;
         panel.style.display = 'block';

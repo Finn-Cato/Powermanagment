@@ -95,7 +95,9 @@ class PowerGuardApp extends Homey.App {
     this._hanRawLog = [];         // Ring buffer: last 20 raw readings {time, value, source}
     this._phaseCurrents = {};    // Latest per-phase amps from HAN: {capId: amps}
     this._evPowerData = {};
-    this._evBatteryState = {};    // Per-charger battery reports: {deviceId: {pct, hoursNeeded, updatedAt}}
+    this._evBatteryState = {};    // Per-charger battery reports: {deviceId: {pct, hoursNeeded, avgKwUsed, sourceLabel, updatedAt}}
+    this._evSessionAvgKw = {};    // Per-charger learned avg kW from last completed session: {deviceId: number}
+    this._evSessionTracking = {}; // Per-charger in-progress session accumulator: {deviceId: {startMs, totalWh, lastSampleMs}}
     this._activeCarOverride = {};  // Temporary per-charger override: {deviceId: {capacityKwh, targetPct, setAt}}
     this._evCapabilityInstances = {};
     this._powerConsumptionData = {}; // Track power history for all devices: {deviceId: {current, avg, peak, readings[]}}
@@ -167,6 +169,15 @@ class PowerGuardApp extends Homey.App {
     } catch (_) {}
     // Clean out entries older than current month on startup
     this._cleanOldDailyPeaks();
+
+    // Restore learned EV session average kW from persistent storage
+    try {
+      const savedAvgKw = this.homey.settings.get('_evSessionAvgKw');
+      if (savedAvgKw && typeof savedAvgKw === 'object') {
+        this._evSessionAvgKw = savedAvgKw;
+        this.log(`[EV Session] Restored avg kW: ${JSON.stringify(savedAvgKw)}`);
+      }
+    } catch (_) {}
 
     try {
       this._loadSettings();
@@ -300,6 +311,12 @@ class PowerGuardApp extends Homey.App {
       (this._deviceCacheReady ? 'YES' : 'NO') + ')');
     this._appLogEntry('system', 'Power Guard ready (device cache: ' + (this._deviceCacheReady ? 'YES' : 'NO') + ')');
     this._appLogEntry('system', '[PerfTest] v2 - riktig kode kjorer pa Homey!');
+
+    // Push current effektledd tier to the virtual device capability on startup
+    try {
+      const status = this._getEffekttariffStatus();
+      this._updateVirtualDevice({ effektledd: status.tierLabel }).catch(() => {});
+    } catch (_) {}
   }
 
   // ─── Device Cache Initialization with Retry Logic ──────────────────────────
@@ -1338,6 +1355,9 @@ class PowerGuardApp extends Homey.App {
       this.log(`[Effekttariff] New daily peak for ${dateStr}: ${avgKW.toFixed(3)} kW (was ${old.toFixed(3)} kW)`);
       this._appLogEntry('energy', `New daily peak for ${dateStr}: ${avgKW.toFixed(3)} kW (was ${old.toFixed(3)} kW)`);
       this._persistDailyPeaks();
+      // Push updated tier label to the virtual device capability
+      const status = this._getEffekttariffStatus();
+      this._updateVirtualDevice({ effektledd: status.tierLabel }).catch(() => {});
     }
   }
 
@@ -1727,7 +1747,9 @@ class PowerGuardApp extends Homey.App {
           this._updateDeviceReliability(entry.deviceId, true);
           this._persistMitigatedDevices();
           this._fireTrigger('mitigation_applied', { device_name: device.name, action: entry.action });
-          await this._updateVirtualDevice({ alarm: true });
+          // Alarm on only when list just became non-empty (0 → 1+)
+          if (this._mitigatedDevices.length === 1)
+            await this._updateVirtualDevice({ alarm: true });
           const _prevT = previousState && previousState.target_temperature != null ? previousState.target_temperature : null;
           const _newT  = (_prevT != null && entry.action === 'target_temperature') ? Math.max(5, _prevT - 3) : null;
           const _tempStr = _newT != null ? ` (${_prevT}→${_newT}°C)` : '';
@@ -1932,11 +1954,8 @@ class PowerGuardApp extends Homey.App {
           this._appLogEntry('mitigation', `Restored: ${device.name}`);
           this._persistMitigatedDevices();
           // Clear alarm if no non-charger devices remain mitigated AND no charger is paused/throttled
-          const anyNonChargerLeft = this._mitigatedDevices.some(m => m.action !== 'dynamic_current');
-          const anyChargerLimited = this._mitigatedDevices.some(m =>
-            m.action === 'dynamic_current' && (m.currentTargetA === 0 || m.currentTargetA === null || m.currentTargetA < (m.previousState?.targetCurrent || 32))
-          );
-          if (!anyNonChargerLeft && !anyChargerLimited) {
+          // Alarm off only when list is completely empty
+          if (this._mitigatedDevices.length === 0) {
             this._fireTrigger('mitigation_cleared', { device_name: device.name });
             await this._updateVirtualDevice({ alarm: false });
           }
@@ -1946,11 +1965,8 @@ class PowerGuardApp extends Homey.App {
           this.log(`[Restore] restoreDevice returned false for ${device.name} (action=${toRestore.action}) — removing stuck entry`);
           this._mitigatedDevices.splice(toRestoreIdx, 1);
           this._persistMitigatedDevices();
-          const anyNonChargerLeft2 = this._mitigatedDevices.some(m => m.action !== 'dynamic_current');
-          const anyChargerLimited2 = this._mitigatedDevices.some(m =>
-            m.action === 'dynamic_current' && (m.currentTargetA === 0 || m.currentTargetA === null || m.currentTargetA < (m.previousState?.targetCurrent || 32))
-          );
-          if (!anyNonChargerLeft2 && !anyChargerLimited2) {
+          // Alarm off only when list is completely empty
+          if (this._mitigatedDevices.length === 0) {
             this._fireTrigger('mitigation_cleared', { device_name: device.name });
             await this._updateVirtualDevice({ alarm: false });
           }
@@ -1984,10 +2000,15 @@ class PowerGuardApp extends Homey.App {
 
       if (data.power !== undefined)
         await vd.setCapabilityValue('measure_power', Math.round(data.power)).catch(() => {});
-      if (data.alarm !== undefined)
-        await vd.setCapabilityValue('alarm_generic', !!data.alarm).catch(() => {});
+      if (data.alarm !== undefined) {
+        const newAlarm = !!data.alarm;
+        if (vd.getCapabilityValue('alarm_generic') !== newAlarm)
+          await vd.setCapabilityValue('alarm_generic', newAlarm).catch(() => {});
+      }
       if (data.onoff !== undefined)
         await vd.setCapabilityValue('onoff', !!data.onoff).catch(() => {});
+      if (data.effektledd !== undefined)
+        await vd.setCapabilityValue('effektledd', data.effektledd).catch(() => {});
     } catch (_) {}
   }
 
@@ -2616,7 +2637,29 @@ class PowerGuardApp extends Homey.App {
     const targetPct   = useOverride ? override.targetPct   : (entry.targetChargePercent ?? 80);
     const phases      = entry.chargerPhases       || 1;
     const circuitA    = entry.circuitLimitA       || 16;
-    const chargerKw   = (circuitA * 230 * phases) / 1000;
+    const maxChargerKw = (circuitA * 230 * phases) / 1000;
+
+    // Use learned session avg kW (with 15% buffer) if available.
+    // If no history yet, use offeredCurrent as a real-time proxy for what PG is actually
+    // delivering (far more accurate than circuit max as a fallback).
+    // Only fall back to circuit max if neither source is available.
+    const historicAvgKw   = this._evSessionAvgKw?.[deviceId];
+    const evData          = this._evPowerData[deviceId];
+    const offeredA        = evData?.offeredCurrent;
+    const offeredKw       = (typeof offeredA === 'number' && offeredA >= 6)
+      ? Math.round(offeredA * 230 * phases / 100) / 10   // offeredA × 230V × phases → kW
+      : null;
+    let chargerKw, sourceLabel;
+    if (typeof historicAvgKw === 'number' && historicAvgKw > 0.5) {
+      chargerKw   = Math.round(historicAvgKw * 0.85 * 10) / 10;  // 15% safety buffer
+      sourceLabel = `snitt ${historicAvgKw} kW (lært)`;
+    } else if (offeredKw !== null) {
+      chargerKw   = offeredKw;
+      sourceLabel = `foreløpig estimat (basert på ${offeredKw} kW tilbudt nå)`;
+    } else {
+      chargerKw   = maxChargerKw;
+      sourceLabel = `foreløpig estimat (basert på ${maxChargerKw.toFixed(1)} kW maks krets)`;
+    }
 
     let hoursNeeded = null;
     if (typeof capacityKwh === 'number' && capacityKwh > 0) {
@@ -2627,11 +2670,12 @@ class PowerGuardApp extends Homey.App {
     this._evBatteryState[deviceId] = {
       pct:         batteryPct,
       hoursNeeded: hoursNeeded,
+      sourceLabel: sourceLabel,
       updatedAt:   Date.now(),
     };
 
-    this.log(`[EV Battery] ${entry.name}: ${batteryPct}% → needs ${hoursNeeded}h (${capacityKwh}kWh @ ${chargerKw.toFixed(1)}kW, target ${targetPct}%)`);
-    this._appLogEntry('charger', `EV battery report: ${entry.name} ${batteryPct}% → ${hoursNeeded !== null ? hoursNeeded + 'h needed' : 'capacity not configured'}`);
+    this.log(`[EV Battery] ${entry.name}: ${batteryPct}% → needs ${hoursNeeded}h (${capacityKwh}kWh @ ${chargerKw.toFixed(1)}kW [${sourceLabel}], target ${targetPct}%)`);
+    this._appLogEntry('charger', `EV battery report: ${entry.name} ${batteryPct}% → ${hoursNeeded !== null ? hoursNeeded + 'h needed' : 'capacity not configured'} [${sourceLabel}]`);
 
     // Trigger price re-evaluation so deadline logic uses the new hoursNeeded.
     // Cooldown: skip if prices were evaluated within the last 5 minutes — the next
@@ -2790,6 +2834,8 @@ class PowerGuardApp extends Homey.App {
               // Car just connected — poll battery from linked car device
               if (!wasConnected && this._evPowerData[entry.deviceId].isConnected) {
                 this._pollCarBattery(entry.deviceId).catch(() => {});
+                // New physical session — start tracking for avg kW learning
+                this._evSessionTracking[entry.deviceId] = { startMs: Date.now(), totalWh: 0, lastSampleMs: Date.now() };
                 // New physical session (car unplugged + replugged) — reset the charging-complete
                 // notification flag so the next completed charge sends a fresh notification.
                 // This is the ONLY place this flag should be reset — doing it here (on true
@@ -2797,6 +2843,21 @@ class PowerGuardApp extends Homey.App {
                 // repeated notifications when PG resumes the charger after a completed session.
                 if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
                 this._chargerState[entry.deviceId].chargingCompleteNotified = false;
+              }
+              // Car disconnected — finalise session avg kW
+              if (wasConnected && !this._evPowerData[entry.deviceId].isConnected) {
+                const trk = this._evSessionTracking[entry.deviceId];
+                if (trk && trk.totalWh > 500) {
+                  const elapsedH = (Date.now() - trk.startMs) / 3600000;
+                  const avgKw = Math.round((trk.totalWh / 1000 / elapsedH) * 10) / 10;
+                  if (avgKw > 0.5 && avgKw < 30) {
+                    this._evSessionAvgKw[entry.deviceId] = avgKw;
+                    this.homey.settings.set('_evSessionAvgKw', this._evSessionAvgKw);
+                    this.log(`[EV Session] ${entry.name} session ended — avg ${avgKw} kW (${Math.round(trk.totalWh)} Wh over ${elapsedH.toFixed(1)}h)`);
+                    this._appLogEntry('charger', `${entry.name} session avg: ${avgKw} kW`);
+                  }
+                }
+                delete this._evSessionTracking[entry.deviceId];
               }
               // Charger reported Completed mid-session: re-issue the current command so
               // the session restarts. This happens when the car briefly resets after a
@@ -3058,6 +3119,15 @@ class PowerGuardApp extends Homey.App {
         // Stamp last confirmed charging time — used for grace window in status reporting
         if (data.isCharging === true || (data.powerW || 0) > 200) {
           data.lastChargingAt = Date.now();
+        }
+
+        // Accumulate Wh for session avg kW learning
+        const trk = this._evSessionTracking[entry.deviceId];
+        if (trk && (data.powerW || 0) > 200) {
+          const now = Date.now();
+          const dtH = (now - trk.lastSampleMs) / 3600000;
+          trk.totalWh += (data.powerW || 0) * dtH;
+          trk.lastSampleMs = now;
         }
 
         // Log when connection or charging state changes
@@ -3374,7 +3444,8 @@ class PowerGuardApp extends Homey.App {
           this._lastDeviceOffTime = now;
           this.log(`[EV] Priority shed: ${entry.name} turned off — charger ${chargerEntry?.name || charger.deviceId} is charging`);
           this._addLog(`EV priority shed: ${entry.name} off (charger ${chargerEntry?.name || charger.deviceId} active)`);
-          await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+          if (this._mitigatedDevices.length === 1)
+            await this._updateVirtualDevice({ alarm: true }).catch(() => {});
           return; // One device per cycle
         }
       }
@@ -3427,7 +3498,8 @@ class PowerGuardApp extends Homey.App {
       this._lastDeviceOffTime = now;
       this.log(`[EV] Proactive shed: ${entry.name} turned off — budget ${Math.round(budget)}W < needed ${Math.round(restoreBudgetNeeded)}W`);
       this._addLog(`EV proactive shed: ${entry.name} off (budget ${Math.round(budget)}W < ${Math.round(restoreBudgetNeeded)}W)`);
-      await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+      if (this._mitigatedDevices.length === 1)
+        await this._updateVirtualDevice({ alarm: true }).catch(() => {});
       break; // One device per cycle
     }
   }
@@ -3897,7 +3969,8 @@ class PowerGuardApp extends Homey.App {
             currentTargetA: 0
           });
           this._fireTrigger('mitigation_applied', { device_name: entry.name, action: 'dynamic_current' });
-          await this._updateVirtualDevice({ alarm: true }).catch(() => {});
+          if (this._mitigatedDevices.length === 1)
+            await this._updateVirtualDevice({ alarm: true }).catch(() => {});
         } else {
           alreadyTracked.currentTargetA = 0;
         }
@@ -3911,13 +3984,8 @@ class PowerGuardApp extends Homey.App {
         if (wasLimited) {
           this._addLog(`Charger restored: ${entry.name} → ${targetCurrent}A`);
           this._fireTrigger('mitigation_cleared', { device_name: entry.name });
-          // Clear alarm only if no charger is still paused or limited below its circuit limit
-          const anyStillLimited = this._mitigatedDevices.some(m => {
-            if (m.currentTargetA === 0 || m.currentTargetA === null) return true;
-            const pEntry = chargerEntries.find(c => c.deviceId === m.deviceId);
-            return pEntry && m.currentTargetA < (pEntry.circuitLimitA || 32);
-          });
-          if (!anyStillLimited) {
+          // Alarm off only when list is completely empty
+          if (this._mitigatedDevices.length === 0) {
             await this._updateVirtualDevice({ alarm: false }).catch(() => {});
           }
         }

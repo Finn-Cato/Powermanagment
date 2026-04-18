@@ -13,9 +13,22 @@ class PowerGuardDevice extends Homey.Device {
   async onInit() {
     this.log('Power Guard device init:', this.getName());
 
+    // Migrate: add capabilities that didn't exist when the device was first paired
+    if (!this.hasCapability('effektledd')) {
+      await this.addCapability('effektledd').catch((err) => this.error('addCapability effektledd:', err));
+    }
+
     await this.setCapabilityValue('measure_power', 0).catch(() => {});
     await this.setCapabilityValue('alarm_generic', false).catch(() => {});
     await this.setCapabilityValue('onoff', true).catch(() => {});
+
+    // Push current effektledd tier — done here (device ready) instead of app onInit (too early)
+    try {
+      if (this.homey.app && typeof this.homey.app._getEffekttariffStatus === 'function') {
+        const status = this.homey.app._getEffekttariffStatus();
+        await this.setCapabilityValue('effektledd', status.tierLabel).catch(() => {});
+      }
+    } catch (_) {}
 
     // Toggle guard on/off from the device tile
     this.registerCapabilityListener('onoff', async (value) => {

@@ -151,6 +151,33 @@
   "permissions": [
     "homey:manager:api"
   ],
+  "capabilities": {
+    "ev_battery_input": {
+      "type": "number",
+      "title": {
+        "en": "Battery level",
+        "no": "Batterinivå"
+      },
+      "units": "%",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "decimals": 0,
+      "getable": true,
+      "setable": true,
+      "uiComponent": "slider"
+    },
+    "effektledd": {
+      "type": "string",
+      "title": {
+        "en": "Capacity Tariff Tier",
+        "no": "Effektledd"
+      },
+      "getable": true,
+      "setable": false,
+      "uiComponent": "sensor"
+    }
+  },
   "drivers": [
     {
       "id": "power-guard",
@@ -163,8 +190,17 @@
       "capabilities": [
         "onoff",
         "measure_power",
-        "alarm_generic"
+        "alarm_generic",
+        "effektledd"
       ],
+      "capabilitiesOptions": {
+        "alarm_generic": {
+          "title": {
+            "en": "Power limiting active",
+            "no": "Effektbegrensning aktiv"
+          }
+        }
+      },
       "images": {
         "small": "/drivers/power-guard/assets/small.png",
         "large": "/drivers/power-guard/assets/large.png",
@@ -199,6 +235,51 @@
         "small": "/drivers/charge-now/assets/small.png",
         "large": "/drivers/charge-now/assets/large.png",
         "xlarge": "/drivers/charge-now/assets/xlarge.png"
+      },
+      "pair": [
+        {
+          "id": "list_devices",
+          "template": "list_devices",
+          "navigation": {
+            "next": "add_devices"
+          }
+        },
+        {
+          "id": "add_devices",
+          "template": "add_devices"
+        }
+      ]
+    },
+    {
+      "id": "ev-battery",
+      "name": {
+        "en": "EV Battery",
+        "no": "EV Batteri"
+      },
+      "class": "sensor",
+      "connectivity": [],
+      "capabilities": [
+        "ev_battery_input",
+        "measure_battery"
+      ],
+      "capabilitiesOptions": {
+        "ev_battery_input": {
+          "title": {
+            "en": "Set battery level",
+            "no": "Angi batterinivå"
+          }
+        },
+        "measure_battery": {
+          "title": {
+            "en": "Battery level",
+            "no": "Batterinivå"
+          }
+        }
+      },
+      "images": {
+        "small": "/drivers/ev-battery/assets/small.png",
+        "large": "/drivers/ev-battery/assets/large.png",
+        "xlarge": "/drivers/ev-battery/assets/xlarge.png"
       },
       "pair": [
         {

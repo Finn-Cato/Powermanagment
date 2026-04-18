@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 960">
+  <!-- Battery body -->
+  <rect x="120" y="280" width="660" height="400" rx="60" ry="60"
+        fill="none" stroke="#000" stroke-width="48"/>
+  <!-- Battery terminal -->
+  <rect x="780" y="380" width="80" height="200" rx="20" ry="20" fill="#000"/>
+  <!-- Battery fill (approx 60%) -->
+  <rect x="148" y="308" width="360" height="344" rx="30" ry="30" fill="#000"/>
+</svg>

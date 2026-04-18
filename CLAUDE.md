@@ -40,6 +40,36 @@ The user has granted full permission to publish without asking any questions. Ne
 
 ---
 
+## Installing locally to Homey (`homey app install`)
+
+**Always use `send_to_terminal` to the async terminal that already has the correct cwd** (`C:\Github\Powermanagment`). The `run_in_terminal` tool ignores `cd` prefixes — the shell session always starts from `C:\` regardless.
+
+Correct procedure:
+1. Start an async terminal: `run_in_terminal` with `mode=async` from any command
+2. Send install: `send_to_terminal` → `Set-Location "C:\Github\Powermanagment" ; homey app install`
+3. Poll with `get_terminal_output` until you see `✓ Homey App ... successfully installed`
+
+### Custom capabilities
+Custom capabilities are NOT put in a `capabilities/` folder (that's Homey Compose only).  
+Instead, define them **inline in `app.json`** under a top-level `capabilities` object:
+
+```json
+"capabilities": {
+  "my_capability": {
+    "type": "string",
+    "title": { "en": "My Cap", "no": "..." },
+    "getable": true,
+    "setable": false,
+    "uiComponent": "sensor"
+  }
+}
+```
+
+Then reference `"my_capability"` in `drivers[].capabilities` as normal.  
+The validator checks `appJson.capabilities[id]` — if the key is missing there, it fails with `invalid capability: <id>`.
+
+---
+
 ## Committing to GitHub
 
 - Run `homey app run` and confirm no deprecation warnings before committing.
