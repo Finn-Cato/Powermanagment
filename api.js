@@ -683,6 +683,9 @@ module.exports = {
     homey.settings.set('thermostatPlans', body);
     if (homey.app && typeof homey.app._loadThermostatSchedules === 'function') {
       homey.app._loadThermostatSchedules();
+      if (typeof homey.app._thermostatScheduleTick === 'function') {
+        homey.app._thermostatScheduleTick().catch(() => {});
+      }
     }
     return { ok: true };
   },
