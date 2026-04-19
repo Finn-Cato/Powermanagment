@@ -3333,6 +3333,11 @@
           var id  = h.deviceId;
           var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
           var chk = isOn ? ' checked' : '';
+          // Clear stale dirty value if the device's actual target has changed externally (e.g. by scheduler)
+          if (_heaterDirty.hasOwnProperty(id) && h.currentTarget != null &&
+              Math.abs(Number(h.currentTarget) - Number(_heaterDirty[id])) > 0.4) {
+            delete _heaterDirty[id];
+          }
           var isDirty = _heaterDirty.hasOwnProperty(id);
           var displayVal = isDirty ? Number(_heaterDirty[id]).toFixed(1) : tgtVal;
           var modeLabel = '';
