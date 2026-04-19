@@ -5616,11 +5616,6 @@
     if (titleEl) titleEl.textContent = 'Enheter i «' + plan.name + '»';
 
     var actionsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
-    if (plan.id !== _tpBackendActivePlanId) {
-      actionsHtml += '<button class="btn-primary btn-small" onclick="tpSetActivePlan(\'' + escHtml(plan.id) + '\')">▶ Aktiver plan</button>';
-    } else {
-      actionsHtml += '<span style="font-size:12px;color:var(--text-muted);line-height:28px">▶ Aktiv plan</span>';
-    }
     actionsHtml += '<button class="btn-secondary btn-small" onclick="tpRenamePlan(\'' + escHtml(plan.id) + '\')">Gi nytt navn</button>';
     if (_tpPlans.length > 1) {
       actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDeletePlan(\'' + escHtml(plan.id) + '\')">Slett plan</button>';
