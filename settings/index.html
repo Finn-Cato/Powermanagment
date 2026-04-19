@@ -1927,6 +1927,8 @@
   var _touchTargetIdx = null;
   var _peaksOpen      = false;  // persisted via Homey settings across sessions
   var _effektTab      = 'dag';  // active tab in effekttariff chart: 'dag' | 'uke' | 'maaned'
+  var _effektWeekOffset  = 0;   // 0 = current week, -1 = last week, …
+  var _effektMonthOffset = 0;   // 0 = current month, -1 = last month, …
   var _lastStatus     = null;   // latest status object for tab-switch re-render
 
   function toggleDynamicBudget() {
@@ -2455,21 +2457,30 @@
       } else if (_effektTab === 'uke') {
         // ── UKE: last 7 days bars ──────────────────────────────────────────────
         var weekRows = [];
-        var wpkAll = effekt.dailyPeaksByDate || [];
-        // Find Monday of current week
+        var wpkAll = effekt.dailyPeaksLookup || {};
+        // Find Monday of the selected week (offset: 0=current, -1=last, …)
         var _today = new Date(); _today.setHours(0,0,0,0);
         var _dow = _today.getDay();
         var _monOff = (_dow === 0) ? -6 : 1 - _dow;
-        var _monday = new Date(_today); _monday.setDate(_today.getDate() + _monOff);
+        var _monday = new Date(_today); _monday.setDate(_today.getDate() + _monOff + _effektWeekOffset * 7);
         var dowNm = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
+        var mnNmShort = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
         for (var wdoff = 0; wdoff < 7; wdoff++) {
           var dObj = new Date(_monday); dObj.setDate(_monday.getDate() + wdoff);
           var dStr2 = dObj.getFullYear() + '-' + String(dObj.getMonth()+1).padStart(2,'0') + '-' + String(dObj.getDate()).padStart(2,'0');
-          var wfound = null;
-          for (var wpi = 0; wpi < wpkAll.length; wpi++) { if (wpkAll[wpi].date === dStr2) { wfound = wpkAll[wpi]; break; } }
+          var kwVal = wpkAll[dStr2];
+          var wfound = (kwVal !== undefined && kwVal !== null) ? { kw: kwVal } : null;
           var isFuture = dObj > _today;
           weekRows.push({date:dStr2, kw:wfound?wfound.kw:null, isToday:dObj.getTime()===_today.getTime(), dow:wdoff, dayNum:dObj.getDate(), isFuture:isFuture});
         }
+        // Week nav header
+        var _wSun = new Date(_monday); _wSun.setDate(_monday.getDate() + 6);
+        var _wLabel = 'Man ' + _monday.getDate() + '. – Søn ' + _wSun.getDate() + '. ' + mnNmShort[_wSun.getMonth()] + ' ' + _wSun.getFullYear();
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+        html += '<button onclick="_effektWeekOffset--;if(_lastStatus)updateStatusUI(_lastStatus);" style="background:none;border:none;color:var(--text-muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px">&#8249;</button>';
+        html += '<span style="font-size:10px;color:var(--text-muted);font-weight:500">' + _wLabel + '</span>';
+        html += '<button onclick="if(_effektWeekOffset<0){_effektWeekOffset++;if(_lastStatus)updateStatusUI(_lastStatus);}" style="background:none;border:none;color:' + (_effektWeekOffset < 0 ? 'var(--text-muted)' : 'rgba(128,128,128,0.25)') + ';font-size:20px;line-height:1;cursor:pointer;padding:0 4px">&#8250;</button>';
+        html += '</div>';
         var maxKWW = limitKW;
         for (var wmi = 0; wmi < weekRows.length; wmi++) { if (weekRows[wmi].kw!==null && weekRows[wmi].kw>maxKWW) maxKWW = weekRows[wmi].kw; }
         var limitPctW = (limitKW / maxKWW * 100).toFixed(1);
@@ -2523,26 +2534,38 @@
 
       } else {
         // ── MÅNED: monthly calendar grid ─────────────────────────────────────────
-        if (effekt.allPeaks && effekt.allPeaks.length) {
-          var calParts = effekt.allPeaks[0].date.split('-');
-          var calYear  = parseInt(calParts[0]);
-          var calMonth = parseInt(calParts[1]) - 1;
-          var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-          var firstDow    = new Date(calYear, calMonth, 1).getDay();
-          var startCol    = (firstDow + 6) % 7;
-          var peakMap = {};
-          effekt.allPeaks.forEach(function(p) { peakMap[parseInt(p.date.split('-')[2])] = p.kw; });
-          var top3Days = effekt.top3 ? effekt.top3.map(function(p) { return parseInt(p.date.split('-')[2]); }) : [];
-          var now2 = new Date(); var todayDay = (now2.getFullYear()===calYear && now2.getMonth()===calMonth) ? now2.getDate() : -1;
-          var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-          html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">' + t('dailyPeaksLabel') + ' · ' + effekt.dailyPeakCount + ' ' + t('daysRecorded') + '</div>';
-          html += '<div style="font-size:10px;font-weight:600;color:var(--text-muted);text-align:center;margin-bottom:4px">' + monthNames[calMonth] + ' ' + calYear + '</div>';
-          html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center">';
-          ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(function(d) {
-            html += '<div style="color:var(--text-muted);padding:2px 0;font-size:9px;font-weight:600">' + d + '</div>';
-          });
-          for (var e = 0; e < startCol; e++) html += '<div></div>';
-          for (var day = 1; day <= daysInMonth; day++) {
+        var now3 = new Date();
+        var calYear  = now3.getFullYear();
+        var calMonth = now3.getMonth() + _effektMonthOffset; // may go negative or >11
+        while (calMonth < 0)  { calMonth += 12; calYear--; }
+        while (calMonth > 11) { calMonth -= 12; calYear++; }
+        var calMonthStr = calYear + '-' + String(calMonth + 1).padStart(2, '0');
+        var lookup = effekt.dailyPeaksLookup || {};
+        var peakMap = {};
+        Object.keys(lookup).forEach(function(date) {
+          if (date.startsWith(calMonthStr)) { peakMap[parseInt(date.split('-')[2])] = lookup[date]; }
+        });
+        var isCurrentMonth = (_effektMonthOffset === 0);
+        var top3Days = (isCurrentMonth && effekt.top3) ? effekt.top3.map(function(p) { return parseInt(p.date.split('-')[2]); }) : [];
+        var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+        var firstDow    = new Date(calYear, calMonth, 1).getDay();
+        var startCol    = (firstDow + 6) % 7;
+        var now2 = new Date(); var todayDay = (now2.getFullYear()===calYear && now2.getMonth()===calMonth) ? now2.getDate() : -1;
+        var monthNamesLong = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
+        var dayCount = Object.keys(peakMap).length;
+        // Month nav header
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+        html += '<button onclick="_effektMonthOffset--;if(_lastStatus)updateStatusUI(_lastStatus);" style="background:none;border:none;color:var(--text-muted);font-size:20px;line-height:1;cursor:pointer;padding:0 4px">&#8249;</button>';
+        html += '<span style="font-size:10px;color:var(--text-muted);font-weight:600">' + monthNamesLong[calMonth] + ' ' + calYear + '</span>';
+        html += '<button onclick="if(_effektMonthOffset<0){_effektMonthOffset++;if(_lastStatus)updateStatusUI(_lastStatus);}" style="background:none;border:none;color:' + (_effektMonthOffset < 0 ? 'var(--text-muted)' : 'rgba(128,128,128,0.25)') + ';font-size:20px;line-height:1;cursor:pointer;padding:0 4px">&#8250;</button>';
+        html += '</div>';
+        html += '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">' + t('dailyPeaksLabel') + ' · ' + dayCount + ' ' + t('daysRecorded') + '</div>';
+        html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center">';
+        ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(function(d) {
+          html += '<div style="color:var(--text-muted);padding:2px 0;font-size:9px;font-weight:600">' + d + '</div>';
+        });
+        for (var e = 0; e < startCol; e++) html += '<div></div>';
+        for (var day = 1; day <= daysInMonth; day++) {
             var kw = peakMap[day];
             var rank = top3Days.indexOf(day);
             var isToday = day === todayDay;
@@ -2564,10 +2587,9 @@
               html += '<div style="height:16px"></div>';
             }
             html += '</div>';
-          }
-          html += '</div>';
         }
-      }
+        html += '</div>';
+      } // end else MÅNED
 
       html += '</div>'; // close tabbed section
 

@@ -1398,17 +1398,19 @@ class PowerGuardApp extends Homey.App {
    */
   _cleanOldDailyPeaks() {
     const now = new Date();
-    const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    // Keep last 13 months (current + 12 previous) for historical chart navigation
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+    const cutoffMonth = cutoff.getFullYear() + '-' + String(cutoff.getMonth() + 1).padStart(2, '0');
     const keys = Object.keys(this._dailyPeaks);
     let removed = 0;
     for (const key of keys) {
-      if (!key.startsWith(currentMonth)) {
+      if (key.slice(0, 7) < cutoffMonth) {
         delete this._dailyPeaks[key];
         removed++;
       }
     }
     if (removed > 0) {
-      this.log(`[Effekttariff] Cleaned ${removed} old daily peak(s), keeping ${Object.keys(this._dailyPeaks).length} for ${currentMonth}`);
+      this.log(`[Effekttariff] Cleaned ${removed} old daily peak(s), keeping last 13 months (${Object.keys(this._dailyPeaks).length} days)`);
       this._persistDailyPeaks();
     }
   }
@@ -1428,16 +1430,23 @@ class PowerGuardApp extends Homey.App {
     // Clean if we crossed into a new month
     const now = new Date();
     const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-    const firstKey = Object.keys(this._dailyPeaks)[0];
-    if (firstKey && !firstKey.startsWith(currentMonth)) {
+    // Trigger a cleanup pass whenever there's data older than 13 months
+    if (Object.keys(this._dailyPeaks).some(k => k.slice(0, 7) < currentMonth.slice(0, 7).replace(/\d{2}$/, m => String(Number(m) - 12).padStart(2, '0')))) {
       this._cleanOldDailyPeaks();
     }
 
-    // Get all daily peaks sorted descending
+    // Current month's peaks only — used for TOP3 / tier calculation
     const allPeaks = Object.entries(this._dailyPeaks)
       .map(([date, kw]) => ({ date, kw: Number(kw) }))
-      .filter(p => Number.isFinite(p.kw) && p.kw >= 0)
+      .filter(p => Number.isFinite(p.kw) && p.kw >= 0 && p.date.startsWith(currentMonth))
       .sort((a, b) => b.kw - a.kw);
+
+    // Full lookup (all stored months) for historical chart navigation
+    const dailyPeaksLookup = Object.fromEntries(
+      Object.entries(this._dailyPeaks)
+        .filter(([, kw]) => Number.isFinite(Number(kw)) && Number(kw) >= 0)
+        .map(([date, kw]) => [date, Math.round(Number(kw) * 1000) / 1000])
+    );
 
     // TOP3 average
     const top3 = allPeaks.slice(0, 3);
@@ -1474,7 +1483,8 @@ class PowerGuardApp extends Homey.App {
       tierMaxKW: tier.maxKW === Infinity ? null : tier.maxKW,
       top3: top3.map(p => ({ date: p.date, kw: Math.round(p.kw * 1000) / 1000 })),
       dailyPeakCount: allPeaks.length,
-      allPeaks: allPeaks,  // All days for calendar display
+      allPeaks: allPeaks,  // Current month only (for calendar + TOP3 medals)
+      dailyPeaksLookup,    // All stored months {date: kw} for historical navigation
       currentHourKWh: Math.round(currentHourKWh * 1000) / 1000,
       projectedKWh:   Math.round(projectedKWh * 1000) / 1000,
       todayPeakKW:    Math.round(todayPeak * 1000) / 1000,
