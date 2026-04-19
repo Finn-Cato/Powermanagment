@@ -77,6 +77,7 @@ Some sections of `app.js` are considered stable and must not be changed without 
 
 ## General
 - **EXPLAIN BEFORE CHANGING — THIS IS CRITICAL:** When the user asks a question or asks to investigate something, always explain the finding and proposed change in chat first. Never edit code as part of an investigation or analysis. Only make code changes after the user has confirmed with "ja" or equivalent explicit approval.
+- **NEVER FIX THINGS NOT ASKED ABOUT:** If you discover a bug or issue while investigating something else, mention it in chat — but do NOT fix it unless the user explicitly asks you to. One request = one fix. No bonus changes, no improvements, no "while I'm at it" edits.
 - Never bump the version without also updating `.homeychangelog.json`.
 - Never publish without checking the Help tab is up to date.
 - The `.homeyignore` file must exclude all dev-only files (audit reports, internal docs, etc.).
