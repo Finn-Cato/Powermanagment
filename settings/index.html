@@ -5722,7 +5722,8 @@
         var anySelected = TP_DAYS.some(function(d) { return d !== day && _tpCopyToDays[d]; });
         html += '<div style="margin-top:10px;padding:10px;background:rgba(230,126,34,.06);border-radius:8px;border:1px solid rgba(230,126,34,.2)">';
         html += '<div style="font-size:11px;font-weight:600;color:#e67e22;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Kopier til dag</div>';
-        html += '<div style="display:flex;flex-wrap:nowrap;gap:6px;align-items:center;overflow-x:auto;padding-bottom:2px">';
+        // Day buttons — scrollable row
+        html += '<div style="display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;padding-bottom:4px">';
         TP_DAYS.forEach(function(d) {
           if (d === day) return;
           var sel = !!_tpCopyToDays[d];
@@ -5734,12 +5735,15 @@
             + ';cursor:pointer;white-space:nowrap;flex-shrink:0">'
             + TP_DAYNO[d] + '</button>';
         });
-        if (anySelected) {
-          html += '<button onclick="tpDoCopy(\'' + day + '\')" style="'
-            + 'padding:5px 16px;font-size:12px;font-weight:700;border-radius:8px;border:none;'
-            + 'background:#e67e22;color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:4px">Kopier</button>';
-        }
         html += '</div>';
+        // Kopier button — always on its own line, fully visible
+        if (anySelected) {
+          html += '<div style="margin-top:8px">'
+            + '<button onclick="tpDoCopy(\'' + day + '\')" style="'
+            + 'padding:6px 20px;font-size:13px;font-weight:700;border-radius:8px;border:none;'
+            + 'background:#e67e22;color:#fff;cursor:pointer;width:100%">Kopier valgte dager</button>'
+            + '</div>';
+        }
         html += '</div>'; // copy box
 
         html += '</div>'; // expanded
