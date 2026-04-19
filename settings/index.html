@@ -5356,18 +5356,11 @@
 
   function tpTempColor(temp) {
     if (temp === null || temp === undefined) return '#ddd';
-    // Colour scale: cold (blue) → comfortable (green) → warm (orange) → hot (red)
-    // 5°C = deep blue, 10 = blue, 14 = teal, 17 = green, 20 = yellow-green,
-    // 22 = amber, 24 = orange, 26+ = red
-    if (temp >= 26) return '#c0392b';  // deep red
-    if (temp >= 24) return '#e74c3c';  // red
-    if (temp >= 22) return '#e8944a';  // orange
-    if (temp >= 20) return '#f1c40f';  // yellow
-    if (temp >= 18) return '#a8d86e';  // yellow-green
-    if (temp >= 16) return '#2ecc71';  // green
-    if (temp >= 13) return '#1abc9c';  // teal
-    if (temp >= 10) return '#3498db';  // blue
-    return '#2471a3';                  // deep blue
+    if (temp >= 23) return '#d4703b';  // warm terracotta
+    if (temp >= 19) return '#c9a227';  // amber/gold
+    if (temp >= 15) return '#4aab70';  // green
+    if (temp >= 11) return '#4a9eca';  // blue
+    return '#3a78aa';                  // deep blue
   }
 
   function tpToMin(hhmm) {
