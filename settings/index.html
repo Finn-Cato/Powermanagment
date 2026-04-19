@@ -5607,8 +5607,16 @@
       html += '<div style="color:var(--text-muted);font-size:13px">Ingen enheter i denne planen ennå.</div>';
     } else {
       plan.devices.forEach(function(dev) {
-        html += '<div class="row" style="align-items:center">';
-        html += '<div class="label-group"><label>' + escHtml(dev.deviceName || dev.deviceId) + '</label></div>';
+        var lt = _liveTemps && _liveTemps[dev.deviceId];
+        var tempStr = '';
+        if (lt) {
+          if (lt.currentMeasure != null) tempStr += 'Romtemp: <b>' + Number(lt.currentMeasure).toFixed(1) + '°</b>';
+          if (lt.currentTarget  != null) tempStr += (tempStr ? '  |  ' : '') + 'Settpunkt: <b>' + Number(lt.currentTarget).toFixed(1) + '°</b>';
+        }
+        html += '<div class="row" style="align-items:center;flex-wrap:wrap">';
+        html += '<div class="label-group"><label>' + escHtml(dev.deviceName || dev.deviceId) + '</label>';
+        if (tempStr) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + tempStr + '</div>';
+        html += '</div>';
         html += '<div class="control" style="gap:8px">';
         html += '<button class="btn-secondary btn-small" onclick="tpRemoveDevice(\'' + escHtml(dev.deviceId) + '\')">Fjern</button>';
         html += '</div></div>';
