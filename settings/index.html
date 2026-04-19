@@ -5928,7 +5928,7 @@
 
   // ── Persist ───────────────────────────────────────────────────────
   function tpSave() {
-    hApi('POST', '/thermostat-plans', { activePlanId: _tpBackendActivePlanId, plans: _tpPlans })
+    hApi('POST', '/thermostat-plans', { plans: _tpPlans })
       .then(function() { dbg('[TempPlan] Lagret'); })
       .catch(function(e) { console.error('tpSave error:', e); });
   }
