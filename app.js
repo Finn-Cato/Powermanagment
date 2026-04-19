@@ -6278,8 +6278,12 @@ class PowerGuardApp extends Homey.App {
     this._thermostatScheduleEnabled = this.homey.settings.get('thermostatScheduleEnabled') ?? false;
 
     // Flat device list from the active plan — used directly by the tick
+    // Each device gets the plan's shared schedule (one schedule per plan)
     const activePlan = this._thermostatPlans.find(p => p.id === this._thermostatActivePlanId);
-    this._thermostatSchedules = activePlan ? (activePlan.devices || []) : [];
+    const planSchedule = activePlan ? (activePlan.schedule || {}) : {};
+    this._thermostatSchedules = activePlan
+      ? (activePlan.devices || []).map(d => ({ deviceId: d.deviceId, deviceName: d.deviceName, schedule: planSchedule }))
+      : [];
 
     this.log(`[ThermoSched] ${this._thermostatPlans.length} plan(s), active=${this._thermostatActivePlanId}, enabled=${this._thermostatScheduleEnabled}`);
   }

@@ -1088,6 +1088,7 @@
               <input type="number" id="tp-modal-temp" min="5" max="35" step="0.5" style="flex:1;padding:7px 10px;border:1px solid var(--input-border);border-radius:8px;font-size:14px">
             </div>
           </div>
+          <p id="tp-modal-error" style="color:#e74c3c;font-size:12px;margin-top:8px;display:none"></p>
           <div style="display:flex;gap:8px;margin-top:20px">
             <button class="btn-primary" style="flex:1" onclick="tpModalSave()">Lagre</button>
             <button id="tp-modal-delete-btn" class="btn-secondary" style="flex:1;display:none" onclick="tpModalDelete()">Slett</button>
@@ -1111,7 +1112,7 @@
       <!-- Modal: device picker -->
       <div id="tp-picker-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
         <div style="background:#fff;border-radius:16px;padding:24px;width:320px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-          <h2 style="margin-bottom:14px;font-size:16px">Legg til enhet</h2>
+          <h2 style="margin-bottom:14px;font-size:16px" id="tp-picker-title">Legg til enhet</h2>
           <div id="tp-picker-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
           <button class="btn-secondary" style="width:100%" onclick="tpPickerClose()">Avbryt</button>
         </div>
@@ -5387,8 +5388,9 @@
   function tpNameModalSave() {
     var val = (document.getElementById('tp-name-input').value || '').trim();
     if (!val) return;
+    var cb = _tpNameModalCallback;
     tpNameModalClose();
-    if (_tpNameModalCallback) _tpNameModalCallback(val);
+    if (cb) cb(val);
   }
   function tpNameModalClose() {
     document.getElementById('tp-name-backdrop').style.display = 'none';
@@ -5400,7 +5402,9 @@
     if (e.key === 'Escape') tpNameModalClose();
   });
 
-  function tpPickerOpen(devices, callback) {
+  function tpPickerOpen(devices, callback, title) {
+    var titleEl = document.getElementById('tp-picker-title');
+    if (titleEl) titleEl.textContent = title || 'Legg til enhet';
     var list = document.getElementById('tp-picker-list');
     list.innerHTML = '';
     devices.forEach(function(dev) {
@@ -5423,8 +5427,9 @@
     document.getElementById('tp-confirm-backdrop').style.display = 'flex';
   }
   function tpConfirmOk() {
+    var cb = _tpConfirmCallback;
     tpConfirmClose();
-    if (_tpConfirmCallback) _tpConfirmCallback();
+    if (cb) cb();
   }
   function tpConfirmClose() {
     document.getElementById('tp-confirm-backdrop').style.display = 'none';
@@ -5437,13 +5442,29 @@
       _tpPlans = (data && Array.isArray(data.plans)) ? data.plans : [];
       _tpBackendActivePlanId = (data && data.activePlanId) || null;
 
+      // Migrate old per-device schedule format → plan-level schedule
+      var migrated = false;
+      _tpPlans.forEach(function(plan) {
+        if (!plan.schedule) {
+          if (plan.devices && plan.devices.length > 0 && plan.devices[0].schedule) {
+            plan.schedule = plan.devices[0].schedule;
+          } else {
+            plan.schedule = tpDefaultSchedule(20);
+          }
+          plan.devices = (plan.devices || []).map(function(d) { return { deviceId: d.deviceId, deviceName: d.deviceName }; });
+          migrated = true;
+        }
+      });
+
       // Auto-create default plan on first use
       if (_tpPlans.length === 0) {
-        var defaultPlan = { id: tpGenId(), name: 'Hjemme', devices: [] };
+        var defaultPlan = { id: tpGenId(), name: 'Hjemme', schedule: tpDefaultSchedule(20), devices: [] };
         _tpPlans.push(defaultPlan);
         _tpBackendActivePlanId = defaultPlan.id;
-        tpSave();
+        migrated = true;
       }
+
+      if (migrated) tpSave();
 
       _tpSelectedPlanId = _tpBackendActivePlanId || _tpPlans[0].id;
       tpRenderPlanBar();
@@ -5499,7 +5520,6 @@
 
   function tpSelectPlan(planId) {
     _tpSelectedPlanId = planId;
-    _tpEditDeviceId = null;
     document.getElementById('tp-editor-wrap').style.display = 'none';
     tpRenderPlanBar();
     tpRenderDeviceList();
@@ -5515,7 +5535,7 @@
 
   function tpNewPlan() {
     tpNameModalOpen('Navn på ny plan', 'Min plan', function(name) {
-      var plan = { id: tpGenId(), name: name, devices: [] };
+      var plan = { id: tpGenId(), name: name, schedule: tpDefaultSchedule(20), devices: [] };
       _tpPlans.push(plan);
       _tpSelectedPlanId = plan.id;
       if (_tpPlans.length === 1) _tpBackendActivePlanId = plan.id;
@@ -5576,23 +5596,21 @@
     if (_tpPlans.length > 1) {
       actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDeletePlan(\'' + escHtml(plan.id) + '\')">Slett plan</button>';
     }
+    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpOpenEditor()">Rediger ukeplan</button>';
     actionsHtml += '</div>';
 
-    if (!plan.devices || plan.devices.length === 0) {
-      listEl.innerHTML = actionsHtml + '<div style="color:var(--text-muted);font-size:13px">Ingen enheter i denne planen ennå.</div>';
-      return;
-    }
-
     var html = actionsHtml;
-    plan.devices.forEach(function(dev) {
-      var isEditing = dev.deviceId === _tpEditDeviceId;
-      html += '<div class="row" style="align-items:center">';
-      html += '<div class="label-group"><label>' + escHtml(dev.deviceName || dev.deviceId) + '</label></div>';
-      html += '<div class="control" style="gap:8px">';
-      html += '<button class="' + (isEditing ? 'btn-primary' : 'btn-secondary') + ' btn-small" onclick="tpOpenEditor(\'' + escHtml(dev.deviceId) + '\')">Rediger ukeplan</button>';
-      html += '<button class="btn-secondary btn-small" onclick="tpRemoveDevice(\'' + escHtml(dev.deviceId) + '\')">Fjern</button>';
-      html += '</div></div>';
-    });
+    if (!plan.devices || plan.devices.length === 0) {
+      html += '<div style="color:var(--text-muted);font-size:13px">Ingen enheter i denne planen ennå.</div>';
+    } else {
+      plan.devices.forEach(function(dev) {
+        html += '<div class="row" style="align-items:center">';
+        html += '<div class="label-group"><label>' + escHtml(dev.deviceName || dev.deviceId) + '</label></div>';
+        html += '<div class="control" style="gap:8px">';
+        html += '<button class="btn-secondary btn-small" onclick="tpRemoveDevice(\'' + escHtml(dev.deviceId) + '\')">Fjern</button>';
+        html += '</div></div>';
+      });
+    }
     listEl.innerHTML = html;
   }
 
@@ -5613,13 +5631,12 @@
       var available = thermoDevices.filter(function(d) { return !usedIds.includes(d.deviceId); });
 
       if (available.length === 0) {
-        tpConfirmOpen('Alle tilgjengelige termostater er allerede lagt til i en plan.', function() {});
-        document.getElementById('tp-confirm-backdrop').querySelector('.btn-primary').style.display = 'none';
+        tpConfirmOpen('Alle tilgjengelige termostater er allerede lagt til i en plan.', null);
         return;
       }
 
       tpPickerOpen(available, function(dev) {
-        plan.devices.push({ deviceId: dev.deviceId, deviceName: dev.name || dev.deviceId, schedule: tpDefaultSchedule(20) });
+        plan.devices.push({ deviceId: dev.deviceId, deviceName: dev.name || dev.deviceId });
         tpSave();
         tpRenderDeviceList();
       });
@@ -5631,29 +5648,22 @@
       var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
       if (!plan) return;
       plan.devices = plan.devices.filter(function(d) { return d.deviceId !== deviceId; });
-      if (_tpEditDeviceId === deviceId) {
-        _tpEditDeviceId = null;
-        document.getElementById('tp-editor-wrap').style.display = 'none';
-      }
       tpSave();
       tpRenderDeviceList();
     });
   }
 
   // ── Editor ────────────────────────────────────────────────────────
-  function tpOpenEditor(deviceId) {
+  function tpOpenEditor() {
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan) return;
-    var dev = (plan.devices || []).find(function(d) { return d.deviceId === deviceId; });
-    if (!dev) return;
-    _tpEditDeviceId = deviceId;
-    document.getElementById('tp-editor-title').textContent = 'Ukeplan — ' + (dev.deviceName || deviceId);
+    document.getElementById('tp-editor-title').textContent = 'Ukeplan — ' + plan.name;
     document.getElementById('tp-editor-wrap').style.display = 'block';
-    tpRenderWeekGrid(dev);
-    tpRenderDeviceList();
+    tpRenderWeekGrid(plan);
   }
 
-  function tpRenderWeekGrid(dev) {
+  function tpRenderWeekGrid(plan) {
+    var schedule = plan.schedule || {};
     var grid = document.getElementById('tp-week-grid');
     var html = '<div style="overflow-x:auto">';
     html += '<table style="width:100%;border-collapse:collapse;table-layout:fixed">';
@@ -5668,7 +5678,7 @@
     html += '</tr>';
 
     TP_DAYS.forEach(function(day) {
-      var blocks = (dev.schedule && dev.schedule[day]) || [];
+      var blocks = schedule[day] || [];
       html += '<tr style="height:36px">';
       html += '<td style="font-size:11px;font-weight:600;color:var(--text-secondary);padding-right:4px;vertical-align:middle">' + TP_DAYNO[day] + '</td>';
       for (var h = 0; h < 24; h++) {
@@ -5689,8 +5699,8 @@
         }
         var style   = 'background:' + bg + ';border-right:1px solid rgba(255,255,255,.5);cursor:pointer;vertical-align:middle;text-align:center;font-size:11px;font-weight:600;color:rgba(0,0,0,.55);';
         var clickFn = block
-          ? 'tpClickBlock(\'' + escHtml(dev.deviceId) + '\',\'' + day + '\',' + blockIdx + ')'
-          : 'tpClickEmpty(\'' + escHtml(dev.deviceId) + '\',\'' + day + '\',' + minStart + ')';
+          ? 'tpClickBlock(\'' + day + '\',' + blockIdx + ')'
+          : 'tpClickEmpty(\'' + day + '\',' + minStart + ')';
         html += '<td style="' + style + '" onclick="' + clickFn + '" title="' + (h < 10 ? '0' : '') + h + ':00' + (block ? ' — ' + block.temp + '°C' : ' (tomt)') + '">' + escHtml(label) + '</td>';
       }
       html += '</tr>';
@@ -5709,12 +5719,10 @@
   }
 
   // ── Modal ─────────────────────────────────────────────────────────
-  function tpClickBlock(deviceId, day, blockIdx) {
+  function tpClickBlock(day, blockIdx) {
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan) return;
-    var dev = (plan.devices || []).find(function(d) { return d.deviceId === deviceId; });
-    if (!dev) return;
-    var block = dev.schedule && dev.schedule[day] && dev.schedule[day][blockIdx];
+    var block = plan.schedule && plan.schedule[day] && plan.schedule[day][blockIdx];
     if (!block) return;
     _tpEditDay      = day;
     _tpEditBlockIdx = blockIdx;
@@ -5726,7 +5734,7 @@
     tpModalShow();
   }
 
-  function tpClickEmpty(deviceId, day, fromMin) {
+  function tpClickEmpty(day, fromMin) {
     _tpEditDay      = day;
     _tpEditBlockIdx = null;
     document.getElementById('tp-modal-title').textContent = 'Legg til blokk — ' + TP_DAYNO[day];
@@ -5738,6 +5746,8 @@
   }
 
   function tpModalShow() {
+    var errEl = document.getElementById('tp-modal-error');
+    if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
     document.getElementById('tp-modal-backdrop').style.display = 'flex';
   }
   function tpModalClose() {
@@ -5749,17 +5759,23 @@
     var fromRaw = document.getElementById('tp-modal-from').value;
     var toRaw   = document.getElementById('tp-modal-to').value;
     var temp    = parseFloat(document.getElementById('tp-modal-temp').value);
+    var errEl   = document.getElementById('tp-modal-error');
     var toVal   = toRaw === '23:59' ? '24:00' : toRaw;
     var fromMin = tpToMin(fromRaw), toMin = tpToMin(toVal === '24:00' ? '24:00' : toVal);
-    if (isNaN(temp) || temp < 5 || temp > 35) { alert('Temperatur må være mellom 5 og 35°C'); return; }
-    if (fromMin >= toMin) { alert('"Fra" må være før "Til"'); return; }
+    if (isNaN(temp) || temp < 5 || temp > 35) {
+      if (errEl) { errEl.textContent = 'Temperatur må være mellom 5 og 35°C'; errEl.style.display = 'block'; }
+      return;
+    }
+    if (fromMin >= toMin) {
+      if (errEl) { errEl.textContent = '"Fra" må være før "Til"'; errEl.style.display = 'block'; }
+      return;
+    }
 
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan) return;
-    var dev = (plan.devices || []).find(function(d) { return d.deviceId === _tpEditDeviceId; });
-    if (!dev) return;
-    if (!dev.schedule[_tpEditDay]) dev.schedule[_tpEditDay] = [];
-    var blocks = dev.schedule[_tpEditDay];
+    if (!plan.schedule) plan.schedule = {};
+    if (!plan.schedule[_tpEditDay]) plan.schedule[_tpEditDay] = [];
+    var blocks = plan.schedule[_tpEditDay];
 
     if (_tpEditBlockIdx !== null) {
       blocks[_tpEditBlockIdx] = { from: fromRaw, to: toVal, temp: temp };
@@ -5769,33 +5785,34 @@
     blocks.sort(function(a, b) { return tpToMin(a.from) - tpToMin(b.from); });
 
     tpModalClose();
-    tpRenderWeekGrid(dev);
+    tpRenderWeekGrid(plan);
     tpSave();
   }
 
   function tpModalDelete() {
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan || _tpEditBlockIdx === null) return;
-    var dev = (plan.devices || []).find(function(d) { return d.deviceId === _tpEditDeviceId; });
-    if (!dev) return;
-    dev.schedule[_tpEditDay].splice(_tpEditBlockIdx, 1);
+    if (!plan.schedule || !plan.schedule[_tpEditDay]) return;
+    plan.schedule[_tpEditDay].splice(_tpEditBlockIdx, 1);
     tpModalClose();
-    tpRenderWeekGrid(dev);
+    tpRenderWeekGrid(plan);
     tpSave();
   }
 
   function tpCopyDayModal() {
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan) return;
-    var dev = (plan.devices || []).find(function(d) { return d.deviceId === _tpEditDeviceId; });
-    if (!dev) return;
-    var srcDay = prompt('Kopier fra hvilken dag? (MO/TU/WE/TH/FR/SA/SU)', 'MO');
-    if (!srcDay || !TP_DAYS.includes(srcDay.toUpperCase())) { alert('Ugyldig dag'); return; }
-    srcDay = srcDay.toUpperCase();
-    var srcBlocks = (dev.schedule[srcDay] || []).map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; });
-    TP_DAYS.forEach(function(d) { if (d !== srcDay) dev.schedule[d] = srcBlocks.map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; }); });
-    tpRenderWeekGrid(dev);
-    tpSave();
+    var dayOptions = TP_DAYS.map(function(d) { return { deviceId: d, name: TP_DAYNO[d] }; });
+    tpPickerOpen(dayOptions, function(option) {
+      var srcDay = option.deviceId;
+      if (!plan.schedule) plan.schedule = {};
+      var srcBlocks = (plan.schedule[srcDay] || []).map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; });
+      TP_DAYS.forEach(function(d) {
+        if (d !== srcDay) plan.schedule[d] = srcBlocks.map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; });
+      });
+      tpRenderWeekGrid(plan);
+      tpSave();
+    }, 'Kopier fra hvilken dag?');
   }
 
   // ── Persist ───────────────────────────────────────────────────────
