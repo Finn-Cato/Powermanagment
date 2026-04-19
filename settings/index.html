@@ -5832,7 +5832,7 @@
       var w = ((seg.to - seg.from) / 1440 * 100).toFixed(2);
       var bg = seg.temp !== null ? tpTempColor(seg.temp) : '#e0e0e0';
       var label = (seg.temp !== null && (seg.to - seg.from) >= 120) ? seg.temp + '°' : '';
-      html += '<div style="width:' + w + '%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(0,0,0,.5);overflow:hidden;white-space:nowrap">' + label + '</div>';
+      html += '<div style="width:' + w + '%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.9);overflow:hidden;white-space:nowrap">' + label + '</div>';
     });
     html += '</div>';
     return html;
