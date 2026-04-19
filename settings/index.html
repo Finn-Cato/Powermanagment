@@ -2464,7 +2464,7 @@
         var dowNm = ['Man','Tir','Ons','Tor','Fre','Lør','Søn'];
         for (var wdoff = 0; wdoff < 7; wdoff++) {
           var dObj = new Date(_monday); dObj.setDate(_monday.getDate() + wdoff);
-          var dStr2 = dObj.toISOString().slice(0, 10);
+          var dStr2 = dObj.getFullYear() + '-' + String(dObj.getMonth()+1).padStart(2,'0') + '-' + String(dObj.getDate()).padStart(2,'0');
           var wfound = null;
           for (var wpi = 0; wpi < wpkAll.length; wpi++) { if (wpkAll[wpi].date === dStr2) { wfound = wpkAll[wpi]; break; } }
           var isFuture = dObj > _today;
