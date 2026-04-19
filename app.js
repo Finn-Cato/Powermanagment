@@ -91,6 +91,7 @@ class PowerGuardApp extends Homey.App {
     this._hanPollCount = 0;
     this._hanSpikeCount = 0;
     this._hanInFallbackMode = false;
+    this._hanSoftFallbackActive = false;  // true when events are slow (15–30s) but control continues
     this._hanWatchdogCount = 0;
     this._hanRawLog = [];         // Ring buffer: last 20 raw readings {time, value, source}
     this._phaseCurrents = {};    // Latest per-phase amps from HAN: {capId: amps}
@@ -944,6 +945,7 @@ class PowerGuardApp extends Homey.App {
         this._hanInFallbackMode = false;
         this._appLogEntry('han', `Events resumed: ${value}W`);
       }
+      this._hanSoftFallbackActive = false;  // clear soft-fallback whenever a real event arrives
       this._pushHanRawLog(value, 'event');
       this._onPowerReading(value);
     });
@@ -1010,21 +1012,39 @@ class PowerGuardApp extends Homey.App {
 
         const timeSinceLastReading = this._lastHanReading ? Date.now() - this._lastHanReading : Infinity;
 
-        // Only process if we haven't had an event-based reading in the last 15 seconds
-        // This avoids double-processing when events ARE working.
-        // 15s chosen because HAN meter sends events every ~10s — 8s was too tight and
-        // caused continuous poll fallback activation even when events were healthy.
-        if (timeSinceLastReading > 15000) {
-          // Only log to appLog when entering fallback mode (not every poll cycle)
+        // Two-tier HAN fallback:
+        //   15s–30s: "slow HAN" — events are delayed but the meter is still alive.
+        //            Tibber Pulse and some cloud meters send events every 15–30s; a flat
+        //            15s cutoff caused continuous false-fallback between every event.
+        //            In this tier we continue calling _onPowerReading with the poll value
+        //            (which equals the last-cached event value — same staleness as normal
+        //            mode, just fetched via poll rather than pushed by event).
+        //   30s+:    "hard fallback" — events have truly stopped arriving.  Freeze all
+        //            control to avoid acting on genuinely stale data.
+        if (timeSinceLastReading > 30000) {
+          // Hard fallback — freeze control, log once on entry
           if (!this._hanInFallbackMode) {
             this._hanInFallbackMode = true;
+            this._hanSoftFallbackActive = false;
             this._appLogEntry('han', `Poll fallback active: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s) — control frozen until events resume`);
           }
-          this.log(`[HAN Poll] Fallback reading: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
+          this.log(`[HAN Poll] Hard fallback: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
           this._hanPollCount++;
           this._pushHanRawLog(value, 'poll');
-          // Do NOT call _onPowerReading during fallback — stale poll data could cause
-          // incorrect ramp/mitigation decisions. All control is frozen until HAN events resume.
+          // Do NOT call _onPowerReading — events have been absent for 30s+; data is too stale.
+        } else if (timeSinceLastReading > 15000) {
+          // Soft fallback — events slow (15–30s), meter is alive; continue control with poll value
+          if (!this._hanSoftFallbackActive) {
+            this._hanSoftFallbackActive = true;
+            this._appLogEntry('han', `Slow HAN events: ${value}W (no event for ${Math.round(timeSinceLastReading / 1000)}s) — using poll data`);
+          }
+          this.log(`[HAN Poll] Soft fallback: ${value} W (no event for ${Math.round(timeSinceLastReading / 1000)}s)`);
+          this._hanPollCount++;
+          this._pushHanRawLog(value, 'poll');
+          this._onPowerReading(value); // control continues with last-known value
+        } else {
+          // Normal range — events healthy, reset soft-fallback flag silently
+          if (this._hanSoftFallbackActive) this._hanSoftFallbackActive = false;
         }
 
         // Always update per-phase current data from poll regardless of event age
@@ -6179,14 +6199,15 @@ class PowerGuardApp extends Homey.App {
       this._appLogEntry('charger', `[Modes] Applying mode="${mode}" to ${priorityList.length} entries. Prefs keys: ${Object.keys(prefs).length}`);
     }
 
-    // Build set of device IDs exclusively controlled by the active thermostat plan.
+    // Build set of device IDs exclusively controlled by thermostat plans.
     // Modus must not override their temperature — the scheduler owns that.
     const _tpData = this.homey.settings.get('thermostatPlans');
     const _tpEnabled = this.homey.settings.get('thermostatScheduleEnabled');
-    const _tpActivePlan = _tpData && _tpEnabled && _tpData.activePlanId
-      ? (_tpData.plans || []).find(p => p.id === _tpData.activePlanId)
-      : null;
-    const _tpDeviceIds = new Set(_tpActivePlan ? (_tpActivePlan.devices || []).map(d => d.deviceId) : []);
+    const _tpDeviceIds = new Set(
+      (_tpData && _tpEnabled)
+        ? (_tpData.plans || []).flatMap(p => (p.devices || []).map(d => d.deviceId))
+        : []
+    );
 
     for (const entry of priorityList) {
       // If called from a single-device pref change, only process that device
@@ -6291,28 +6312,30 @@ class PowerGuardApp extends Homey.App {
   // ══════════════════════════════════════════════════════════════════
 
   _loadThermostatSchedules() {
-    const data = this.homey.settings.get('thermostatPlans') ?? { activePlanId: null, plans: [] };
+    const data = this.homey.settings.get('thermostatPlans') ?? { plans: [] };
     this._thermostatPlans           = data.plans || [];
-    this._thermostatActivePlanId    = data.activePlanId || null;
     this._thermostatScheduleEnabled = this.homey.settings.get('thermostatScheduleEnabled') ?? false;
 
-    // Flat device list from the active plan — used directly by the tick
-    // Each device gets the plan's shared schedule (one schedule per plan)
-    const activePlan = this._thermostatPlans.find(p => p.id === this._thermostatActivePlanId);
-    const planSchedule = activePlan ? (activePlan.schedule || {}) : {};
-    this._thermostatSchedules = activePlan
-      ? (activePlan.devices || []).map(d => ({ deviceId: d.deviceId, deviceName: d.deviceName, schedule: planSchedule }))
-      : [];
+    // All plans run simultaneously — collect devices from every plan.
+    // A device should only appear in one plan; if it appears in multiple the last one wins.
+    const seen = new Set();
+    const schedules = [];
+    for (const plan of this._thermostatPlans) {
+      const planSchedule = plan.schedule || {};
+      for (const d of (plan.devices || [])) {
+        if (seen.has(d.deviceId)) continue; // skip duplicates
+        seen.add(d.deviceId);
+        schedules.push({ deviceId: d.deviceId, deviceName: d.deviceName, schedule: planSchedule });
+      }
+    }
+    this._thermostatSchedules = schedules;
 
-    this.log(`[ThermoSched] ${this._thermostatPlans.length} plan(s), active=${this._thermostatActivePlanId}, enabled=${this._thermostatScheduleEnabled}`);
+    this.log(`[ThermoSched] ${this._thermostatPlans.length} plan(s), ${schedules.length} device(s), enabled=${this._thermostatScheduleEnabled}`);
   }
 
-  _setActiveThermostatPlan(planId) {
-    const data = this.homey.settings.get('thermostatPlans') ?? { activePlanId: null, plans: [] };
-    data.activePlanId = planId;
-    this.homey.settings.set('thermostatPlans', data);
+  _setActiveThermostatPlan(_planId) {
+    // No-op — all plans are active simultaneously. Kept for API backwards-compat.
     this._loadThermostatSchedules();
-    this.log(`[ThermoSched] Active plan → ${planId}`);
   }
 
   _onThermostatScheduleEnabledChanged(enabled) {
@@ -6329,7 +6352,7 @@ class PowerGuardApp extends Homey.App {
     const schedules = this._thermostatSchedules || [];
 
     if (schedules.length === 0) {
-      this._appLogEntry('thermostat', `[Scheduler] tick: 0 enheter lastet (aktivPlan=${this._thermostatActivePlanId})`);
+      this._appLogEntry('thermostat', `[Scheduler] tick: 0 enheter lastet (ingen enheter i planene)`);
       return;
     }
 

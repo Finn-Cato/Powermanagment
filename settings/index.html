@@ -5325,24 +5325,20 @@
   // ══════════════════════════════════════════════════════════════════
 
   var _tpPlans               = [];   // [{ id, name, devices:[{deviceId,deviceName,schedule}] }]
-  var _tpBackendActivePlanId = null; // plan the scheduler actually runs
 
   function tpPrefetchPlans() {
     if (_tpPlans.length > 0) return;
     hApi('GET', '/thermostat-plans', null).then(function(data) {
       if (_tpPlans.length > 0) return; // loaded in meantime via tab open
       _tpPlans = (data && Array.isArray(data.plans)) ? data.plans : [];
-      _tpBackendActivePlanId = (data && data.activePlanId) || null;
     }).catch(function() {});
   }
 
   function tpGetActivePlanInfo() {
-    var activePlan = _tpPlans.find(function(p) { return p.id === _tpBackendActivePlanId; });
-    if (!activePlan) return { ids: new Set(), name: '' };
-    return {
-      ids: new Set((activePlan.devices || []).map(function(d) { return d.deviceId; })),
-      name: activePlan.name || ''
-    };
+    // All plans are active — collect all device IDs across all plans
+    var ids = new Set();
+    _tpPlans.forEach(function(p) { (p.devices || []).forEach(function(d) { ids.add(d.deviceId); }); });
+    return { ids: ids, name: '' };
   }
   var _tpSelectedPlanId      = null; // plan shown in UI
   var _tpEditDeviceId        = null;
@@ -5451,7 +5447,6 @@
   function tpLoadTab() {
     hApi('GET', '/thermostat-plans', null).then(function(data) {
       _tpPlans = (data && Array.isArray(data.plans)) ? data.plans : [];
-      _tpBackendActivePlanId = (data && data.activePlanId) || null;
 
       // Migrate old per-device schedule format → plan-level schedule
       var migrated = false;
@@ -5471,13 +5466,12 @@
       if (_tpPlans.length === 0) {
         var defaultPlan = { id: tpGenId(), name: 'Hjemme', schedule: tpDefaultSchedule(20), devices: [] };
         _tpPlans.push(defaultPlan);
-        _tpBackendActivePlanId = defaultPlan.id;
         migrated = true;
       }
 
       if (migrated) tpSave();
 
-      _tpSelectedPlanId = _tpBackendActivePlanId || _tpPlans[0].id;
+      _tpSelectedPlanId = _tpPlans[0].id;
       tpRenderPlanBar();
       tpOpenEditor();
       tpRenderDeviceList();
@@ -5520,25 +5514,19 @@
     var html = '';
     _tpPlans.forEach(function(plan) {
       var isSelected = plan.id === _tpSelectedPlanId;
-      var isActive   = plan.id === _tpBackendActivePlanId;
       var cls = isSelected ? 'btn-primary' : 'btn-secondary';
       html += '<button class="' + cls + '" style="padding:6px 14px;font-size:13px" onclick="tpSelectPlan(\'' + escHtml(plan.id) + '\')">';
-      if (isActive) html += '▶ ';
       html += escHtml(plan.name) + '</button>';
     });
     bar.innerHTML = html;
 
-    var activePlan   = _tpPlans.find(function(p) { return p.id === _tpBackendActivePlanId; });
-    var selectedPlan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
+    // Status: all plans run simultaneously — no "active plan" concept
     if (status) {
-      if (!activePlan) {
-        status.innerHTML = '<span style="color:#e74c3c">Ingen aktiv plan — planleggeren kjører ikke. Velg en plan og trykk &quot;Aktiver&quot;.</span>';
-      } else if (_tpSelectedPlanId === _tpBackendActivePlanId) {
-        status.innerHTML = '▶ <b>' + escHtml(activePlan.name) + '</b> er aktiv plan.';
+      var totalDevices = _tpPlans.reduce(function(n, p) { return n + (p.devices || []).length; }, 0);
+      if (totalDevices === 0) {
+        status.innerHTML = '<span style="color:#e67e22">Ingen enheter lagt til ennå — legg til enheter i en plan for å starte.</span>';
       } else {
-        status.innerHTML = '▶ <b>' + escHtml(activePlan.name) + '</b> er aktiv plan. '
-          + '<a href="#" onclick="tpSetActivePlan(\'' + escHtml(_tpSelectedPlanId) + '\');return false;">'
-          + 'Aktiver ' + escHtml(selectedPlan ? selectedPlan.name : '') + '</a>';
+        status.innerHTML = 'Alle planer kjører — <b>' + _tpPlans.length + '</b> plan(er), <b>' + totalDevices + '</b> enhet(er) styres.';
       }
     }
   }
@@ -5553,21 +5541,11 @@
 
   function tpRenderWeekSummary() {} // merged into tpRenderScheduleList
 
-  function tpSetActivePlan(planId) {
-    hApi('POST', '/thermostat-active-plan', { planId: planId }).then(function() {
-      _tpBackendActivePlanId = planId;
-      tpRenderPlanBar();
-      tpRenderWeekSummary();
-      tpRenderDeviceList();
-    }).catch(function() {});
-  }
-
   function tpNewPlan() {
     tpNameModalOpen('Navn på ny plan', 'Min plan', function(name) {
       var plan = { id: tpGenId(), name: name, schedule: tpDefaultSchedule(20), devices: [] };
       _tpPlans.push(plan);
       _tpSelectedPlanId = plan.id;
-      if (_tpPlans.length === 1) _tpBackendActivePlanId = plan.id;
       tpSave();
       tpRenderPlanBar();
       tpRenderWeekSummary();
@@ -5591,7 +5569,6 @@
     if (_tpPlans.length <= 1) return; // Slett-knappen vises ikke når bare én plan
     tpConfirmOpen('Slette denne planen? Enheter i planen må legges inn på nytt.', function() {
       _tpPlans = _tpPlans.filter(function(p) { return p.id !== planId; });
-      if (_tpBackendActivePlanId === planId) _tpBackendActivePlanId = _tpPlans[0].id;
       if (_tpSelectedPlanId === planId) _tpSelectedPlanId = _tpPlans[0].id;
       _tpEditDeviceId = null;
       _tpSelectedPlanId = _tpPlans[0].id;
