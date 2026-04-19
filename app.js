@@ -3743,7 +3743,13 @@ class PowerGuardApp extends Homey.App {
         const minResumeW = CHARGER_DEFAULTS.minCurrent * _wpa;
         const sinceLastAny = now - (this._lastAnyChargerRampUpTime || 0);
         if (!this._chargerState[entry.deviceId]) this._chargerState[entry.deviceId] = {};
-        if (evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && priceCap > 0) {
+        // Guard: car is fully charged (Completed + powerW < 200) — don't resume.
+        // Without this, PG continuously sends 6A → "Easee resumed" every ~2 min, which keeps
+        // _evChargerLastActiveMs fresh via the settling-window accounting, holding the 3-min
+        // EV cooldown active forever and preventing evProactive-shed devices from ever restoring.
+        const _chargingDone = [4, 'completed', 'COMPLETED', 'Completed'].includes(evDataNow?.chargerStatus)
+                           && (evDataNow?.powerW || 0) < 200;
+        if (!_chargingDone && evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && priceCap > 0) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._chargerState[entry.deviceId].waitingForCapacity = false;
