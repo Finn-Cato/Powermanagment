@@ -5186,9 +5186,11 @@
       row += '<button class="btn-small btn-secondary" onclick="modesSetOnOff(\'' + entry.deviceId + '\',\'' + mode + '\',null)" style="padding:3px 8px;font-size:12px;' + (v == null ? selDash : '') + '">—</button>';
       row += '</div>';
       // Temperature stepper (dimmed when Off/—, always clickable — clicking also sets On)
-      row += '<div style="display:flex;align-items:center;gap:2px;margin-left:6px;' + (!isOn ? 'opacity:.4;' : '') + '">';
+      // For plan-controlled devices show live setpoint instead of stored preference
+      var dispVal = (_planControlled && lt && lt.currentTarget != null) ? Number(lt.currentTarget).toFixed(1) : val;
+      row += '<div style="display:flex;align-items:center;gap:2px;margin-left:6px;' + (!isOn && !_planControlled ? 'opacity:.4;' : '') + '">';
       row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',-0.5)" style="padding:3px 9px;">−</button>';
-      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:44px;text-align:center;font-size:13px;font-weight:600;">' + val + '°C</span>';
+      row += '<span id="mtv-' + safeId + '-' + mode + '" style="min-width:44px;text-align:center;font-size:13px;font-weight:600;">' + dispVal + '°C</span>';
       row += '<button class="btn-small btn-secondary" onclick="modeTempStep(\'' + entry.deviceId + '\',\'' + mode + '\',0.5)" style="padding:3px 9px;">+</button>';
       row += '</div>';
     } else if (action === 'hoiax_power') {
