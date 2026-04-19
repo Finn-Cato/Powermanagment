@@ -1929,7 +1929,7 @@
   }
   var _touchDragLi    = null;
   var _heaterFocusId  = null;
-  var _heaterDirty    = {};  // deviceId → edited temp value
+  var _heaterDirty    = {};  // deviceId → { val, ts } — expires after 30s
   var _carDevices     = [];  // [{id, name, capability}] from /car-devices
 
   // ── Homey.api() wrappers (return Promises) ────────────────────────────────
@@ -3333,13 +3333,16 @@
           var id  = h.deviceId;
           var tgtVal = h.currentTarget != null ? Number(h.currentTarget).toFixed(1) : '20.0';
           var chk = isOn ? ' checked' : '';
-          // Clear stale dirty value if the device's actual target has changed externally (e.g. by scheduler)
-          if (_heaterDirty.hasOwnProperty(id) && h.currentTarget != null &&
-              Math.abs(Number(h.currentTarget) - Number(_heaterDirty[id])) > 0.4) {
-            delete _heaterDirty[id];
+          // Clear stale dirty value: expires after 30s OR if device target changed externally (e.g. scheduler)
+          if (_heaterDirty.hasOwnProperty(id)) {
+            var _d = _heaterDirty[id];
+            var _age = Date.now() - (_d.ts || 0);
+            if (_age > 30000 || (h.currentTarget != null && Math.abs(Number(h.currentTarget) - Number(_d.val)) > 0.4)) {
+              delete _heaterDirty[id];
+            }
           }
           var isDirty = _heaterDirty.hasOwnProperty(id);
-          var displayVal = isDirty ? Number(_heaterDirty[id]).toFixed(1) : tgtVal;
+          var displayVal = isDirty ? Number(_heaterDirty[id].val).toFixed(1) : tgtVal;
           var modeLabel = '';
           if (h.thermostatMode) {
             var isHeat = h.thermostatMode === 'heat';
@@ -3420,12 +3423,12 @@
   function stepTemp(deviceId, delta) {
     var el = document.getElementById('temp-' + deviceId);
     if (!el) return;
-    var cur = _heaterDirty.hasOwnProperty(deviceId) ? parseFloat(_heaterDirty[deviceId]) : parseFloat(el.textContent);
+    var cur = _heaterDirty.hasOwnProperty(deviceId) ? parseFloat(_heaterDirty[deviceId].val) : parseFloat(el.textContent);
     var val = cur + delta;
     val = Math.round(val * 2) / 2;
     if (val < 5) val = 5;
     if (val > 35) val = 35;
-    _heaterDirty[deviceId] = val;
+    _heaterDirty[deviceId] = { val: val, ts: Date.now() };
     el.textContent = val.toFixed(1);
     el.classList.add('is-dirty');
   }
@@ -3434,7 +3437,7 @@
     if (!_H) { showError('Not connected to Homey'); return; }
     var tempEl = document.getElementById('temp-' + deviceId);
     if (!tempEl) return;
-    var temp = parseFloat(_heaterDirty[deviceId] || tempEl.textContent);
+    var temp = parseFloat((_heaterDirty[deviceId] && _heaterDirty[deviceId].val) || tempEl.textContent);
     if (isNaN(temp)) { showError('Invalid temperature value'); return; }
     hApi('POST', '/floorHeater-control', { deviceId: deviceId, action: 'setTarget', value: temp })
       .then(function(data) {
