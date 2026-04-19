@@ -3324,7 +3324,7 @@
           var _fhPlanInfo = tpGetActivePlanInfo();
           var _fhPlanControlled = _fhPlanInfo.ids.has(h.deviceId);
           var _fhPlanBadge = _fhPlanControlled
-            ? '<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:#3b82f6;white-space:nowrap;">Styrt av plan: ' + escHtml(_fhPlanInfo.name) + '</span>'
+            ? '<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:#3b82f6;white-space:nowrap;">Styrt av temperaturplan: ' + escHtml(_fhPlanInfo.name) + '</span>'
             : '';
           // Show as "drawing" (orange highlight) if we have positive wattage,
           // OR if the device is on but has no power sensor (fall back to onoff state).
@@ -5156,7 +5156,7 @@
     var _planInfo = tpGetActivePlanInfo();
     var _planControlled = action === 'target_temperature' && _planInfo.ids.has(entry.deviceId);
     var _planBadge = _planControlled
-      ? ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:#3b82f6;white-space:nowrap;">Styrt av plan: ' + escHtml(_planInfo.name) + '</span>'
+      ? ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:#3b82f6;white-space:nowrap;">Styrt av temperaturplan: ' + escHtml(_planInfo.name) + '</span>'
       : '';
     var row = '<div class="heater-row' + (drawing ? ' is-on' : '') + '" style="justify-content:space-between;">';
     row += '<div><div style="font-size:13px;font-weight:600;">' + escHtml(entry.name) + modeLabel + _planBadge + '</div>';
