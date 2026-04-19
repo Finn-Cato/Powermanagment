@@ -5800,6 +5800,15 @@
       plan.schedule[day][idx] = { from: fromRaw, to: toVal, temp: temp };
     }
     plan.schedule[day].sort(function(a, b) { return tpToMin(a.from) - tpToMin(b.from); });
+    // Push next block's start forward if it now overlaps
+    var dayBlocks = plan.schedule[day];
+    for (var i = 0; i < dayBlocks.length - 1; i++) {
+      var curToMin = dayBlocks[i].to === '24:00' ? 1440 : tpToMin(dayBlocks[i].to);
+      var nxtFromMin = tpToMin(dayBlocks[i + 1].from);
+      if (nxtFromMin < curToMin) {
+        dayBlocks[i + 1].from = dayBlocks[i].to === '24:00' ? '24:00' : dayBlocks[i].to;
+      }
+    }
     _tpEditDay = null; _tpEditBlockIdx = null;
     tpRenderScheduleList(plan);
     tpSave();
