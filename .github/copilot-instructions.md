@@ -75,6 +75,21 @@ Some sections of `app.js` are considered stable and must not be changed without 
 
 ---
 
+---
+
+## Installing locally to Homey (`homey app install`)
+
+**NEVER use `run_in_terminal` with `Push-Location` / `Pop-Location` for installs.** The tool ignores directory context and is unreliable.
+
+**Always use this procedure:**
+1. `run_in_terminal` with `mode=async` to start a persistent shell
+2. `send_to_terminal` → `Set-Location "C:\Github\Powermanagment" ; homey app install`
+3. Poll with `get_terminal_output` until `✓ Homey App ... successfully installed`
+
+Git commands (`git add`, `git commit`, `git push`) can follow in the same terminal via `send_to_terminal`.
+
+---
+
 ## General
 - **EXPLAIN BEFORE CHANGING — THIS IS CRITICAL:** When the user asks a question or asks to investigate something, always explain the finding and proposed change in chat first. Never edit code as part of an investigation or analysis. Only make code changes after the user has confirmed with "ja" or equivalent explicit approval.
 - **NEVER FIX THINGS NOT ASKED ABOUT:** If you discover a bug or issue while investigating something else, mention it in chat — but do NOT fix it unless the user explicitly asks you to. One request = one fix. No bonus changes, no improvements, no "while I'm at it" edits.
