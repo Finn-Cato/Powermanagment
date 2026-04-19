@@ -6307,29 +6307,45 @@ class PowerGuardApp extends Homey.App {
     if (!this._api) return;
     const { getCurrentTemp } = require('./common/thermostat-schedule');
     const now = new Date();
+    const schedules = this._thermostatSchedules || [];
 
-    for (const entry of (this._thermostatSchedules || [])) {
+    if (schedules.length === 0) {
+      this._appLogEntry('thermostat', `[Scheduler] tick: 0 enheter lastet (aktivPlan=${this._thermostatActivePlanId})`);
+      return;
+    }
+
+    for (const entry of schedules) {
       if (!entry.deviceId) continue;
       const wantedTemp = getCurrentTemp(entry, now);
-      if (wantedTemp === null) continue;
+      if (wantedTemp === null) {
+        this._appLogEntry('thermostat', `[Scheduler] SKIP ${entry.deviceName}: ingen temperaturperiode nå`);
+        continue;
+      }
 
       try {
         const device = await this._api.devices.getDevice({ id: entry.deviceId }).catch(() => null);
-        if (!device) continue;
+        if (!device) {
+          this._appLogEntry('thermostat', `[Scheduler] SKIP ${entry.deviceName}: enhet ikke funnet (id=${entry.deviceId})`);
+          continue;
+        }
 
         // Do not override if PG currently has this device mitigated — mitigation takes priority.
         const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
-        if (isMitigated) continue;
+        if (isMitigated) {
+          this._appLogEntry('thermostat', `[Scheduler] SKIP ${entry.deviceName}: mitigert av PG`);
+          continue;
+        }
 
         const caps = device.capabilities || [];
-        if (!caps.includes('target_temperature')) continue;
+        if (!caps.includes('target_temperature')) {
+          this._appLogEntry('thermostat', `[Scheduler] SKIP ${entry.deviceName}: mangler target_temperature (caps: ${caps.join(',')})`);
+          continue;
+        }
 
         const obj      = device.capabilitiesObj || {};
         const liveTemp = obj.target_temperature?.value ?? null;
 
         // Switch to manual/heat mode first so the thermostat doesn't ignore the setpoint.
-        // Many WiFi floor thermostats are in 'auto'/'schedule' mode by default and will
-        // ignore target_temperature commands unless switched to 'heat' (manual) mode.
         if (caps.includes('thermostat_mode')) {
           const currentMode = obj.thermostat_mode?.value ?? null;
           if (currentMode !== 'heat') {
@@ -6337,11 +6353,16 @@ class PowerGuardApp extends Homey.App {
           }
         }
 
-        if (liveTemp !== null && Math.abs(liveTemp - wantedTemp) < 0.4) continue;
+        if (liveTemp !== null && Math.abs(liveTemp - wantedTemp) < 0.4) {
+          // already correct, no log needed
+          continue;
+        }
 
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: wantedTemp });
+        this._appLogEntry('thermostat', `[Scheduler] SET ${entry.deviceName}: ${liveTemp ?? '?'}°C → ${wantedTemp}°C`);
         this.log(`[ThermoSched] ${entry.deviceName || entry.deviceId}: ${liveTemp ?? '?'}°C → ${wantedTemp}°C`);
       } catch (err) {
+        this._appLogEntry('thermostat', `[Scheduler] ERROR ${entry.deviceName}: ${err.message}`);
         this.log(`[ThermoSched] Error for ${entry.deviceId}: ${err.message}`);
       }
     }

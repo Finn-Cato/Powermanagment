@@ -699,4 +699,29 @@ module.exports = {
     }
     return { ok: true };
   },
+
+  /** GET /thermostat-schedule-status — live state of the scheduler */
+  async getThermostatScheduleStatus({ homey }) {
+    const app = homey.app;
+    try {
+      const { getCurrentTemp } = require('./common/thermostat-schedule');
+      const now = new Date();
+      const schedules = (app._thermostatSchedules || []).map(entry => ({
+        deviceId:   entry.deviceId,
+        deviceName: entry.deviceName,
+        wantedNow:  getCurrentTemp(entry, now),
+      }));
+      return {
+        ok:            true,
+        enabled:       !!app._thermostatScheduleEnabled,
+        activePlanId:  app._thermostatActivePlanId || null,
+        planCount:     (app._thermostatPlans || []).length,
+        scheduleCount: schedules.length,
+        schedules,
+        time:          now.toISOString(),
+      };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  },
 };

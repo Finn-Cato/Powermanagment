@@ -1047,6 +1047,7 @@
             <div style="color:var(--text-muted);font-size:13px">Laster planer…</div>
           </div>
           <div id="tp-active-status" style="font-size:12px;color:var(--text-muted);min-height:18px"></div>
+          <div id="tp-sched-status" style="font-size:11px;margin-top:4px;color:var(--text-muted)"></div>
         </div>
 
         <!-- Week grid editor -->
@@ -5442,6 +5443,19 @@
       tpRenderPlanBar();
       tpOpenEditor();
       tpRenderDeviceList();
+
+      // Show scheduler status
+      hApi('GET', '/thermostat-schedule-status', null).then(function(st) {
+        var el = document.getElementById('tp-sched-status');
+        if (!el) return;
+        if (!st || !st.ok) { el.innerHTML = '<span style="color:#e74c3c">⚠ Scheduler: feil ved henting av status</span>'; return; }
+        if (!st.enabled) { el.innerHTML = '<span style="color:#e74c3c">⚠ Termostatplan er ikke aktivert (slå på bryteren øverst)</span>'; return; }
+        if (st.scheduleCount === 0) { el.innerHTML = '<span style="color:#e67e22">⚠ Ingen enheter lastet — aktiv plan mangler enheter eller er ikke lagret riktig</span>'; return; }
+        var parts = st.schedules.map(function(s) {
+          return (s.deviceName || s.deviceId) + ': <b>' + (s.wantedNow !== null ? s.wantedNow + '°C' : 'ingen periode nå') + '</b>';
+        });
+        el.innerHTML = '✓ Kjører — ønsket nå: ' + parts.join(' | ');
+      }).catch(function() {});
     }).catch(function() {});
   }
 
