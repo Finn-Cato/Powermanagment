@@ -190,6 +190,13 @@
   details[open] .details-chevron { transform: rotate(180deg); }
   #smart-modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px; }
   #smart-modal-box { background:var(--bg-card);border-radius:14px;padding:20px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.4); }
+  /* ── Toggle switch (shared) ── */
+  .toggle-switch { display:inline-flex; align-items:center; cursor:pointer; }
+  .toggle-switch input { position:absolute; opacity:0; width:0; height:0; }
+  .toggle-track { width:42px; height:24px; background:var(--toggle-off,#ccc); border-radius:12px; position:relative; transition:background .2s; }
+  .toggle-switch input:checked ~ .toggle-track { background:var(--brand,#e8441a); }
+  .toggle-thumb { position:absolute; top:3px; left:3px; width:18px; height:18px; background:#fff; border-radius:50%; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .toggle-switch input:checked ~ .toggle-track .toggle-thumb { transform:translateX(18px); }
   </style>
 </head>
 <body>
@@ -234,6 +241,7 @@
       <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Pris</span></button>
       <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🔄</span><span class="tab-label">Modus</span></button>
       <button class="tab-btn"        id="tb-ev"          onclick="showTab('ev')"><span class="tab-icon">🔌</span><span class="tab-label">Lader</span></button>
+      <button class="tab-btn"        id="tb-tempplan"    onclick="showTab('tempplan')" style="display:none"><span class="tab-icon">📅</span><span class="tab-label">Temperaturplan</span></button>
     </div>
 
     <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
@@ -1014,7 +1022,74 @@
       </div><!-- /#smart-panel-ev -->
     </div><!-- /#tab-ev -->
 
-    <!-- ── Devices tab ───────────────────────────────────────────────────── -->
+    <!-- ── Temperaturplan tab ─────────────────────────────────────────────── -->
+    <div id="tab-tempplan" style="display:none">
+
+      <div class="card" style="margin-bottom:12px">
+        <h2>📅 Temperaturplan</h2>
+        <div class="row">
+          <div class="label-group">
+            <label>Aktiver avansert termostatstyrting</label>
+            <div class="hint">Slår på ukentlig temperaturplan. Planen kjøres hvert minutt og setter ønsket temperatur automatisk. Power Guard vil fortsatt overstyre ved behov.</div>
+          </div>
+          <div class="control">
+            <label class="toggle-switch">
+              <input type="checkbox" id="tp-enabled-toggle" onchange="tpToggleEnabled(this.checked)">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div id="tp-content" style="display:none">
+        <div class="card" style="margin-bottom:12px">
+          <h2>Enheter i planen</h2>
+          <div class="hint" style="margin-bottom:12px;color:var(--text-muted);font-size:12px">
+            Kun termostater fra prioritetslisten din vises her. Aktiver en enhet for å redigere ukeplanen.
+          </div>
+          <div id="tp-device-list">
+            <div style="color:var(--text-muted);font-size:13px">Laster enheter…</div>
+          </div>
+        </div>
+
+        <div id="tp-editor-wrap" style="display:none">
+          <div class="card">
+            <h2 id="tp-editor-title">Ukeplan — enhet</h2>
+            <div class="hint" style="margin-bottom:14px;font-size:12px;color:var(--text-muted)">
+              Klikk på et tomt område på en dag for å legge til en tidsblokk. Klikk på en eksisterende blokk for å redigere eller slette.
+            </div>
+            <div id="tp-week-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: edit/add time block -->
+      <div id="tp-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+          <h2 style="margin-bottom:16px;font-size:16px" id="tp-modal-title">Legg til blokk</h2>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <label style="width:60px;font-size:13px;font-weight:500">Fra</label>
+              <input type="time" id="tp-modal-from" style="flex:1;padding:7px 10px;border:1px solid var(--input-border);border-radius:8px;font-size:14px">
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <label style="width:60px;font-size:13px;font-weight:500">Til</label>
+              <input type="time" id="tp-modal-to" style="flex:1;padding:7px 10px;border:1px solid var(--input-border);border-radius:8px;font-size:14px">
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <label style="width:60px;font-size:13px;font-weight:500">Temp °C</label>
+              <input type="number" id="tp-modal-temp" min="5" max="35" step="0.5" style="flex:1;padding:7px 10px;border:1px solid var(--input-border);border-radius:8px;font-size:14px">
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:20px">
+            <button class="btn-primary" style="flex:1" onclick="tpModalSave()">Lagre</button>
+            <button id="tp-modal-delete-btn" class="btn-secondary" style="flex:1;display:none" onclick="tpModalDelete()">Slett</button>
+            <button class="btn-secondary" style="flex:1" onclick="tpModalClose()">Avbryt</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /#tab-tempplan -->
 
 
   </div><!-- /#main-content -->
@@ -1897,9 +1972,11 @@
   function showSmartSubTab(name) { showTab(name); }
 
   function showTab(name) {
-    ['overview','consumption','floorheater','log','price','modes','ev'].forEach(function(t) {
-      document.getElementById('tab-' + t).style.display  = t === name ? 'block' : 'none';
-      document.getElementById('tb-'  + t).classList[t === name ? 'add' : 'remove']('active');
+    ['overview','consumption','floorheater','log','price','modes','ev','tempplan'].forEach(function(t) {
+      var tabEl = document.getElementById('tab-' + t);
+      var btnEl = document.getElementById('tb-'  + t);
+      if (tabEl) tabEl.style.display  = t === name ? 'block' : 'none';
+      if (btnEl) btnEl.classList[t === name ? 'add' : 'remove']('active');
     });
     if (name === 'consumption') {
       // Load settings first to restore filters, then load consumption data
@@ -1928,6 +2005,8 @@
       if (_modesData) showModeSubTab(_modesSubTab); loadModesSettings();
     } else if (name === 'ev') {
       loadEvDevices(); loadEvChargingStatus();
+    } else if (name === 'tempplan') {
+      tpLoadTab();
     } else if (name === 'overview') {
       showOverviewSubTab('overview');
     } else {
@@ -3959,6 +4038,11 @@
           // Load overview-specific data (price control toggle + active mode badge)
           loadPriceData();
           loadModesSettings();
+          // Show/hide Temperaturplan tab based on saved setting
+          hApi('GET', '/thermostat-schedule-enabled', null).then(function(res) {
+            var tabBtn = document.getElementById('tb-tempplan');
+            if (tabBtn) tabBtn.style.display = (res && res.enabled) ? '' : 'none';
+          }).catch(function() {});
         })
         .catch(function(err) {
           dbg('Initial load error: ' + (err.message || err));
@@ -5200,6 +5284,305 @@
         // ── End spinner ──
       });
   }
+
+  // ══════════════════════════════════════════════════════════════════
+  // SECTION 16 — TEMPERATURPLAN (Thermostat Schedule)
+  // ══════════════════════════════════════════════════════════════════
+
+  var _tpSchedules     = [];   // [{ deviceId, deviceName, enabled, schedule:{MO:[{from,to,temp}],...} }]
+  var _tpEnabled       = false;
+  var _tpEditDeviceId  = null; // which device is open in the editor
+  var _tpEditDay       = null; // which day is being edited in the modal
+  var _tpEditBlockIdx  = null; // null = new block, number = edit existing
+
+  var TP_DAYS   = ['MO','TU','WE','TH','FR','SA','SU'];
+  var TP_DAYNO  = { MO:'Man',TU:'Tir',WE:'Ons',TH:'Tor',FR:'Fre',SA:'Lør',SU:'Søn' };
+
+  // Temperature → colour (warm palette like the image)
+  function tpTempColor(temp) {
+    if (temp === null || temp === undefined) return '#ddd';
+    if (temp >= 23) return '#c0392b';
+    if (temp >= 21) return '#e74c3c';
+    if (temp >= 19) return '#e8944a';
+    if (temp >= 17) return '#f1c40f';
+    if (temp >= 15) return '#a0c4ff';
+    return '#7fb3d3';
+  }
+
+  // "HH:MM" → minutes
+  function tpToMin(hhmm) {
+    var p = String(hhmm || '').split(':');
+    return parseInt(p[0], 10) * 60 + (parseInt(p[1], 10) || 0);
+  }
+
+  // minutes → "HH:MM" (1440 → "24:00")
+  function tpFromMin(m) {
+    var h = Math.floor(m / 60), mm = m % 60;
+    return (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm;
+  }
+
+  // ── Load / init ──────────────────────────────────────────────────
+  function tpLoadTab() {
+    hApi('GET', '/thermostat-schedule-enabled', null)
+      .then(function(res) {
+        _tpEnabled = !!(res && res.enabled);
+        document.getElementById('tp-enabled-toggle').checked = _tpEnabled;
+        document.getElementById('tp-content').style.display = _tpEnabled ? 'block' : 'none';
+        if (_tpEnabled) tpLoadSchedules();
+      })
+      .catch(function() {});
+  }
+
+  function tpToggleEnabled(val) {
+    _tpEnabled = val;
+    document.getElementById('tp-content').style.display = val ? 'block' : 'none';
+    hApi('POST', '/thermostat-schedule-enabled', { enabled: val })
+      .catch(function() {});
+    if (val) tpLoadSchedules();
+    // Show/hide tab button in tab bar
+    var tabBtn = document.getElementById('tb-tempplan');
+    if (tabBtn) tabBtn.style.display = val ? '' : 'none';
+  }
+
+  function tpLoadSchedules() {
+    // Get thermostat devices from priority list
+    hApi('GET', '/all', null).then(function(data) {
+      var priorityList = (data.settings && data.settings.priorityList) || [];
+      var thermoDevices = priorityList.filter(function(e) {
+        return e.action === 'target_temperature' && e.enabled !== false;
+      });
+
+      hApi('GET', '/thermostat-schedules', null).then(function(schedules) {
+        _tpSchedules = Array.isArray(schedules) ? schedules : [];
+
+        // Ensure every thermostat device has an entry
+        thermoDevices.forEach(function(dev) {
+          var existing = _tpSchedules.find(function(s) { return s.deviceId === dev.deviceId; });
+          if (!existing) {
+            _tpSchedules.push({
+              deviceId:   dev.deviceId,
+              deviceName: dev.name || dev.deviceId,
+              enabled:    false,
+              schedule:   tpDefaultSchedule(20),
+            });
+          } else {
+            // Keep name up to date from priority list
+            existing.deviceName = dev.name || existing.deviceName;
+          }
+        });
+
+        tpRenderDeviceList(thermoDevices);
+      }).catch(function() { tpRenderDeviceList(thermoDevices); });
+    }).catch(function() {});
+  }
+
+  function tpDefaultSchedule(temp) {
+    var allDay = [{ from: '00:00', to: '24:00', temp: temp }];
+    var s = {};
+    ['MO','TU','WE','TH','FR','SA','SU'].forEach(function(d) {
+      s[d] = allDay.map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; });
+    });
+    return s;
+  }
+
+  // ── Device list ──────────────────────────────────────────────────
+  function tpRenderDeviceList(thermoDevices) {
+    var el = document.getElementById('tp-device-list');
+    if (!thermoDevices || thermoDevices.length === 0) {
+      el.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Ingen termostater funnet i prioritetslisten. Legg til termostater i <em>Hjem</em>-fanen først.</div>';
+      return;
+    }
+    var html = '';
+    thermoDevices.forEach(function(dev) {
+      var entry = _tpSchedules.find(function(s) { return s.deviceId === dev.deviceId; });
+      var active = entry && entry.enabled;
+      html += '<div class="row" style="align-items:center">';
+      html += '<div class="label-group"><label>' + escHtml(dev.name || dev.deviceId) + '</label>';
+      html += '<div class="hint">' + (active ? 'Ukeplanen er aktiv' : 'Ukeplanen er ikke aktiv') + '</div></div>';
+      html += '<div class="control" style="gap:8px">';
+      html += '<label class="toggle-switch"><input type="checkbox" ' + (active ? 'checked' : '') + ' onchange="tpDeviceToggle(\'' + escHtml(dev.deviceId) + '\', this.checked)"><span class="toggle-track"><span class="toggle-thumb"></span></span></label>';
+      html += '<button class="btn-secondary btn-small" onclick="tpOpenEditor(\'' + escHtml(dev.deviceId) + '\')">Rediger</button>';
+      html += '</div></div>';
+    });
+    el.innerHTML = html;
+  }
+
+  function tpDeviceToggle(deviceId, val) {
+    var entry = _tpSchedules.find(function(s) { return s.deviceId === deviceId; });
+    if (entry) { entry.enabled = val; tpSave(); }
+  }
+
+  // ── Editor ────────────────────────────────────────────────────────
+  function tpOpenEditor(deviceId) {
+    _tpEditDeviceId = deviceId;
+    var entry = _tpSchedules.find(function(s) { return s.deviceId === deviceId; });
+    if (!entry) return;
+    document.getElementById('tp-editor-title').textContent = 'Ukeplan — ' + (entry.deviceName || deviceId);
+    document.getElementById('tp-editor-wrap').style.display = 'block';
+    tpRenderWeekGrid(entry);
+  }
+
+  function tpRenderWeekGrid(entry) {
+    var grid = document.getElementById('tp-week-grid');
+    var html = '<div style="overflow-x:auto">';
+    html += '<table style="width:100%;border-collapse:collapse;table-layout:fixed">';
+    html += '<colgroup><col style="width:36px">';
+    // 24 hour columns
+    for (var i = 0; i < 24; i++) html += '<col style="width:' + (100/24).toFixed(2) + '%">';
+    html += '</colgroup>';
+
+    // Header row — hours
+    html += '<tr><th style="font-size:11px;color:var(--text-muted);text-align:left;padding:0 0 4px"></th>';
+    [0,3,6,9,12,15,18,21].forEach(function(h) {
+      html += '<th colspan="3" style="font-size:10px;color:var(--text-muted);font-weight:400;text-align:left;padding-bottom:4px">' + (h < 10 ? '0' : '') + h + ':00</th>';
+    });
+    html += '</tr>';
+
+    TP_DAYS.forEach(function(day) {
+      var blocks = (entry.schedule && entry.schedule[day]) || [];
+      html += '<tr style="height:36px">';
+      html += '<td style="font-size:11px;font-weight:600;color:var(--text-secondary);padding-right:4px;vertical-align:middle">' + TP_DAYNO[day] + '</td>';
+
+      // Build a pixel map of 24 hours = 24 cells (one per hour)
+      // For each hour, find which block covers it
+      for (var h = 0; h < 24; h++) {
+        var minStart = h * 60;
+        var minEnd   = (h + 1) * 60;
+        // Find block that covers this hour
+        var block = null, blockIdx = null;
+        for (var bi = 0; bi < blocks.length; bi++) {
+          var bFrom = tpToMin(blocks[bi].from);
+          var bTo   = tpToMin(blocks[bi].to);
+          if (bFrom < minEnd && bTo > minStart) { block = blocks[bi]; blockIdx = bi; break; }
+        }
+        var bg     = block ? tpTempColor(block.temp) : '#f0f0f0';
+        var label  = '';
+        if (block) {
+          // Only show label if this hour is the START of the block (avoid repetition)
+          var blockFromHour = Math.floor(tpToMin(block.from) / 60);
+          if (h === blockFromHour) {
+            label = block.temp + '°';
+            // Only show if the block is at least 2 hours wide
+            var blockWidthH = (tpToMin(block.to) - tpToMin(block.from)) / 60;
+            if (blockWidthH < 2) label = '';
+          }
+        }
+        var style = 'background:' + bg + ';border-right:1px solid rgba(255,255,255,.5);cursor:pointer;vertical-align:middle;text-align:center;font-size:11px;font-weight:600;color:rgba(0,0,0,.55);position:relative;';
+        var clickFn = block
+          ? 'tpClickBlock(\'' + entry.deviceId + '\',\'' + day + '\',' + blockIdx + ')'
+          : 'tpClickEmpty(\'' + entry.deviceId + '\',\'' + day + '\',' + minStart + ')';
+        html += '<td style="' + style + '" onclick="' + clickFn + '" title="' + (h < 10 ? '0' : '') + h + ':00' + (block ? ' — ' + block.temp + '°C' : ' (tomt)') + '">' + escHtml(label) + '</td>';
+      }
+      html += '</tr>';
+    });
+
+    html += '</table></div>';
+
+    // Legend
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">';
+    [[23,'≥23°C','#c0392b'],[21,'21–22°C','#e74c3c'],[19,'19–20°C','#e8944a'],[17,'17–18°C','#f1c40f'],[15,'15–16°C','#a0c4ff'],[0,'<15°C','#7fb3d3']].forEach(function(l) {
+      html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px"><div style="width:14px;height:14px;border-radius:3px;background:' + l[2] + '"></div>' + escHtml(l[1]) + '</div>';
+    });
+    html += '</div>';
+
+    html += '<div style="margin-top:12px"><button class="btn-secondary btn-small" onclick="tpCopyDayModal()">Kopier dag til alle dager</button></div>';
+
+    grid.innerHTML = html;
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────
+  function tpClickBlock(deviceId, day, blockIdx) {
+    var entry = _tpSchedules.find(function(s) { return s.deviceId === deviceId; });
+    if (!entry) return;
+    var block = (entry.schedule && entry.schedule[day] && entry.schedule[day][blockIdx]);
+    if (!block) return;
+    _tpEditDay      = day;
+    _tpEditBlockIdx = blockIdx;
+    document.getElementById('tp-modal-title').textContent = 'Rediger blokk — ' + TP_DAYNO[day];
+    document.getElementById('tp-modal-from').value = block.from;
+    document.getElementById('tp-modal-to').value   = block.to === '24:00' ? '23:59' : block.to;
+    document.getElementById('tp-modal-temp').value = block.temp;
+    document.getElementById('tp-modal-delete-btn').style.display = 'inline-block';
+    tpModalShow();
+  }
+
+  function tpClickEmpty(deviceId, day, fromMin) {
+    _tpEditDay      = day;
+    _tpEditBlockIdx = null;
+    document.getElementById('tp-modal-title').textContent = 'Legg til blokk — ' + TP_DAYNO[day];
+    document.getElementById('tp-modal-from').value = tpFromMin(fromMin);
+    document.getElementById('tp-modal-to').value   = tpFromMin(Math.min(fromMin + 60, 1439));
+    document.getElementById('tp-modal-temp').value = '20';
+    document.getElementById('tp-modal-delete-btn').style.display = 'none';
+    tpModalShow();
+  }
+
+  function tpModalShow() {
+    var b = document.getElementById('tp-modal-backdrop');
+    b.style.display = 'flex';
+  }
+  function tpModalClose() {
+    document.getElementById('tp-modal-backdrop').style.display = 'none';
+    _tpEditDay = null; _tpEditBlockIdx = null;
+  }
+
+  function tpModalSave() {
+    var fromRaw = document.getElementById('tp-modal-from').value;
+    var toRaw   = document.getElementById('tp-modal-to').value;
+    var temp    = parseFloat(document.getElementById('tp-modal-temp').value);
+    // Normalise "23:59" entered for midnight to "24:00"
+    var toVal = toRaw === '23:59' ? '24:00' : toRaw;
+    var fromMin = tpToMin(fromRaw), toMin = tpToMin(toVal === '24:00' ? '24:00' : toVal);
+    if (isNaN(temp) || temp < 5 || temp > 35) { alert('Temperatur må være mellom 5 og 35°C'); return; }
+    if (fromMin >= toMin) { alert('"Fra" må være før "Til"'); return; }
+
+    var entry = _tpSchedules.find(function(s) { return s.deviceId === _tpEditDeviceId; });
+    if (!entry) return;
+    if (!entry.schedule[_tpEditDay]) entry.schedule[_tpEditDay] = [];
+    var blocks = entry.schedule[_tpEditDay];
+
+    if (_tpEditBlockIdx !== null) {
+      blocks[_tpEditBlockIdx] = { from: fromRaw, to: toVal, temp: temp };
+    } else {
+      blocks.push({ from: fromRaw, to: toVal, temp: temp });
+    }
+
+    // Sort blocks by from-time
+    blocks.sort(function(a, b) { return tpToMin(a.from) - tpToMin(b.from); });
+
+    tpModalClose();
+    tpRenderWeekGrid(entry);
+    tpSave();
+  }
+
+  function tpModalDelete() {
+    var entry = _tpSchedules.find(function(s) { return s.deviceId === _tpEditDeviceId; });
+    if (!entry || _tpEditBlockIdx === null) return;
+    entry.schedule[_tpEditDay].splice(_tpEditBlockIdx, 1);
+    tpModalClose();
+    tpRenderWeekGrid(entry);
+    tpSave();
+  }
+
+  function tpCopyDayModal() {
+    var entry = _tpSchedules.find(function(s) { return s.deviceId === _tpEditDeviceId; });
+    if (!entry) return;
+    var srcDay = prompt('Kopier fra hvilken dag? (MO/TU/WE/TH/FR/SA/SU)', 'MO');
+    if (!srcDay || !TP_DAYS.includes(srcDay.toUpperCase())) { alert('Ugyldig dag'); return; }
+    srcDay = srcDay.toUpperCase();
+    var srcBlocks = (entry.schedule[srcDay] || []).map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; });
+    TP_DAYS.forEach(function(d) { if (d !== srcDay) entry.schedule[d] = srcBlocks.map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; }); });
+    tpRenderWeekGrid(entry);
+    tpSave();
+  }
+
+  // ── Persist ───────────────────────────────────────────────────────
+  function tpSave() {
+    hApi('POST', '/thermostat-schedules', _tpSchedules)
+      .then(function() { dbg('[TempPlan] Lagret'); })
+      .catch(function(e) { console.error('tpSave error:', e); });
+  }
+
 </script>
 
 <!-- Smart Price Control activation modal -->

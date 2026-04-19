@@ -651,4 +651,37 @@ module.exports = {
     await homey.app.activateMode(body.mode);
     return { ok: true };
   },
+
+  // ─── Section 16 — Thermostat Schedule ────────────────────────────────────
+
+  /** GET /thermostat-schedule-enabled — returns { enabled: bool } */
+  async getThermostatScheduleEnabled({ homey }) {
+    return { enabled: homey.settings.get('thermostatScheduleEnabled') ?? false };
+  },
+
+  /** POST /thermostat-schedule-enabled — body: { enabled: bool } */
+  async setThermostatScheduleEnabled({ homey, body }) {
+    if (!body || typeof body !== 'object') return { ok: false, error: 'Invalid body' };
+    const enabled = !!body.enabled;
+    homey.settings.set('thermostatScheduleEnabled', enabled);
+    if (homey.app && typeof homey.app._onThermostatScheduleEnabledChanged === 'function') {
+      homey.app._onThermostatScheduleEnabledChanged(enabled);
+    }
+    return { ok: true };
+  },
+
+  /** GET /thermostat-schedules — returns array of per-device schedules */
+  async getThermostatSchedules({ homey }) {
+    return homey.settings.get('thermostatSchedules') ?? [];
+  },
+
+  /** POST /thermostat-schedules — body: array of per-device schedules */
+  async setThermostatSchedules({ homey, body }) {
+    if (!Array.isArray(body)) return { ok: false, error: 'Body must be an array' };
+    homey.settings.set('thermostatSchedules', body);
+    if (homey.app && typeof homey.app._loadThermostatSchedules === 'function') {
+      homey.app._loadThermostatSchedules();
+    }
+    return { ok: true };
+  },
 };

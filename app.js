@@ -302,6 +302,13 @@ class PowerGuardApp extends Homey.App {
       this.error('Mode scheduler start error (non-fatal):', err);
     }
 
+    // Start thermostat schedule engine — non-fatal, additive feature
+    try {
+      this._startThermostatScheduler();
+    } catch (err) {
+      this.error('Thermostat scheduler start error (non-fatal):', err);
+    }
+
     // Initialize power consumption tracking after API is ready (don't call on startup, it fails)
     // It will populate when HAN readings arrive or when the tab is first opened
     this._writeDebugLog('===== APP STARTED =====' );
@@ -5349,6 +5356,7 @@ class PowerGuardApp extends Homey.App {
       '_queueProcessorInterval',
       '_priceEngineInterval',
       '_modeSchedulerInterval',
+      '_thermostatSchedulerInterval',
     ]) {
       if (this[key]) {
         clearInterval(this[key]);
@@ -6233,6 +6241,76 @@ class PowerGuardApp extends Homey.App {
         this.error('[Modes] Error re-applying mode after pref save:', err.message)
       );
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // █ SECTION 16 — THERMOSTAT SCHEDULE ENGINE                                    █
+  // ══════════════════════════════════════════════════════════════════
+  // Additive feature — does not touch any existing mitigation logic.
+  // Reads weekly temperature plans from settings and applies them to
+  // thermostats on a 1-minute tick.
+  //
+  // Integration with mitigation: NONE yet — this section only manages
+  // "desired setpoint" independently. Future: mitigation will read
+  // _thermostatSchedules to know the current intended temp before lowering.
+  // ══════════════════════════════════════════════════════════════════
+
+  _loadThermostatSchedules() {
+    this._thermostatSchedules     = this.homey.settings.get('thermostatSchedules')     ?? [];
+    this._thermostatScheduleEnabled = this.homey.settings.get('thermostatScheduleEnabled') ?? false;
+    this.log(`[ThermoSched] Loaded ${this._thermostatSchedules.length} schedule(s), enabled=${this._thermostatScheduleEnabled}`);
+  }
+
+  _onThermostatScheduleEnabledChanged(enabled) {
+    this._thermostatScheduleEnabled = enabled;
+    this.log(`[ThermoSched] ${enabled ? 'Enabled' : 'Disabled'}`);
+    if (enabled) this._thermostatScheduleTick().catch(() => {});
+  }
+
+  async _thermostatScheduleTick() {
+    if (!this._thermostatScheduleEnabled) return;
+    if (!this._api) return;
+    const { getCurrentTemp } = require('./common/thermostat-schedule');
+    const now = new Date();
+
+    for (const entry of (this._thermostatSchedules || [])) {
+      if (!entry.enabled || !entry.deviceId) continue;
+      const wantedTemp = getCurrentTemp(entry, now);
+      if (wantedTemp === null) continue; // No block for this time
+
+      try {
+        const device = await this._api.devices.getDevice({ id: entry.deviceId }).catch(() => null);
+        if (!device) continue;
+
+        // Do not override if PG currently has this device mitigated — mitigation takes priority.
+        const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
+        if (isMitigated) continue;
+
+        const caps = device.capabilities || [];
+        if (!caps.includes('target_temperature')) continue;
+
+        const obj       = device.capabilitiesObj || {};
+        const liveTemp  = obj.target_temperature?.value ?? null;
+
+        // Only write if the live value differs by more than 0.4°C to avoid noisy writes.
+        if (liveTemp !== null && Math.abs(liveTemp - wantedTemp) < 0.4) continue;
+
+        await device.setCapabilityValue({ capabilityId: 'target_temperature', value: wantedTemp });
+        this.log(`[ThermoSched] ${entry.deviceName || entry.deviceId}: ${liveTemp ?? '?'}°C → ${wantedTemp}°C`);
+      } catch (err) {
+        this.log(`[ThermoSched] Error for ${entry.deviceId}: ${err.message}`);
+      }
+    }
+  }
+
+  _startThermostatScheduler() {
+    this._loadThermostatSchedules();
+    // Run once immediately, then every 60 seconds
+    this._thermostatScheduleTick().catch(() => {});
+    this._thermostatSchedulerInterval = setInterval(() => {
+      this._thermostatScheduleTick().catch(() => {});
+    }, 60 * 1000);
+    this.log('[ThermoSched] Scheduler started');
   }
 
 }

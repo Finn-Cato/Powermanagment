@@ -443,6 +443,22 @@
     "getCarDevices": {
       "method": "GET",
       "path": "/car-devices"
+    },
+    "getThermostatScheduleEnabled": {
+      "method": "GET",
+      "path": "/thermostat-schedule-enabled"
+    },
+    "setThermostatScheduleEnabled": {
+      "method": "POST",
+      "path": "/thermostat-schedule-enabled"
+    },
+    "getThermostatSchedules": {
+      "method": "GET",
+      "path": "/thermostat-schedules"
+    },
+    "setThermostatSchedules": {
+      "method": "POST",
+      "path": "/thermostat-schedules"
     }
   },
   "flow": {
