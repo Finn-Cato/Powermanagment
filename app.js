@@ -1071,7 +1071,11 @@ class PowerGuardApp extends Homey.App {
     if (isNaN(rawValue)) return;
     const _tReading = Date.now();
 
-    // Cap negative power to 0 (solar export should not count as usage)
+    // Keep raw (possibly negative) value for display — solar export shows as negative W on the tile.
+    const displayW = rawValue;
+
+    // Cap negative power to 0 for all protection logic (solar export = not consuming from grid,
+    // so it should never trigger mitigation or count against the power limit).
     if (rawValue < 0) rawValue = 0;
 
     this._lastHanReading = Date.now();
@@ -1163,7 +1167,7 @@ class PowerGuardApp extends Homey.App {
     this._accumulateHourlyEnergy(rawValue);
 
     const smoothed = movingAverage(this._powerBuffer, this._settings.smoothingWindow);
-    this._updateVirtualDevice({ power: rawValue }).catch(() => {});  // raw = matches HAN sensor tile in real-time
+    this._updateVirtualDevice({ power: displayW }).catch(() => {});  // show actual W incl. negative (solar export)
     this._checkLimits(smoothed, rawValue).catch((err) => this.error('checkLimits error:', err));
     
     // Update power consumption for all devices
