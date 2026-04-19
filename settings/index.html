@@ -5518,38 +5518,38 @@
     var now = new Date();
     var nowPct = ((now.getHours() * 60 + now.getMinutes()) / 1440 * 100).toFixed(2);
     var todayIdx = (now.getDay() + 6) % 7; // 0=Mon … 6=Sun
-    var gridHours = [0, 3, 6, 9, 12, 15, 18, 21, 24];
+    var axisHours = [0, 3, 6, 9, 12, 15, 18, 21, 24];
 
     var html = '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Ukesoversikt \u2014 ' + escHtml(plan.name) + '</div>';
 
     TP_DAYS.forEach(function(day, i) {
       var blocks = (schedule[day] || []).slice().sort(function(a,b){ return tpToMin(a.from)-tpToMin(b.from); });
       var isToday = (i === todayIdx);
-      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">';
-      html += '<span style="font-size:12px;font-weight:700;color:' + (isToday ? '#e74c3c' : 'var(--text-secondary)') + ';min-width:28px;flex-shrink:0">' + TP_DAYNO[day] + '</span>';
-      html += '<div style="flex:1;position:relative">';
-      html += tpRenderTimeline(blocks);
-      // grid lines at every 3h (skip 0 and 24 — those are the edges)
-      gridHours.forEach(function(h) {
-        if (h === 0 || h === 24) return;
-        var pct = (h / 24 * 100).toFixed(2);
-        html += '<div style="position:absolute;top:0;bottom:0;left:' + pct + '%;width:1px;background:rgba(0,0,0,0.18);pointer-events:none"></div>';
-      });
+      // Today: full height bar, full opacity. Others: shorter, dimmed.
+      var barHeight = isToday ? '28px' : '16px';
+      var opacity   = isToday ? '1' : '0.45';
+      var labelColor = isToday ? '#e74c3c' : 'var(--text-muted)';
+      var labelSize  = isToday ? '13px' : '11px';
+      var marginBottom = isToday ? '6px' : '3px';
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + marginBottom + '">';
+      html += '<span style="font-size:' + labelSize + ';font-weight:700;color:' + labelColor + ';min-width:28px;flex-shrink:0">' + TP_DAYNO[day] + '</span>';
+      html += '<div style="flex:1;position:relative;opacity:' + opacity + '">';
+      html += tpRenderTimeline(blocks, barHeight);
       if (isToday) {
-        html += '<div style="position:absolute;top:-2px;bottom:-2px;left:' + nowPct + '%;width:2px;background:#e74c3c;border-radius:1px;pointer-events:none"></div>';
+        html += '<div style="position:absolute;top:-3px;bottom:-3px;left:' + nowPct + '%;width:3px;background:#e74c3c;border-radius:2px;pointer-events:none;box-shadow:0 0 4px rgba(231,76,60,.7)"></div>';
       }
       html += '</div>';
       html += '</div>';
     });
 
-    // Time axis: labels pinned at exact grid-line positions
-    html += '<div style="display:flex;gap:8px;margin-top:3px">';
+    // Time axis labels
+    html += '<div style="display:flex;gap:8px;margin-top:4px">';
     html += '<span style="min-width:28px;flex-shrink:0"></span>';
     html += '<div style="flex:1;position:relative;height:14px">';
-    gridHours.forEach(function(h) {
+    axisHours.forEach(function(h) {
       var pct = (h / 24 * 100).toFixed(2);
       var label = (h < 10 ? '0' : '') + h;
-      var align = h === 0 ? 'left:' + pct + '%' : h === 24 ? 'right:0%' : 'left:' + pct + '%;transform:translateX(-50%)';
+      var align = h === 0 ? 'left:0%' : h === 24 ? 'right:0%' : 'left:' + pct + '%;transform:translateX(-50%)';
       html += '<span style="position:absolute;' + align + ';font-size:10px;color:var(--text-muted)">' + label + '</span>';
     });
     html += '</div></div>';
@@ -5795,8 +5795,9 @@
     container.innerHTML = html;
   }
 
-  function tpRenderTimeline(blocks) {
-    var html = '<div style="display:flex;height:20px;border-radius:5px;overflow:hidden;background:#e0e0e0">';
+  function tpRenderTimeline(blocks, height) {
+    var h = height || '20px';
+    var html = '<div style="display:flex;height:' + h + ';border-radius:5px;overflow:hidden;background:#e0e0e0">';
     var segments = [];
     var cursor = 0;
     blocks.forEach(function(b) {
