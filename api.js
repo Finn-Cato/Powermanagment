@@ -670,17 +670,32 @@ module.exports = {
     return { ok: true };
   },
 
-  /** GET /thermostat-schedules — returns array of per-device schedules */
-  async getThermostatSchedules({ homey }) {
-    return homey.settings.get('thermostatSchedules') ?? [];
+  /** GET /thermostat-plans — returns { activePlanId, plans: [...] } */
+  async getThermostatPlans({ homey }) {
+    return homey.settings.get('thermostatPlans') ?? { activePlanId: null, plans: [] };
   },
 
-  /** POST /thermostat-schedules — body: array of per-device schedules */
-  async setThermostatSchedules({ homey, body }) {
-    if (!Array.isArray(body)) return { ok: false, error: 'Body must be an array' };
-    homey.settings.set('thermostatSchedules', body);
+  /** POST /thermostat-plans — body: { activePlanId, plans: [...] } */
+  async setThermostatPlans({ homey, body }) {
+    if (!body || typeof body !== 'object' || !Array.isArray(body.plans)) {
+      return { ok: false, error: 'Body must be { activePlanId, plans: [...] }' };
+    }
+    homey.settings.set('thermostatPlans', body);
     if (homey.app && typeof homey.app._loadThermostatSchedules === 'function') {
       homey.app._loadThermostatSchedules();
+    }
+    return { ok: true };
+  },
+
+  /** POST /thermostat-active-plan — body: { planId } */
+  async setActiveThermostatPlan({ homey, body }) {
+    if (!body || typeof body.planId !== 'string') return { ok: false, error: 'Missing planId' };
+    if (homey.app && typeof homey.app._setActiveThermostatPlan === 'function') {
+      homey.app._setActiveThermostatPlan(body.planId);
+    } else {
+      const data = homey.settings.get('thermostatPlans') ?? { activePlanId: null, plans: [] };
+      data.activePlanId = body.planId;
+      homey.settings.set('thermostatPlans', data);
     }
     return { ok: true };
   },

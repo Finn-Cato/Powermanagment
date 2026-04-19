@@ -2181,6 +2181,22 @@ class PowerGuardApp extends Homey.App {
         }
       });
     }
+
+    const actSetThermostatPlan = this.homey.flow.getActionCard('set_thermostat_plan');
+    if (actSetThermostatPlan) {
+      actSetThermostatPlan.registerArgumentAutocompleteListener('plan', async (query) => {
+        const data = this.homey.settings.get('thermostatPlans') ?? { plans: [] };
+        const plans = data.plans || [];
+        return plans
+          .filter(p => !query || p.name.toLowerCase().includes(query.toLowerCase()))
+          .map(p => ({ id: p.id, name: p.name }));
+      });
+      actSetThermostatPlan.registerRunListener(async (args) => {
+        const planId = args.plan && args.plan.id;
+        if (!planId) throw new Error('Ingen plan valgt');
+        this._setActiveThermostatPlan(planId);
+      });
+    }
   }
 
   _fireTrigger(id, tokens) {
@@ -6256,9 +6272,24 @@ class PowerGuardApp extends Homey.App {
   // ══════════════════════════════════════════════════════════════════
 
   _loadThermostatSchedules() {
-    this._thermostatSchedules     = this.homey.settings.get('thermostatSchedules')     ?? [];
+    const data = this.homey.settings.get('thermostatPlans') ?? { activePlanId: null, plans: [] };
+    this._thermostatPlans           = data.plans || [];
+    this._thermostatActivePlanId    = data.activePlanId || null;
     this._thermostatScheduleEnabled = this.homey.settings.get('thermostatScheduleEnabled') ?? false;
-    this.log(`[ThermoSched] Loaded ${this._thermostatSchedules.length} schedule(s), enabled=${this._thermostatScheduleEnabled}`);
+
+    // Flat device list from the active plan — used directly by the tick
+    const activePlan = this._thermostatPlans.find(p => p.id === this._thermostatActivePlanId);
+    this._thermostatSchedules = activePlan ? (activePlan.devices || []) : [];
+
+    this.log(`[ThermoSched] ${this._thermostatPlans.length} plan(s), active=${this._thermostatActivePlanId}, enabled=${this._thermostatScheduleEnabled}`);
+  }
+
+  _setActiveThermostatPlan(planId) {
+    const data = this.homey.settings.get('thermostatPlans') ?? { activePlanId: null, plans: [] };
+    data.activePlanId = planId;
+    this.homey.settings.set('thermostatPlans', data);
+    this._loadThermostatSchedules();
+    this.log(`[ThermoSched] Active plan → ${planId}`);
   }
 
   _onThermostatScheduleEnabledChanged(enabled) {
@@ -6274,9 +6305,9 @@ class PowerGuardApp extends Homey.App {
     const now = new Date();
 
     for (const entry of (this._thermostatSchedules || [])) {
-      if (!entry.enabled || !entry.deviceId) continue;
+      if (!entry.deviceId) continue;
       const wantedTemp = getCurrentTemp(entry, now);
-      if (wantedTemp === null) continue; // No block for this time
+      if (wantedTemp === null) continue;
 
       try {
         const device = await this._api.devices.getDevice({ id: entry.deviceId }).catch(() => null);
@@ -6289,10 +6320,9 @@ class PowerGuardApp extends Homey.App {
         const caps = device.capabilities || [];
         if (!caps.includes('target_temperature')) continue;
 
-        const obj       = device.capabilitiesObj || {};
-        const liveTemp  = obj.target_temperature?.value ?? null;
+        const obj      = device.capabilitiesObj || {};
+        const liveTemp = obj.target_temperature?.value ?? null;
 
-        // Only write if the live value differs by more than 0.4°C to avoid noisy writes.
         if (liveTemp !== null && Math.abs(liveTemp - wantedTemp) < 0.4) continue;
 
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: wantedTemp });
@@ -6305,7 +6335,6 @@ class PowerGuardApp extends Homey.App {
 
   _startThermostatScheduler() {
     this._loadThermostatSchedules();
-    // Run once immediately, then every 60 seconds
     this._thermostatScheduleTick().catch(() => {});
     this._thermostatSchedulerInterval = setInterval(() => {
       this._thermostatScheduleTick().catch(() => {});

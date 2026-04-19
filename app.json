@@ -452,13 +452,17 @@
       "method": "POST",
       "path": "/thermostat-schedule-enabled"
     },
-    "getThermostatSchedules": {
+    "getThermostatPlans": {
       "method": "GET",
-      "path": "/thermostat-schedules"
+      "path": "/thermostat-plans"
     },
-    "setThermostatSchedules": {
+    "setThermostatPlans": {
       "method": "POST",
-      "path": "/thermostat-schedules"
+      "path": "/thermostat-plans"
+    },
+    "setActiveThermostatPlan": {
+      "method": "POST",
+      "path": "/thermostat-active-plan"
     }
   },
   "flow": {
@@ -1140,6 +1144,31 @@
             "min": 10,
             "max": 100,
             "step": 5
+          }
+        ]
+      },
+      {
+        "id": "set_thermostat_plan",
+        "title": {
+          "en": "Set active temperature plan",
+          "no": "Sett aktiv temperaturplan"
+        },
+        "titleFormatted": {
+          "en": "Set active temperature plan to [[plan]]",
+          "no": "Sett aktiv temperaturplan til [[plan]]"
+        },
+        "args": [
+          {
+            "name": "plan",
+            "type": "autocomplete",
+            "title": {
+              "en": "Plan",
+              "no": "Plan"
+            },
+            "placeholder": {
+              "en": "Select plan…",
+              "no": "Velg plan…"
+            }
           }
         ]
       }
