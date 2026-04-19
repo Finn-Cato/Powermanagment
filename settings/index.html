@@ -1050,7 +1050,7 @@
         </div>
 
         <!-- Week grid editor -->
-        <div id="tp-editor-wrap" style="display:none">
+        <div id="tp-editor-wrap" style="display:block">
           <div class="card">
             <h2 id="tp-editor-title">Ukeplan</h2>
             <div id="tp-schedule-list"></div>
@@ -5440,6 +5440,7 @@
 
       _tpSelectedPlanId = _tpBackendActivePlanId || _tpPlans[0].id;
       tpRenderPlanBar();
+      tpOpenEditor();
       tpRenderDeviceList();
     }).catch(function() {});
   }
@@ -5541,9 +5542,10 @@
       if (_tpBackendActivePlanId === planId) _tpBackendActivePlanId = _tpPlans[0].id;
       if (_tpSelectedPlanId === planId) _tpSelectedPlanId = _tpPlans[0].id;
       _tpEditDeviceId = null;
-      document.getElementById('tp-editor-wrap').style.display = 'none';
+      _tpSelectedPlanId = _tpPlans[0].id;
       tpSave();
       tpRenderPlanBar();
+      tpOpenEditor();
       tpRenderDeviceList();
     });
   }
