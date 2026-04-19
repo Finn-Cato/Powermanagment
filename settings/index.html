@@ -241,7 +241,7 @@
       <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Pris</span></button>
       <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🔄</span><span class="tab-label">Modus</span></button>
       <button class="tab-btn"        id="tb-ev"          onclick="showTab('ev')"><span class="tab-icon">🔌</span><span class="tab-label">Lader</span></button>
-      <button class="tab-btn"        id="tb-tempplan"    onclick="showTab('tempplan')"><span class="tab-icon">📅</span><span class="tab-label">Temperaturplan</span></button>
+      <button class="tab-btn"        id="tb-tempplan"    onclick="showTab('tempplan')" style="display:none"><span class="tab-icon">📅</span><span class="tab-label">Temperaturplan</span></button>
     </div>
 
     <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
@@ -343,6 +343,16 @@
           </div>
         </div>
         <div style="font-size:12px;color:var(--text-muted);line-height:1.5;" data-i18n="smartPriceDescription">Automatically adjusts EV charger speed and other controllable loads based on the current spot price of electricity — charging fast when power is cheap, slowing down when it's expensive. Power Guard's hard safety limit always takes priority.</div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="margin-bottom:8px;">
+          <div class="label-group"><label style="font-size:16px;font-weight:600;">Avansert termostatstyrting</label></div>
+          <div class="control">
+            <label class="toggle"><input type="checkbox" id="tp-main-toggle" onchange="tpToggleEnabled(this.checked)"><span class="slider"></span></label>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Lar deg sette opp en ukentlig temperaturplan per termostat. Power Guard setter automatisk ønsket temperatur til riktig tid — og overstyrer midlertidig ved behov for å holde effektforbruket under grensen. Eksisterende planer i POTH eller flows fortsetter å fungere som normalt.</div>
       </div>
 
       <div class="card">
@@ -1025,23 +1035,7 @@
     <!-- ── Temperaturplan tab ─────────────────────────────────────────────── -->
     <div id="tab-tempplan" style="display:none">
 
-      <div class="card" style="margin-bottom:12px">
-        <h2>📅 Temperaturplan</h2>
-        <div class="row">
-          <div class="label-group">
-            <label>Aktiver avansert termostatstyrting</label>
-            <div class="hint">Slår på ukentlig temperaturplan. Planen kjøres hvert minutt og setter ønsket temperatur automatisk. Power Guard vil fortsatt overstyre ved behov.</div>
-          </div>
-          <div class="control">
-            <label class="toggle-switch">
-              <input type="checkbox" id="tp-enabled-toggle" onchange="tpToggleEnabled(this.checked)">
-              <span class="toggle-track"><span class="toggle-thumb"></span></span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div id="tp-content" style="display:none">
+      <div id="tp-content" style="display:block">
         <div class="card" style="margin-bottom:12px">
           <h2>Enheter i planen</h2>
           <div class="hint" style="margin-bottom:12px;color:var(--text-muted);font-size:12px">
@@ -4038,6 +4032,14 @@
           // Load overview-specific data (price control toggle + active mode badge)
           loadPriceData();
           loadModesSettings();
+          // Restore Temperaturplan toggle + tab visibility
+          hApi('GET', '/thermostat-schedule-enabled', null).then(function(res) {
+            var on = !!(res && res.enabled);
+            var tog = document.getElementById('tp-main-toggle');
+            if (tog) tog.checked = on;
+            var tabBtn = document.getElementById('tb-tempplan');
+            if (tabBtn) tabBtn.style.display = on ? '' : 'none';
+          }).catch(function() {});
         })
         .catch(function(err) {
           dbg('Initial load error: ' + (err.message || err));
@@ -5330,7 +5332,15 @@
 
   function tpToggleEnabled(val) {
     _tpEnabled = val;
+    // Sync the toggle inside the Temperaturplan tab too
+    var tabToggle = document.getElementById('tp-enabled-toggle');
+    if (tabToggle) tabToggle.checked = val;
+    var mainToggle = document.getElementById('tp-main-toggle');
+    if (mainToggle) mainToggle.checked = val;
     document.getElementById('tp-content').style.display = val ? 'block' : 'none';
+    // Show/hide the tab button in the tab bar
+    var tabBtn = document.getElementById('tb-tempplan');
+    if (tabBtn) tabBtn.style.display = val ? '' : 'none';
     hApi('POST', '/thermostat-schedule-enabled', { enabled: val })
       .catch(function() {});
     if (val) tpLoadSchedules();
