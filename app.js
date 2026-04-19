@@ -6179,6 +6179,15 @@ class PowerGuardApp extends Homey.App {
       this._appLogEntry('charger', `[Modes] Applying mode="${mode}" to ${priorityList.length} entries. Prefs keys: ${Object.keys(prefs).length}`);
     }
 
+    // Build set of device IDs exclusively controlled by the active thermostat plan.
+    // Modus must not override their temperature — the scheduler owns that.
+    const _tpData = this.homey.settings.get('thermostatPlans');
+    const _tpEnabled = this.homey.settings.get('thermostatScheduleEnabled');
+    const _tpActivePlan = _tpData && _tpEnabled && _tpData.activePlanId
+      ? (_tpData.plans || []).find(p => p.id === _tpData.activePlanId)
+      : null;
+    const _tpDeviceIds = new Set(_tpActivePlan ? (_tpActivePlan.devices || []).map(d => d.deviceId) : []);
+
     for (const entry of priorityList) {
       // If called from a single-device pref change, only process that device
       if (filterDeviceId && entry.deviceId !== filterDeviceId) continue;
@@ -6191,12 +6200,22 @@ class PowerGuardApp extends Homey.App {
       try {
         const action = entry.action;
         if (action === 'target_temperature') {
+          // Skip devices owned by the active thermostat plan — scheduler controls their temp
+          if (_tpDeviceIds.has(entry.deviceId)) {
+            this._appLogEntry('charger', `[Modes] SKIP ${entry.name}: styrt av temperaturplan`);
+            continue;
+          }
           if (modePref.value === 'off') {
             await this.controlFloorHeater(entry.deviceId, 'off');
           } else {
             await this.controlFloorHeater(entry.deviceId, 'setTarget', modePref.value);
           }
         } else if (action === 'hoiax_power') {
+          // Skip devices owned by the active thermostat plan
+          if (_tpDeviceIds.has(entry.deviceId)) {
+            this._appLogEntry('charger', `[Modes] SKIP ${entry.name}: styrt av temperaturplan`);
+            continue;
+          }
           await this.controlFloorHeater(entry.deviceId, 'setHoiax', modePref.value);
         } else if (action === 'onoff') {
           const wantOn = modePref.value === 'on';
