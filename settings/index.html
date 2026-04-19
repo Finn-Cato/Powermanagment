@@ -5657,16 +5657,17 @@
       var isOpen = _tpOpenDay === day;
 
       // ─ Day header row (always visible, clickable) ─
-      html += '<div style="margin-bottom:' + (isOpen ? '2px' : '6px') + '">';
-      html += '<div onclick="tpToggleDay(\'' + day + '\')" style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:6px 4px;border-radius:8px;background:' + (isOpen ? 'var(--card-bg,#f4f4f4)' : 'transparent') + ';user-select:none">';
-      html += '<span style="font-size:13px;font-weight:700;color:var(--text-secondary);min-width:30px">' + TP_DAYNO[day] + '</span>';
+      var borderCol = isOpen ? '#e67e22' : 'transparent';
+      html += '<div style="margin-bottom:6px;border:2px solid ' + borderCol + ';border-radius:10px;overflow:hidden;transition:border-color .2s">';
+      html += '<div onclick="tpToggleDay(\'' + day + '\')" style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 10px;background:' + (isOpen ? 'rgba(230,126,34,.08)' : 'transparent') + ';user-select:none">';
+      html += '<span style="font-size:13px;font-weight:700;color:' + (isOpen ? '#e67e22' : 'var(--text-secondary)') + ';min-width:30px">' + TP_DAYNO[day] + '</span>';
       html += '<div style="flex:1">' + tpRenderTimeline(blocks) + '</div>';
-      html += '<span style="font-size:11px;color:var(--text-muted);margin-left:4px">' + (isOpen ? '▲' : '▼') + '</span>';
+      html += '<span style="font-size:11px;color:' + (isOpen ? '#e67e22' : 'var(--text-muted)') + ';margin-left:4px">' + (isOpen ? '▲' : '▼') + '</span>';
       html += '</div>';
 
       // ─ Expanded inline editor ─
       if (isOpen) {
-        html += '<div style="background:var(--card-bg,#f8f8f8);border-radius:0 0 10px 10px;padding:8px 12px 12px;margin-bottom:8px;border-top:1px solid rgba(0,0,0,.06)">';
+        html += '<div style="padding:8px 12px 14px;border-top:2px solid rgba(230,126,34,.25)">';
 
         // Period rows
         blocks.forEach(function(block, idx) {
@@ -5688,8 +5689,8 @@
 
         // Copy-to section
         var anySelected = TP_DAYS.some(function(d) { return d !== day && _tpCopyToDays[d]; });
-        html += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)">';
-        html += '<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Kopier til dag</div>';
+        html += '<div style="margin-top:10px;padding:10px;background:rgba(230,126,34,.06);border-radius:8px;border:1px solid rgba(230,126,34,.2)">';
+        html += '<div style="font-size:11px;font-weight:600;color:#e67e22;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Kopier til dag</div>';
         html += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
         TP_DAYS.forEach(function(d) {
           if (d === day) return;
@@ -5697,18 +5698,18 @@
           html += '<button onclick="tpToggleCopyDay(\'' + d + '\')" style="'
             + 'padding:5px 13px;font-size:12px;font-weight:600;border-radius:8px;border:2px solid '
             + (sel ? '#e67e22' : 'rgba(255,255,255,.15)')
-            + ';background:' + (sel ? 'rgba(230,126,34,.2)' : 'transparent')
+            + ';background:' + (sel ? 'rgba(230,126,34,.25)' : 'transparent')
             + ';color:' + (sel ? '#e67e22' : 'var(--text-secondary)')
-            + ';cursor:pointer;transition:all .15s">'
+            + ';cursor:pointer">'
             + TP_DAYNO[d] + '</button>';
         });
         if (anySelected) {
           html += '<button onclick="tpDoCopy(\'' + day + '\')" style="'
-            + 'padding:5px 16px;font-size:12px;font-weight:700;border-radius:8px;border:none;'
-            + 'background:#e67e22;color:#fff;cursor:pointer;margin-left:6px">Kopier</button>';
+            + 'padding:5px 18px;font-size:12px;font-weight:700;border-radius:8px;border:none;'
+            + 'background:#e67e22;color:#fff;cursor:pointer;margin-left:4px">Kopier</button>';
         }
         html += '</div>';
-        html += '</div>';
+        html += '</div>'; // copy box
 
         html += '</div>'; // expanded
       }
