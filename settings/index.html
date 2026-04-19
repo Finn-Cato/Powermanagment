@@ -3321,6 +3321,11 @@
 
         list.innerHTML = heaters.map(function(h) {
           var isOn = !!h.isOn;
+          var _fhPlanInfo = tpGetActivePlanInfo();
+          var _fhPlanControlled = _fhPlanInfo.ids.has(h.deviceId);
+          var _fhPlanBadge = _fhPlanControlled
+            ? '<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:#3b82f6;white-space:nowrap;">Styrt av plan: ' + escHtml(_fhPlanInfo.name) + '</span>'
+            : '';
           // Show as "drawing" (orange highlight) if we have positive wattage,
           // OR if the device is on but has no power sensor (fall back to onoff state).
           var hasPowerData = h.currentPowerW != null;
@@ -3371,11 +3376,11 @@
           return '<div class="heater-row' + (drawing ? ' is-on' : '') + '">' +
             '<span class="h-dot"></span>' +
             '<div class="h-info">' +
-              '<div class="h-name">' + escHtml(h.name) + modeLabel + '</div>' +
+              '<div class="h-name">' + escHtml(h.name) + modeLabel + (_fhPlanBadge ? ' ' + _fhPlanBadge : '') + '</div>' +
               '<div class="h-cur"><span style="color:var(--text-muted);font-size:10px;">Romtemp:</span> <b>' + cur + '</b>' + (h.hasTargetTemp ? ' <span style="color:var(--text-muted);margin:0 3px;">|</span> <span style="color:var(--text-muted);font-size:10px;">Settpunkt:</span> ' + tgtVal + '\u00b0' : '') + pwrLabel + '</div>' +
               pgLine +
             '</div>' +
-            '<div class="h-controls">' +
+            '<div class="h-controls"' + (_fhPlanControlled ? ' style="opacity:0.4;pointer-events:none;"' : '') + '>' +
               (h.hasTargetTemp ? '<span class="h-stepper" data-id="' + id + '"><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',-0.5)">&minus;</button><span class="h-temp-val' + (isDirty ? ' is-dirty' : '') + '" id="temp-' + id + '">' + displayVal + '</span><button class="h-step-btn" onclick="stepTemp(\'' + id + '\',0.5)">+</button></span><button class="h-set-btn" id="set-' + id + '" onclick="setHeaterTemp(\'' + id + '\')" title="Apply temperature">' + t('set') + '</button>' : '') +
               (h.hasOnOff ? '<label class="h-toggle"><input type="checkbox"' + chk + ' onchange="controlHeater(\'' + id + '\', this.checked?\'on\':\'off\')" /><span class="h-track"></span><span class="h-thumb"></span></label>' : '') +
             '</div>' +
@@ -4057,6 +4062,7 @@
           // Load overview-specific data (price control toggle + active mode badge)
           loadPriceData();
           loadModesSettings();
+          tpPrefetchPlans();
           // Restore Temperaturplan toggle + tab visibility
           hApi('GET', '/thermostat-schedule-enabled', null).then(function(res) {
             var on = !!(res && res.enabled);
@@ -5147,8 +5153,13 @@
       }
     }
 
+    var _planInfo = tpGetActivePlanInfo();
+    var _planControlled = action === 'target_temperature' && _planInfo.ids.has(entry.deviceId);
+    var _planBadge = _planControlled
+      ? ' <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:rgba(59,130,246,.15);color:#3b82f6;white-space:nowrap;">Styrt av plan: ' + escHtml(_planInfo.name) + '</span>'
+      : '';
     var row = '<div class="heater-row' + (drawing ? ' is-on' : '') + '" style="justify-content:space-between;">';
-    row += '<div><div style="font-size:13px;font-weight:600;">' + escHtml(entry.name) + modeLabel + '</div>';
+    row += '<div><div style="font-size:13px;font-weight:600;">' + escHtml(entry.name) + modeLabel + _planBadge + '</div>';
     var phaseInfo = '';
     if (action === 'charge_pause' || action === 'dynamic_current') {
       var ph = entry.detectedPhases || entry.chargerPhases;
@@ -5157,7 +5168,7 @@
     }
     row += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + actionLabel + phaseInfo + (lt && !liveTempStr ? pwrLabel : '') + '</div>' + liveTempStr + mitigLabel + '</div>';
     var pgOverride = lt && lt.mitigated;
-    row += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;">';
+    row += '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;' + (_planControlled ? 'opacity:0.4;pointer-events:none;' : '') + '">';
     row += '<div style="display:flex;align-items:center;gap:6px;' + (pgOverride ? 'opacity:0.4;pointer-events:none;' : '') + '">';
 
     if (action === 'target_temperature') {
@@ -5313,6 +5324,24 @@
 
   var _tpPlans               = [];   // [{ id, name, devices:[{deviceId,deviceName,schedule}] }]
   var _tpBackendActivePlanId = null; // plan the scheduler actually runs
+
+  function tpPrefetchPlans() {
+    if (_tpPlans.length > 0) return;
+    hApi('GET', '/thermostat-plans', null).then(function(data) {
+      if (_tpPlans.length > 0) return; // loaded in meantime via tab open
+      _tpPlans = (data && Array.isArray(data.plans)) ? data.plans : [];
+      _tpBackendActivePlanId = (data && data.activePlanId) || null;
+    }).catch(function() {});
+  }
+
+  function tpGetActivePlanInfo() {
+    var activePlan = _tpPlans.find(function(p) { return p.id === _tpBackendActivePlanId; });
+    if (!activePlan) return { ids: new Set(), name: '' };
+    return {
+      ids: new Set((activePlan.devices || []).map(function(d) { return d.deviceId; })),
+      name: activePlan.name || ''
+    };
+  }
   var _tpSelectedPlanId      = null; // plan shown in UI
   var _tpEditDeviceId        = null;
   var _tpEditDay             = null;
