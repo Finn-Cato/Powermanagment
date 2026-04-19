@@ -1096,6 +1096,38 @@
         </div>
       </div>
 
+      <!-- Modal: plan name (new / rename) -->
+      <div id="tp-name-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+          <h2 style="margin-bottom:14px;font-size:16px" id="tp-name-title">Navn på plan</h2>
+          <input type="text" id="tp-name-input" maxlength="40" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--input-border);border-radius:8px;font-size:14px;margin-bottom:16px">
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" style="flex:1" onclick="tpNameModalSave()">Lagre</button>
+            <button class="btn-secondary" style="flex:1" onclick="tpNameModalClose()">Avbryt</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: device picker -->
+      <div id="tp-picker-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:16px;padding:24px;width:320px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+          <h2 style="margin-bottom:14px;font-size:16px">Legg til enhet</h2>
+          <div id="tp-picker-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
+          <button class="btn-secondary" style="width:100%" onclick="tpPickerClose()">Avbryt</button>
+        </div>
+      </div>
+
+      <!-- Modal: confirm -->
+      <div id="tp-confirm-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
+        <div style="background:#fff;border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+          <p id="tp-confirm-msg" style="font-size:14px;margin-bottom:20px;line-height:1.5"></p>
+          <div style="display:flex;gap:8px">
+            <button class="btn-primary" style="flex:1" onclick="tpConfirmOk()">Ja, slett</button>
+            <button class="btn-secondary" style="flex:1" onclick="tpConfirmClose()">Avbryt</button>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /#tab-tempplan -->
 
 
@@ -5340,12 +5372,80 @@
     return 'plan_' + Math.random().toString(36).slice(2, 9);
   }
 
+  // ── Modal helpers ─────────────────────────────────────────────────
+  var _tpNameModalCallback   = null;
+  var _tpConfirmCallback     = null;
+
+  function tpNameModalOpen(title, defaultVal, callback) {
+    _tpNameModalCallback = callback;
+    document.getElementById('tp-name-title').textContent = title;
+    document.getElementById('tp-name-input').value = defaultVal || '';
+    var bd = document.getElementById('tp-name-backdrop');
+    bd.style.display = 'flex';
+    setTimeout(function() { document.getElementById('tp-name-input').focus(); }, 50);
+  }
+  function tpNameModalSave() {
+    var val = (document.getElementById('tp-name-input').value || '').trim();
+    if (!val) return;
+    tpNameModalClose();
+    if (_tpNameModalCallback) _tpNameModalCallback(val);
+  }
+  function tpNameModalClose() {
+    document.getElementById('tp-name-backdrop').style.display = 'none';
+    _tpNameModalCallback = null;
+  }
+  // Allow Enter key in name input
+  document.getElementById('tp-name-input') && document.getElementById('tp-name-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') tpNameModalSave();
+    if (e.key === 'Escape') tpNameModalClose();
+  });
+
+  function tpPickerOpen(devices, callback) {
+    var list = document.getElementById('tp-picker-list');
+    list.innerHTML = '';
+    devices.forEach(function(dev) {
+      var btn = document.createElement('button');
+      btn.className = 'btn-secondary';
+      btn.style.cssText = 'width:100%;text-align:left;padding:10px 14px;font-size:14px';
+      btn.textContent = dev.name || dev.deviceId;
+      btn.onclick = function() { tpPickerClose(); callback(dev); };
+      list.appendChild(btn);
+    });
+    document.getElementById('tp-picker-backdrop').style.display = 'flex';
+  }
+  function tpPickerClose() {
+    document.getElementById('tp-picker-backdrop').style.display = 'none';
+  }
+
+  function tpConfirmOpen(msg, callback) {
+    _tpConfirmCallback = callback;
+    document.getElementById('tp-confirm-msg').textContent = msg;
+    document.getElementById('tp-confirm-backdrop').style.display = 'flex';
+  }
+  function tpConfirmOk() {
+    tpConfirmClose();
+    if (_tpConfirmCallback) _tpConfirmCallback();
+  }
+  function tpConfirmClose() {
+    document.getElementById('tp-confirm-backdrop').style.display = 'none';
+    _tpConfirmCallback = null;
+  }
+
   // ── Load / init ──────────────────────────────────────────────────
   function tpLoadTab() {
     hApi('GET', '/thermostat-plans', null).then(function(data) {
       _tpPlans = (data && Array.isArray(data.plans)) ? data.plans : [];
       _tpBackendActivePlanId = (data && data.activePlanId) || null;
-      _tpSelectedPlanId = _tpBackendActivePlanId || (_tpPlans.length > 0 ? _tpPlans[0].id : null);
+
+      // Auto-create default plan on first use
+      if (_tpPlans.length === 0) {
+        var defaultPlan = { id: tpGenId(), name: 'Hjemme', devices: [] };
+        _tpPlans.push(defaultPlan);
+        _tpBackendActivePlanId = defaultPlan.id;
+        tpSave();
+      }
+
+      _tpSelectedPlanId = _tpBackendActivePlanId || _tpPlans[0].id;
       tpRenderPlanBar();
       tpRenderDeviceList();
     }).catch(function() {});
@@ -5414,39 +5514,40 @@
   }
 
   function tpNewPlan() {
-    var name = prompt('Navn på ny plan:', 'Min plan');
-    if (!name || !name.trim()) return;
-    var plan = { id: tpGenId(), name: name.trim(), devices: [] };
-    _tpPlans.push(plan);
-    _tpSelectedPlanId = plan.id;
-    if (_tpPlans.length === 1) _tpBackendActivePlanId = plan.id;
-    tpSave();
-    tpRenderPlanBar();
-    tpRenderDeviceList();
+    tpNameModalOpen('Navn på ny plan', 'Min plan', function(name) {
+      var plan = { id: tpGenId(), name: name, devices: [] };
+      _tpPlans.push(plan);
+      _tpSelectedPlanId = plan.id;
+      if (_tpPlans.length === 1) _tpBackendActivePlanId = plan.id;
+      tpSave();
+      tpRenderPlanBar();
+      tpRenderDeviceList();
+    });
   }
 
   function tpRenamePlan(planId) {
     var plan = _tpPlans.find(function(p) { return p.id === planId; });
     if (!plan) return;
-    var newName = prompt('Nytt navn:', plan.name);
-    if (!newName || !newName.trim()) return;
-    plan.name = newName.trim();
-    tpSave();
-    tpRenderPlanBar();
-    tpRenderDeviceList();
+    tpNameModalOpen('Gi planen nytt navn', plan.name, function(name) {
+      plan.name = name;
+      tpSave();
+      tpRenderPlanBar();
+      tpRenderDeviceList();
+    });
   }
 
   function tpDeletePlan(planId) {
-    if (_tpPlans.length <= 1) { alert('Du kan ikke slette den eneste planen.'); return; }
-    if (!confirm('Slette denne planen? Enheter i planen må legges inn på nytt.')) return;
-    _tpPlans = _tpPlans.filter(function(p) { return p.id !== planId; });
-    if (_tpBackendActivePlanId === planId) _tpBackendActivePlanId = _tpPlans[0].id;
-    if (_tpSelectedPlanId === planId) _tpSelectedPlanId = _tpPlans[0].id;
-    _tpEditDeviceId = null;
-    document.getElementById('tp-editor-wrap').style.display = 'none';
-    tpSave();
-    tpRenderPlanBar();
-    tpRenderDeviceList();
+    if (_tpPlans.length <= 1) return; // Slett-knappen vises ikke når bare én plan
+    tpConfirmOpen('Slette denne planen? Enheter i planen må legges inn på nytt.', function() {
+      _tpPlans = _tpPlans.filter(function(p) { return p.id !== planId; });
+      if (_tpBackendActivePlanId === planId) _tpBackendActivePlanId = _tpPlans[0].id;
+      if (_tpSelectedPlanId === planId) _tpSelectedPlanId = _tpPlans[0].id;
+      _tpEditDeviceId = null;
+      document.getElementById('tp-editor-wrap').style.display = 'none';
+      tpSave();
+      tpRenderPlanBar();
+      tpRenderDeviceList();
+    });
   }
 
   // ── Device list ──────────────────────────────────────────────────
@@ -5497,7 +5598,7 @@
 
   function tpAddDevice() {
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
-    if (!plan) { alert('Velg en plan først.'); return; }
+    if (!plan) return;
 
     hApi('GET', '/all', null).then(function(data) {
       var priorityList  = (data.settings && data.settings.priorityList) || [];
@@ -5512,34 +5613,31 @@
       var available = thermoDevices.filter(function(d) { return !usedIds.includes(d.deviceId); });
 
       if (available.length === 0) {
-        alert('Alle tilgjengelige termostater er allerede lagt til i en plan.');
+        tpConfirmOpen('Alle tilgjengelige termostater er allerede lagt til i en plan.', function() {});
+        document.getElementById('tp-confirm-backdrop').querySelector('.btn-primary').style.display = 'none';
         return;
       }
 
-      var msg = 'Velg enhet å legge til (skriv nummer):\n';
-      available.forEach(function(d, i) { msg += (i + 1) + '. ' + (d.name || d.deviceId) + '\n'; });
-      var ans = prompt(msg);
-      if (!ans) return;
-      var idx = parseInt(ans, 10) - 1;
-      if (isNaN(idx) || idx < 0 || idx >= available.length) { alert('Ugyldig valg'); return; }
-      var dev = available[idx];
-      plan.devices.push({ deviceId: dev.deviceId, deviceName: dev.name || dev.deviceId, schedule: tpDefaultSchedule(20) });
-      tpSave();
-      tpRenderDeviceList();
-    }).catch(function() { alert('Kunne ikke hente enheter.'); });
+      tpPickerOpen(available, function(dev) {
+        plan.devices.push({ deviceId: dev.deviceId, deviceName: dev.name || dev.deviceId, schedule: tpDefaultSchedule(20) });
+        tpSave();
+        tpRenderDeviceList();
+      });
+    }).catch(function() {});
   }
 
   function tpRemoveDevice(deviceId) {
-    if (!confirm('Fjerne enheten fra planen?')) return;
-    var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
-    if (!plan) return;
-    plan.devices = plan.devices.filter(function(d) { return d.deviceId !== deviceId; });
-    if (_tpEditDeviceId === deviceId) {
-      _tpEditDeviceId = null;
-      document.getElementById('tp-editor-wrap').style.display = 'none';
-    }
-    tpSave();
-    tpRenderDeviceList();
+    tpConfirmOpen('Fjerne enheten fra planen?', function() {
+      var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
+      if (!plan) return;
+      plan.devices = plan.devices.filter(function(d) { return d.deviceId !== deviceId; });
+      if (_tpEditDeviceId === deviceId) {
+        _tpEditDeviceId = null;
+        document.getElementById('tp-editor-wrap').style.display = 'none';
+      }
+      tpSave();
+      tpRenderDeviceList();
+    });
   }
 
   // ── Editor ────────────────────────────────────────────────────────
