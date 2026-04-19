@@ -241,7 +241,7 @@
       <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Pris</span></button>
       <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🔄</span><span class="tab-label">Modus</span></button>
       <button class="tab-btn"        id="tb-ev"          onclick="showTab('ev')"><span class="tab-icon">🔌</span><span class="tab-label">Lader</span></button>
-      <button class="tab-btn"        id="tb-tempplan"    onclick="showTab('tempplan')" style="display:none"><span class="tab-icon">📅</span><span class="tab-label">Temperaturplan</span></button>
+      <button class="tab-btn"        id="tb-tempplan"    onclick="showTab('tempplan')"><span class="tab-icon">📅</span><span class="tab-label">Temperaturplan</span></button>
     </div>
 
     <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
@@ -4038,11 +4038,6 @@
           // Load overview-specific data (price control toggle + active mode badge)
           loadPriceData();
           loadModesSettings();
-          // Show/hide Temperaturplan tab based on saved setting
-          hApi('GET', '/thermostat-schedule-enabled', null).then(function(res) {
-            var tabBtn = document.getElementById('tb-tempplan');
-            if (tabBtn) tabBtn.style.display = (res && res.enabled) ? '' : 'none';
-          }).catch(function() {});
         })
         .catch(function(err) {
           dbg('Initial load error: ' + (err.message || err));
@@ -5339,9 +5334,6 @@
     hApi('POST', '/thermostat-schedule-enabled', { enabled: val })
       .catch(function() {});
     if (val) tpLoadSchedules();
-    // Show/hide tab button in tab bar
-    var tabBtn = document.getElementById('tb-tempplan');
-    if (tabBtn) tabBtn.style.display = val ? '' : 'none';
   }
 
   function tpLoadSchedules() {
