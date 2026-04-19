@@ -5514,14 +5514,36 @@
     if (!plan) { if (cardEl) cardEl.style.display = 'none'; return; }
     if (cardEl) cardEl.style.display = 'block';
     var schedule = plan.schedule || {};
-    var html = '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Ukesoversikt — ' + escHtml(plan.name) + '</div>';
-    TP_DAYS.forEach(function(day) {
+
+    var now = new Date();
+    var nowPct = ((now.getHours() * 60 + now.getMinutes()) / 1440 * 100).toFixed(2);
+    var todayIdx = (now.getDay() + 6) % 7; // 0=Mon … 6=Sun
+
+    var html = '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Ukesoversikt \u2014 ' + escHtml(plan.name) + '</div>';
+
+    TP_DAYS.forEach(function(day, i) {
       var blocks = (schedule[day] || []).slice().sort(function(a,b){ return tpToMin(a.from)-tpToMin(b.from); });
+      var isToday = (i === todayIdx);
       html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
-      html += '<span style="font-size:12px;font-weight:700;color:var(--text-secondary);min-width:28px;flex-shrink:0">' + TP_DAYNO[day] + '</span>';
-      html += '<div style="flex:1">' + tpRenderTimeline(blocks) + '</div>';
+      html += '<span style="font-size:12px;font-weight:700;color:' + (isToday ? '#e74c3c' : 'var(--text-secondary)') + ';min-width:28px;flex-shrink:0">' + TP_DAYNO[day] + '</span>';
+      html += '<div style="flex:1;position:relative">';
+      html += tpRenderTimeline(blocks);
+      if (isToday) {
+        html += '<div style="position:absolute;top:-2px;bottom:-2px;left:' + nowPct + '%;width:2px;background:#e74c3c;border-radius:1px;pointer-events:none"></div>';
+      }
+      html += '</div>';
       html += '</div>';
     });
+
+    // Time axis aligned with timelines
+    html += '<div style="display:flex;gap:8px;margin-top:2px">';
+    html += '<span style="min-width:28px;flex-shrink:0"></span>';
+    html += '<div style="flex:1;display:flex;justify-content:space-between">';
+    ['00', '06', '12', '18', '24'].forEach(function(h) {
+      html += '<span style="font-size:10px;color:var(--text-muted)">' + h + '</span>';
+    });
+    html += '</div></div>';
+
     summaryEl.innerHTML = html;
   }
 
