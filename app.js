@@ -6372,10 +6372,27 @@ class PowerGuardApp extends Homey.App {
         }
 
         // Do not override if PG currently has this device mitigated — mitigation takes priority.
-        const isMitigated = this._mitigatedDevices.some(m => m.deviceId === entry.deviceId);
-        if (isMitigated) {
-          this._appLogEntry('thermostat', `[Scheduler] SKIP ${entry.deviceName}: mitigert av PG`);
-          continue;
+        // Exception: if the device has been mitigated for >5 minutes and is currently drawing
+        // <50W (the setpoint reduction already worked), release it so the plan can take over.
+        // Keeping a 0W thermostat mitigated saves nothing and prevents the plan from running.
+        const mitigIdx = this._mitigatedDevices.findIndex(m => m.deviceId === entry.deviceId);
+        if (mitigIdx >= 0) {
+          const m = this._mitigatedDevices[mitigIdx];
+          const mitigAgeMs = Date.now() - (m.mitigatedAt || 0);
+          const obj0 = device.capabilitiesObj || {};
+          const livePw = (obj0.measure_power?.value) ?? null;
+          const isIdle = livePw !== null && livePw < 50;
+          if (isIdle && mitigAgeMs > 5 * 60 * 1000) {
+            // Device has been mitigated >5 min and is drawing <50W — release it to the plan.
+            this._mitigatedDevices.splice(mitigIdx, 1);
+            this._persistMitigatedDevices();
+            this._appLogEntry('thermostat', `[Scheduler] RELEASE ${entry.deviceName}: mitigert i ${Math.round(mitigAgeMs/60000)}min men trekker ${Math.round(livePw)}W — frigjort til temperaturplan`);
+            this.log(`[ThermoSched] Released mitigated device ${entry.deviceName} (0W after ${Math.round(mitigAgeMs/60000)}min)`);
+            // Fall through — let scheduler set the wanted temp below
+          } else {
+            this._appLogEntry('thermostat', `[Scheduler] SKIP ${entry.deviceName}: mitigert av PG${isIdle ? ` (${Math.round(mitigAgeMs/60000)}min, venter på 5min)` : ''}`);
+            continue;
+          }
         }
 
         const caps = device.capabilities || [];
