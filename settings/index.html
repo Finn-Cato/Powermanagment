@@ -1049,6 +1049,11 @@
           <div id="tp-active-status" style="font-size:12px;color:var(--text-muted);min-height:18px"></div>
         </div>
 
+        <!-- Week summary for selected plan -->
+        <div class="card" id="tp-week-summary-card" style="margin-bottom:12px;display:none">
+          <div id="tp-week-summary"></div>
+        </div>
+
         <!-- Device list for selected plan -->
         <div class="card" style="margin-bottom:12px" id="tp-device-card" style="display:none">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
@@ -5475,6 +5480,8 @@
     });
     bar.innerHTML = html;
 
+    tpRenderWeekSummary();
+
     var activePlan   = _tpPlans.find(function(p) { return p.id === _tpBackendActivePlanId; });
     var selectedPlan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (status) {
@@ -5492,15 +5499,37 @@
 
   function tpSelectPlan(planId) {
     _tpSelectedPlanId = planId;
+    _tpOpenDay = null; _tpCopyToDays = {};
     document.getElementById('tp-editor-wrap').style.display = 'none';
     tpRenderPlanBar();
+    tpRenderWeekSummary();
     tpRenderDeviceList();
+  }
+
+  function tpRenderWeekSummary() {
+    var summaryEl = document.getElementById('tp-week-summary');
+    var cardEl    = document.getElementById('tp-week-summary-card');
+    if (!summaryEl) return;
+    var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
+    if (!plan) { if (cardEl) cardEl.style.display = 'none'; return; }
+    if (cardEl) cardEl.style.display = 'block';
+    var schedule = plan.schedule || {};
+    var html = '<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Ukesoversikt — ' + escHtml(plan.name) + '</div>';
+    TP_DAYS.forEach(function(day) {
+      var blocks = (schedule[day] || []).slice().sort(function(a,b){ return tpToMin(a.from)-tpToMin(b.from); });
+      html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+      html += '<span style="font-size:12px;font-weight:700;color:var(--text-secondary);min-width:28px;flex-shrink:0">' + TP_DAYNO[day] + '</span>';
+      html += '<div style="flex:1">' + tpRenderTimeline(blocks) + '</div>';
+      html += '</div>';
+    });
+    summaryEl.innerHTML = html;
   }
 
   function tpSetActivePlan(planId) {
     hApi('POST', '/thermostat-active-plan', { planId: planId }).then(function() {
       _tpBackendActivePlanId = planId;
       tpRenderPlanBar();
+      tpRenderWeekSummary();
       tpRenderDeviceList();
     }).catch(function() {});
   }
@@ -5513,6 +5542,7 @@
       if (_tpPlans.length === 1) _tpBackendActivePlanId = plan.id;
       tpSave();
       tpRenderPlanBar();
+      tpRenderWeekSummary();
       tpRenderDeviceList();
     });
   }
@@ -5524,6 +5554,7 @@
       plan.name = name;
       tpSave();
       tpRenderPlanBar();
+      tpRenderWeekSummary();
       tpRenderDeviceList();
     });
   }
@@ -5691,22 +5722,22 @@
         var anySelected = TP_DAYS.some(function(d) { return d !== day && _tpCopyToDays[d]; });
         html += '<div style="margin-top:10px;padding:10px;background:rgba(230,126,34,.06);border-radius:8px;border:1px solid rgba(230,126,34,.2)">';
         html += '<div style="font-size:11px;font-weight:600;color:#e67e22;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Kopier til dag</div>';
-        html += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
+        html += '<div style="display:flex;flex-wrap:nowrap;gap:6px;align-items:center;overflow-x:auto;padding-bottom:2px">';
         TP_DAYS.forEach(function(d) {
           if (d === day) return;
           var sel = !!_tpCopyToDays[d];
           html += '<button onclick="tpToggleCopyDay(\'' + d + '\')" style="'
-            + 'padding:5px 13px;font-size:12px;font-weight:600;border-radius:8px;border:2px solid '
+            + 'padding:5px 12px;font-size:12px;font-weight:600;border-radius:8px;border:2px solid '
             + (sel ? '#e67e22' : 'rgba(255,255,255,.15)')
             + ';background:' + (sel ? 'rgba(230,126,34,.25)' : 'transparent')
             + ';color:' + (sel ? '#e67e22' : 'var(--text-secondary)')
-            + ';cursor:pointer">'
+            + ';cursor:pointer;white-space:nowrap;flex-shrink:0">'
             + TP_DAYNO[d] + '</button>';
         });
         if (anySelected) {
           html += '<button onclick="tpDoCopy(\'' + day + '\')" style="'
-            + 'padding:5px 18px;font-size:12px;font-weight:700;border-radius:8px;border:none;'
-            + 'background:#e67e22;color:#fff;cursor:pointer;margin-left:4px">Kopier</button>';
+            + 'padding:5px 16px;font-size:12px;font-weight:700;border-radius:8px;border:none;'
+            + 'background:#e67e22;color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-left:4px">Kopier</button>';
         }
         html += '</div>';
         html += '</div>'; // copy box
@@ -5830,6 +5861,7 @@
     plan.schedule[day].splice(idx, 1);
     if (_tpEditDay === day && _tpEditBlockIdx === idx) { _tpEditDay = null; _tpEditBlockIdx = null; }
     tpRenderScheduleList(plan);
+    tpRenderWeekSummary();
     tpSave();
   }
 
