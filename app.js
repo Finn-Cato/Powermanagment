@@ -6327,6 +6327,16 @@ class PowerGuardApp extends Homey.App {
         const obj      = device.capabilitiesObj || {};
         const liveTemp = obj.target_temperature?.value ?? null;
 
+        // Switch to manual/heat mode first so the thermostat doesn't ignore the setpoint.
+        // Many WiFi floor thermostats are in 'auto'/'schedule' mode by default and will
+        // ignore target_temperature commands unless switched to 'heat' (manual) mode.
+        if (caps.includes('thermostat_mode')) {
+          const currentMode = obj.thermostat_mode?.value ?? null;
+          if (currentMode !== 'heat') {
+            await device.setCapabilityValue({ capabilityId: 'thermostat_mode', value: 'heat' });
+          }
+        }
+
         if (liveTemp !== null && Math.abs(liveTemp - wantedTemp) < 0.4) continue;
 
         await device.setCapabilityValue({ capabilityId: 'target_temperature', value: wantedTemp });
