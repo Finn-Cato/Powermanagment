@@ -2145,7 +2145,7 @@
     document.getElementById('log-container').innerHTML = entries.length
       ? entries.map(function(e) {
           return '<div class="log-entry"><span class="log-time">' +
-            (e.time ? new Date(e.time).toLocaleTimeString() : '') + '</span>' +
+            (e.time ? new Date(e.time).toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '') + '</span>' +
             escHtml(e.message || '') + '</div>';
         }).join('')
       : '<div class="log-entry" style="color:var(--text-tertiary)">' + t('noActivityYet') + '</div>';
