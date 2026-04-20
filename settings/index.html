@@ -5546,19 +5546,27 @@
     var html = '';
     _tpPlans.forEach(function(plan) {
       var isSelected = plan.id === _tpSelectedPlanId;
+      var isEnabled  = plan.enabled !== false;
       var cls = isSelected ? 'btn-primary' : 'btn-secondary';
-      html += '<button class="' + cls + '" style="padding:6px 14px;font-size:13px" onclick="tpSelectPlan(\'' + escHtml(plan.id) + '\')">';
+      var extraStyle = isEnabled ? '' : 'opacity:0.45;text-decoration:line-through;';
+      html += '<button class="' + cls + '" style="padding:6px 14px;font-size:13px;' + extraStyle + '" onclick="tpSelectPlan(\'' + escHtml(plan.id) + '\')">';
       html += escHtml(plan.name) + '</button>';
     });
     bar.innerHTML = html;
 
-    // Status: all plans run simultaneously — no "active plan" concept
+    // Status: only count enabled plans/devices
     if (status) {
-      var totalDevices = _tpPlans.reduce(function(n, p) { return n + (p.devices || []).length; }, 0);
-      if (totalDevices === 0) {
+      var enabledPlans  = _tpPlans.filter(function(p) { return p.enabled !== false; });
+      var disabledCount = _tpPlans.length - enabledPlans.length;
+      var totalDevices  = enabledPlans.reduce(function(n, p) { return n + (p.devices || []).length; }, 0);
+      if (enabledPlans.length === 0) {
+        status.innerHTML = '<span style="color:#e67e22">Alle planer er inaktive — ingen enheter styres.</span>';
+      } else if (totalDevices === 0) {
         status.innerHTML = '<span style="color:#e67e22">Ingen enheter lagt til ennå — legg til enheter i en plan for å starte.</span>';
       } else {
-        status.innerHTML = 'Alle planer kjører — <b>' + _tpPlans.length + '</b> plan(er), <b>' + totalDevices + '</b> enhet(er) styres.';
+        var txt = 'Aktive planer: <b>' + enabledPlans.length + '</b>, <b>' + totalDevices + '</b> enhet(er) styres.';
+        if (disabledCount > 0) txt += ' <span style="opacity:0.6">(' + disabledCount + ' inaktiv)</span>';
+        status.innerHTML = txt;
       }
     }
   }
@@ -5602,6 +5610,7 @@
     if (!plan) return;
     plan.enabled = plan.enabled === false ? true : false;
     tpSave();
+    tpRenderPlanBar();
     tpRenderDeviceList();
   }
 
