@@ -1100,6 +1100,7 @@ class PowerGuardApp extends Homey.App {
 
     // Keep raw (possibly negative) value for display — solar export shows as negative W on the tile.
     const displayW = rawValue;
+    this._lastRawDisplayW = rawValue;  // preserve for getStatus (rawPowerW)
 
     // Cap negative power to 0 for all protection logic (solar export = not consuming from grid,
     // so it should never trigger mitigation or count against the power limit).
@@ -5370,7 +5371,7 @@ class PowerGuardApp extends Homey.App {
       enabled:          this._settings.enabled,
       profile:          this._settings.profile,
       currentPowerW:    movingAverage(this._powerBuffer, this._settings.smoothingWindow),
-      rawPowerW:        this._powerBuffer.length > 0 ? this._powerBuffer[this._powerBuffer.length - 1] : null,
+      rawPowerW:        this._lastRawDisplayW != null ? this._lastRawDisplayW : (this._powerBuffer.length > 0 ? this._powerBuffer[this._powerBuffer.length - 1] : null),
       limitW:           this._getEffectiveLimit(),
       overLimitCount:   this._overLimitCount,
       mitigatedDevices: this._mitigatedDevices.map(m => ({
