@@ -5,6 +5,49 @@ Always work in `C:\Github\Powermanagment`. Never use `C:\Github – Backup_0.2.2
 
 ---
 
+## Dark Mode in Homey Settings (settings/index.html)
+
+Homey does NOT use `prefers-color-scheme: dark`, `.homey-dark-mode` classes, or any standard dark mode mechanism for settings pages. Instead:
+
+### How it works
+- Homey renders the settings page in **light mode** (`body.bg = #f2f2f7`).
+- Dark mode is applied **externally** — via CSS `filter: invert()` or similar on a wrapper outside our HTML.
+- `prefers-color-scheme: dark` = **false**
+- `.homey-dark-mode` class = **never injected**
+- Our CSS variables in `:root` are used as-is (light mode values).
+
+### Key rules
+1. **Design for light mode only** in `:root`. Do not rely on `@media (prefers-color-scheme: dark)` or `.homey-dark-mode` — they never trigger.
+2. **Use pure `#000000` for text colors** — Homey's inversion turns `#000000` → white. Off-blacks like `#1c1c1e` invert to gray, not white.
+3. **Homey overrides `<label>` elements globally** with `rgb(97,97,97)`. Always add `!important` when setting color on labels:
+   ```css
+   label { color: var(--ea-text) !important; }
+   ```
+4. `<div>`, `<h2>`, `<input>`, `<span>` inherit color correctly — no `!important` needed.
+5. **Never use JavaScript to detect or force dark mode** — it doesn't work because Homey applies dark mode outside our DOM.
+6. **Avoid hardcoded color values in inline styles** — always use CSS variables (`var(--ea-text)`) so everything stays consistent.
+
+### Current color tokens (`:root`)
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `--ea-text` | `#000000` | Primary text (inverts to white in dark mode) |
+| `--ea-sub` | `#000000` | Secondary text (inverts to white in dark mode) |
+| `--ea-bg` | `#f2f2f7` | Page background |
+| `--ea-surface` | `#ffffff` | Card/surface background |
+| `--ea-border` | `#e0e0e5` | Borders |
+| `--ea-accent` | `#e8622a` | Orange accent |
+
+### Diagnosing color issues
+Add temporarily, check computed colors on different element types:
+```js
+setTimeout(function() {
+  var flabel = document.querySelector('.flabel');
+  console.log('flabel color:', getComputedStyle(flabel).color);
+}, 1000);
+```
+
+---
+
 ## Publishing to Homey App Store
 
 Do all of the following automatically — no need to ask the user for confirmation on these steps:
