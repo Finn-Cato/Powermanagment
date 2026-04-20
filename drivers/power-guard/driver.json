@@ -9,6 +9,12 @@
     "onoff",
     "measure_power"
   ],
+  "energy": {
+    "approximation": {
+      "usageOff": 0,
+      "usageOn": 0
+    }
+  },
   "images": {
     "small": "./assets/small.png",
     "large": "./assets/large.png",
