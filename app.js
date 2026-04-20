@@ -2228,6 +2228,44 @@ class PowerGuardApp extends Homey.App {
         this._setActiveThermostatPlan(planId);
       });
     }
+
+    const _tpPlanAutocomplete = async (query) => {
+      const data = this.homey.settings.get('thermostatPlans') ?? { plans: [] };
+      const plans = data.plans || [];
+      return plans
+        .filter(p => !query || p.name.toLowerCase().includes(query.toLowerCase()))
+        .map(p => ({ id: p.id, name: p.name }));
+    };
+
+    const actEnablePlan = this.homey.flow.getActionCard('enable_thermostat_plan');
+    if (actEnablePlan) {
+      actEnablePlan.registerArgumentAutocompleteListener('plan', _tpPlanAutocomplete);
+      actEnablePlan.registerRunListener(async (args) => {
+        const planId = args.plan && args.plan.id;
+        if (!planId) throw new Error('Ingen plan valgt');
+        const data = this.homey.settings.get('thermostatPlans') ?? { plans: [] };
+        const plan = (data.plans || []).find(p => p.id === planId);
+        if (!plan) throw new Error('Plan ikke funnet');
+        plan.enabled = true;
+        this.homey.settings.set('thermostatPlans', data);
+        this._loadThermostatSchedules();
+      });
+    }
+
+    const actDisablePlan = this.homey.flow.getActionCard('disable_thermostat_plan');
+    if (actDisablePlan) {
+      actDisablePlan.registerArgumentAutocompleteListener('plan', _tpPlanAutocomplete);
+      actDisablePlan.registerRunListener(async (args) => {
+        const planId = args.plan && args.plan.id;
+        if (!planId) throw new Error('Ingen plan valgt');
+        const data = this.homey.settings.get('thermostatPlans') ?? { plans: [] };
+        const plan = (data.plans || []).find(p => p.id === planId);
+        if (!plan) throw new Error('Plan ikke funnet');
+        plan.enabled = false;
+        this.homey.settings.set('thermostatPlans', data);
+        this._loadThermostatSchedules();
+      });
+    }
   }
 
   _fireTrigger(id, tokens) {
@@ -6336,6 +6374,7 @@ class PowerGuardApp extends Homey.App {
     const seen = new Set();
     const schedules = [];
     for (const plan of this._thermostatPlans) {
+      if (plan.enabled === false) continue; // skip disabled plans
       const planSchedule = plan.schedule || {};
       for (const d of (plan.devices || [])) {
         if (seen.has(d.deviceId)) continue; // skip duplicates

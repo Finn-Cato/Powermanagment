@@ -5631,6 +5631,14 @@
     });
   }
 
+  function tpTogglePlan(planId) {
+    var plan = _tpPlans.find(function(p) { return p.id === planId; });
+    if (!plan) return;
+    plan.enabled = plan.enabled === false ? true : false;
+    tpSave();
+    tpRenderDeviceList();
+  }
+
   function tpDuplicatePlan(planId) {
     var src = _tpPlans.find(function(p) { return p.id === planId; });
     if (!src) return;
@@ -5681,8 +5689,10 @@
     if (titleEl) titleEl.textContent = 'Enheter i «' + plan.name + '»';
 
     var actionsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
+    var isEnabled = plan.enabled !== false;
     actionsHtml += '<button class="btn-secondary btn-small" onclick="tpRenamePlan(\'' + escHtml(plan.id) + '\')">Gi nytt navn</button>';
     actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDuplicatePlan(\'' + escHtml(plan.id) + '\')">Dupliser</button>';
+    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpTogglePlan(\'' + escHtml(plan.id) + '\')" style="' + (isEnabled ? '' : 'opacity:0.55') + '">' + (isEnabled ? '✅ Aktiv' : '❌ Inaktiv') + '</button>';
     if (_tpPlans.length > 1) {
       actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDeletePlan(\'' + escHtml(plan.id) + '\')">Slett plan</button>';
     }

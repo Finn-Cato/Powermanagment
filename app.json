@@ -1175,6 +1175,56 @@
             }
           }
         ]
+      },
+      {
+        "id": "enable_thermostat_plan",
+        "title": {
+          "en": "Enable temperature plan",
+          "no": "Aktiver temperaturplan"
+        },
+        "titleFormatted": {
+          "en": "Enable temperature plan [[plan]]",
+          "no": "Aktiver temperaturplan [[plan]]"
+        },
+        "args": [
+          {
+            "name": "plan",
+            "type": "autocomplete",
+            "title": {
+              "en": "Plan",
+              "no": "Plan"
+            },
+            "placeholder": {
+              "en": "Select plan…",
+              "no": "Velg plan…"
+            }
+          }
+        ]
+      },
+      {
+        "id": "disable_thermostat_plan",
+        "title": {
+          "en": "Disable temperature plan",
+          "no": "Deaktiver temperaturplan"
+        },
+        "titleFormatted": {
+          "en": "Disable temperature plan [[plan]]",
+          "no": "Deaktiver temperaturplan [[plan]]"
+        },
+        "args": [
+          {
+            "name": "plan",
+            "type": "autocomplete",
+            "title": {
+              "en": "Plan",
+              "no": "Plan"
+            },
+            "placeholder": {
+              "en": "Select plan…",
+              "no": "Velg plan…"
+            }
+          }
+        ]
       }
     ]
   }
