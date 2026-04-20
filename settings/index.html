@@ -5892,19 +5892,18 @@
   }
 
   function tpEditRow(day, idx, fromVal, tempVal) {
-    var stepBtn = 'padding:4px 10px;border:1px solid rgba(255,255,255,.25);border-radius:6px;font-size:14px;font-weight:700;background:rgba(255,255,255,.12);color:#ffffff;cursor:pointer';
     var dispBox = 'padding:4px 8px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);min-width:54px;text-align:center;display:inline-block';
     var tempNum = parseFloat(tempVal) || 20;
     return '<div style="display:flex;align-items:center;gap:5px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);flex-wrap:wrap">'
       + '<input id="tp-edit-from" type="hidden" value="' + escHtml(String(fromVal)) + '">'
-      + '<button style="' + stepBtn + '" onclick="tpStepTime(-30)">-30</button>'
+      + '<button class="btn-secondary btn-small" style="padding:3px 8px;font-size:12px" onclick="tpStepTime(-30)">-30</button>'
       + '<span id="tp-edit-from-disp" style="' + dispBox + '">' + escHtml(String(fromVal)) + '</span>'
-      + '<button style="' + stepBtn + '" onclick="tpStepTime(30)">+30</button>'
-      + '<span style="font-size:14px;color:var(--text-muted);margin:0 4px">→</span>'
+      + '<button class="btn-secondary btn-small" style="padding:3px 8px;font-size:12px" onclick="tpStepTime(30)">+30</button>'
+      + '<span style="font-size:14px;color:var(--text-muted);margin:0 4px">\u2192</span>'
       + '<input id="tp-edit-temp" type="hidden" value="' + escHtml(String(tempNum)) + '">'
-      + '<button style="' + stepBtn + '" onclick="tpStepTemp(-0.5)">-</button>'
-      + '<span id="tp-edit-temp-disp" style="' + dispBox + ';min-width:62px">' + tempNum + '°C</span>'
-      + '<button style="' + stepBtn + '" onclick="tpStepTemp(0.5)">+</button>'
+      + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:14px;font-weight:700" onclick="tpStepTemp(-0.5)">\u2212</button>'
+      + '<span id="tp-edit-temp-disp" style="' + dispBox + ';min-width:62px">' + tempNum + '\u00b0C</span>'
+      + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:14px;font-weight:700" onclick="tpStepTemp(0.5)">+</button>'
       + '<button class="btn-primary btn-small" style="padding:3px 10px;font-size:12px;margin-left:6px" onclick="tpSaveEdit(\'' + day + '\',' + idx + ')">Lagre</button>'
       + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:12px" onclick="tpCancelEdit()">Avbryt</button>'
       + '<span id="tp-edit-error" style="color:#e74c3c;font-size:11px;width:100%;display:none"></span>'
