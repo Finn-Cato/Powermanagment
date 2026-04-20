@@ -1086,9 +1086,9 @@
 
       <!-- Modal: plan name (new / rename) -->
       <div id="tp-name-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-          <h2 style="margin-bottom:14px;font-size:16px" id="tp-name-title">Navn på plan</h2>
-          <input type="text" id="tp-name-input" maxlength="40" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--input-border);border-radius:8px;font-size:14px;margin-bottom:16px">
+        <div style="background:var(--bg-card);border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+          <h2 style="margin-bottom:14px;font-size:16px;color:var(--text-primary)" id="tp-name-title">Navn på plan</h2>
+          <input type="text" id="tp-name-input" maxlength="40" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--input-border);border-radius:8px;font-size:14px;margin-bottom:16px;background:var(--bg-input);color:var(--text-primary)">
           <div style="display:flex;gap:8px">
             <button class="btn-primary" style="flex:1" onclick="tpNameModalSave()">Lagre</button>
             <button class="btn-secondary" style="flex:1" onclick="tpNameModalClose()">Avbryt</button>
@@ -1098,8 +1098,8 @@
 
       <!-- Modal: device picker -->
       <div id="tp-picker-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:16px;padding:24px;width:320px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-          <h2 style="margin-bottom:14px;font-size:16px" id="tp-picker-title">Legg til enhet</h2>
+        <div style="background:var(--bg-card);border-radius:16px;padding:24px;width:320px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+          <h2 style="margin-bottom:14px;font-size:16px;color:var(--text-primary)" id="tp-picker-title">Legg til enhet</h2>
           <div id="tp-picker-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
           <button class="btn-secondary" style="width:100%" onclick="tpPickerClose()">Avbryt</button>
         </div>
@@ -1107,8 +1107,8 @@
 
       <!-- Modal: confirm -->
       <div id="tp-confirm-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
-        <div style="background:#fff;border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-          <p id="tp-confirm-msg" style="font-size:14px;margin-bottom:20px;line-height:1.5"></p>
+        <div style="background:var(--bg-card);border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+          <p id="tp-confirm-msg" style="font-size:14px;margin-bottom:20px;line-height:1.5;color:var(--text-primary)"></p>
           <div style="display:flex;gap:8px">
             <button class="btn-primary" style="flex:1" onclick="tpConfirmOk()">Ja, slett</button>
             <button class="btn-secondary" style="flex:1" onclick="tpConfirmClose()">Avbryt</button>
