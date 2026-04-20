@@ -2371,8 +2371,9 @@
 
       if (_effektTab === 'dag') {
         // ── DAG: 24 hourly bars for today ──────────────────────────────────────
-        var todayStrD = new Date().toISOString().slice(0, 10);
-        var curHD = new Date().getHours();
+        var _ndD = new Date();
+        var todayStrD = _ndD.getFullYear() + '-' + String(_ndD.getMonth()+1).padStart(2,'0') + '-' + String(_ndD.getDate()).padStart(2,'0');
+        var curHD = _ndD.getHours();
         var hourEntries = [];
         var histD = effekt.hourlyHistory || [];
         for (var hd2 = 0; hd2 < 24; hd2++) {
