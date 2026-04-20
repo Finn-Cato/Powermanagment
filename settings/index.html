@@ -13,9 +13,9 @@
       --orange: #f97316;
       --green: #22c55e;
       --blue: #3b82f6;
-      --text-primary: #1d1d1f;
-      --text-muted: #636366;
-      --text-secondary: #3a3a3c;
+      --text-primary: #000000;
+      --text-muted: #555555;
+      --text-secondary: #000000;
       --text-tertiary: #aaa;
       --bg-body: #eef2f8;
       --bg-card: #fff;
@@ -5892,7 +5892,7 @@
   }
 
   function tpEditRow(day, idx, fromVal, tempVal) {
-    var dispBox = 'padding:4px 8px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);min-width:54px;text-align:center;display:inline-block';
+    var dispBox = 'padding:4px 8px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;font-weight:600;background:var(--bg-card);color:var(--text-primary);min-width:54px;text-align:center;display:inline-block';
     var tempNum = parseFloat(tempVal) || 20;
     return '<div style="display:flex;align-items:center;gap:5px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);flex-wrap:wrap">'
       + '<input id="tp-edit-from" type="hidden" value="' + escHtml(String(fromVal)) + '">'
