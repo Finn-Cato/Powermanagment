@@ -5560,11 +5560,17 @@
     }
 
     var html = '';
-    _tpPlans.forEach(function(plan) {
+    _tpPlans.forEach(function(plan, idx) {
       var isSelected = plan.id === _tpSelectedPlanId;
       var cls = isSelected ? 'btn-primary' : 'btn-secondary';
+      html += '<span style="display:inline-flex;align-items:center;gap:2px">';
       html += '<button class="' + cls + '" style="padding:6px 14px;font-size:13px" onclick="tpSelectPlan(\'' + escHtml(plan.id) + '\')">';
       html += escHtml(plan.name) + '</button>';
+      if (_tpPlans.length > 1) {
+        html += '<button class="btn-secondary" style="padding:3px 6px;font-size:11px;line-height:1" title="Flytt opp" onclick="tpMovePlan(\'' + escHtml(plan.id) + '\',-1)" ' + (idx === 0 ? 'disabled' : '') + '>▲</button>';
+        html += '<button class="btn-secondary" style="padding:3px 6px;font-size:11px;line-height:1" title="Flytt ned" onclick="tpMovePlan(\'' + escHtml(plan.id) + '\',1)" ' + (idx === _tpPlans.length - 1 ? 'disabled' : '') + '>▼</button>';
+      }
+      html += '</span>';
     });
     bar.innerHTML = html;
 
@@ -5577,6 +5583,18 @@
         status.innerHTML = 'Alle planer kjører — <b>' + _tpPlans.length + '</b> plan(er), <b>' + totalDevices + '</b> enhet(er) styres.';
       }
     }
+  }
+
+  function tpMovePlan(planId, dir) {
+    var idx = _tpPlans.findIndex(function(p) { return p.id === planId; });
+    if (idx < 0) return;
+    var newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= _tpPlans.length) return;
+    var tmp = _tpPlans[idx];
+    _tpPlans[idx] = _tpPlans[newIdx];
+    _tpPlans[newIdx] = tmp;
+    tpSave();
+    tpRenderPlanBar();
   }
 
   function tpSelectPlan(planId) {
