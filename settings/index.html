@@ -5411,10 +5411,16 @@
     return (h < 10 ? '0' : '') + h + ':' + (mm < 10 ? '0' : '') + mm;
   }
 
+  function tpAddHour(hhmm) {
+    var m = tpToMin(hhmm) + 60;
+    if (m >= 1440) m = 0;
+    return tpFromMin(m);
+  }
+
   function tpDefaultSchedule(temp) {
     var t = typeof temp === 'number' ? temp : 20;
     var s = {};
-    TP_DAYS.forEach(function(d) { s[d] = [{ from: '00:00', to: '24:00', temp: t }]; });
+    TP_DAYS.forEach(function(d) { s[d] = [{ from: '00:00', temp: t }]; });
     return s;
   }
 
@@ -5763,7 +5769,7 @@
         // Period rows
         blocks.forEach(function(block, idx) {
           if (_tpEditDay === day && _tpEditBlockIdx === idx) {
-            html += tpEditRow(day, idx, block.from, block.to, block.temp);
+            html += tpEditRow(day, idx, block.from, block.temp);
           } else {
             html += tpViewRow(day, idx, block);
           }
@@ -5771,9 +5777,9 @@
 
         // Add-new row or button
         if (_tpEditDay === day && _tpEditBlockIdx === -1) {
-          var suggestFrom = blocks.length > 0 ? blocks[blocks.length - 1].to : '00:00';
-          if (suggestFrom === '24:00') suggestFrom = '00:00';
-          html += tpEditRow(day, -1, suggestFrom, '', '20');
+          var lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+          var suggestFrom = lastBlock ? tpAddHour(lastBlock.from) : '00:00';
+          html += tpEditRow(day, -1, suggestFrom, '20');
         } else {
           html += '<div style="padding:6px 0"><button class="btn-secondary btn-small" style="font-size:12px" onclick="tpStartAddPeriod(\'' + day + '\')">+ Legg til periode</button></div>';
         }
@@ -5833,15 +5839,13 @@
     var h = height || '20px';
     var html = '<div style="display:flex;height:' + h + ';border-radius:5px;overflow:hidden;background:#e0e0e0">';
     var segments = [];
-    var cursor = 0;
-    blocks.forEach(function(b) {
+    // Sort by from and compute implicit end times
+    var sorted = blocks.slice().sort(function(a, b) { return tpToMin(a.from) - tpToMin(b.from); });
+    sorted.forEach(function(b, i) {
       var bFrom = tpToMin(b.from);
-      var bTo   = b.to === '24:00' ? 1440 : tpToMin(b.to);
-      if (bFrom > cursor) segments.push({ from: cursor, to: bFrom, temp: null });
-      if (bTo > bFrom)    segments.push({ from: bFrom,  to: bTo,   temp: b.temp });
-      cursor = bTo;
+      var bTo   = (i + 1 < sorted.length) ? tpToMin(sorted[i + 1].from) : 1440;
+      segments.push({ from: bFrom, to: bTo, temp: b.temp });
     });
-    if (cursor < 1440) segments.push({ from: cursor, to: 1440, temp: null });
     segments.forEach(function(seg) {
       var w = ((seg.to - seg.from) / 1440 * 100).toFixed(2);
       var bg = seg.temp !== null ? tpTempColor(seg.temp) : '#e0e0e0';
@@ -5856,19 +5860,18 @@
     var color = tpTempColor(block.temp);
     return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06)">'
       + '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></div>'
-      + '<span style="font-size:13px;color:var(--text-secondary);min-width:120px">' + block.from + ' → ' + block.to + '</span>'
+      + '<span style="font-size:13px;color:var(--text-secondary);min-width:80px">' + block.from + ' →</span>'
       + '<span style="font-size:13px;font-weight:600;flex:1">' + block.temp + '°C</span>'
       + '<button class="btn-secondary btn-small" style="padding:2px 8px;font-size:11px" onclick="tpStartEdit(\'' + day + '\',' + idx + ')">Endre</button>'
       + '<button class="btn-secondary btn-small" style="padding:2px 8px;font-size:11px" onclick="tpDeletePeriod(\'' + day + '\',' + idx + ')">×</button>'
       + '</div>';
   }
 
-  function tpEditRow(day, idx, fromVal, toVal, tempVal) {
+  function tpEditRow(day, idx, fromVal, tempVal) {
     var inp = 'padding:4px 8px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;box-sizing:border-box';
     return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06);flex-wrap:wrap">'
       + '<input id="tp-edit-from" type="text" value="' + escHtml(String(fromVal)) + '" placeholder="00:00" maxlength="5" style="' + inp + ';width:66px">'
       + '<span style="font-size:12px;color:var(--text-muted)">→</span>'
-      + '<input id="tp-edit-to" type="text" value="' + escHtml(String(toVal)) + '" placeholder="24:00" maxlength="5" style="' + inp + ';width:66px">'
       + '<input id="tp-edit-temp" type="number" value="' + escHtml(String(tempVal)) + '" min="5" max="35" step="0.5" placeholder="20" style="' + inp + ';width:60px">'
       + '<span style="font-size:12px;color:var(--text-muted)">°C</span>'
       + '<button class="btn-primary btn-small" style="padding:3px 10px;font-size:12px" onclick="tpSaveEdit(\'' + day + '\',' + idx + ')">Lagre</button>'
@@ -5897,38 +5900,23 @@
 
   function tpSaveEdit(day, idx) {
     var fromRaw = (document.getElementById('tp-edit-from').value || '').trim();
-    var toRaw   = (document.getElementById('tp-edit-to').value || '').trim();
     var temp    = parseFloat(document.getElementById('tp-edit-temp').value);
     var errEl   = document.getElementById('tp-edit-error');
     function showErr(msg) { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } }
 
-    if (!/^\d{1,2}:\d{2}$/.test(fromRaw)) { showErr('Ugyldig Fra-tid (HH:MM)'); return; }
-    var toVal = (toRaw === '' || toRaw === '23:59') ? '24:00' : toRaw;
-    if (toRaw !== '' && !/^\d{1,2}:\d{2}$/.test(toRaw)) { showErr('Ugyldig Til-tid (HH:MM)'); return; }
+    if (!/^\d{1,2}:\d{2}$/.test(fromRaw)) { showErr('Ugyldig starttid (HH:MM)'); return; }
     if (isNaN(temp) || temp < 5 || temp > 35) { showErr('Temperatur må være 5–35°C'); return; }
-    var fromMin = tpToMin(fromRaw);
-    var toMin   = toVal === '24:00' ? 1440 : tpToMin(toVal);
-    if (fromMin >= toMin) { showErr('"Fra" må være før "Til"'); return; }
 
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan) return;
     if (!plan.schedule) plan.schedule = {};
     if (!plan.schedule[day]) plan.schedule[day] = [];
     if (idx === -1) {
-      plan.schedule[day].push({ from: fromRaw, to: toVal, temp: temp });
+      plan.schedule[day].push({ from: fromRaw, temp: temp });
     } else {
-      plan.schedule[day][idx] = { from: fromRaw, to: toVal, temp: temp };
+      plan.schedule[day][idx] = { from: fromRaw, temp: temp };
     }
     plan.schedule[day].sort(function(a, b) { return tpToMin(a.from) - tpToMin(b.from); });
-    // Push next block's start forward if it now overlaps
-    var dayBlocks = plan.schedule[day];
-    for (var i = 0; i < dayBlocks.length - 1; i++) {
-      var curToMin = dayBlocks[i].to === '24:00' ? 1440 : tpToMin(dayBlocks[i].to);
-      var nxtFromMin = tpToMin(dayBlocks[i + 1].from);
-      if (nxtFromMin < curToMin) {
-        dayBlocks[i + 1].from = dayBlocks[i].to === '24:00' ? '24:00' : dayBlocks[i].to;
-      }
-    }
     _tpEditDay = null; _tpEditBlockIdx = null;
     tpRenderScheduleList(plan);
     tpSave();
@@ -5954,9 +5942,9 @@
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan) return;
     if (!plan.schedule) plan.schedule = {};
-    var srcBlocks = (plan.schedule[srcDay] || []).map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; });
+    var srcBlocks = (plan.schedule[srcDay] || []).map(function(b) { return { from: b.from, temp: b.temp }; });
     TP_DAYS.forEach(function(d) {
-      if (_tpCopyToDays[d]) plan.schedule[d] = srcBlocks.map(function(b) { return { from: b.from, to: b.to, temp: b.temp }; });
+      if (_tpCopyToDays[d]) plan.schedule[d] = srcBlocks.map(function(b) { return { from: b.from, temp: b.temp }; });
     });
     _tpCopyToDays = {};
     tpRenderScheduleList(plan);
