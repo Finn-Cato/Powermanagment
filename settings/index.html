@@ -50,7 +50,7 @@
     .row:last-child { border-bottom: none; padding-bottom: 0; }
     .row:first-child { padding-top: 0; }
     .label-group { flex: 1; }
-    .label-group label { font-size: 13px; font-weight: 500; color: var(--text-primary); display: block; }
+    .label-group label { font-size: 13px; font-weight: 500; color: var(--text-primary) !important; display: block; }
     .label-group .hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
     .control { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
     input[type=number] { width: 110px; padding: 6px 8px; border: 1px solid var(--input-border); border-radius: 8px; font-size: 13px; background: var(--bg-card); color: var(--text-primary); }
@@ -769,7 +769,7 @@
           <button class="btn-secondary" onclick="copyAppLog('filtered')" style="font-size:11px; padding:4px 10px;" data-i18n="copyFiltered">Copy Filtered</button>
           <button class="btn-secondary" onclick="copyAppLog('all')" style="font-size:11px; padding:4px 10px;" data-i18n="copyAllJSON">Copy All JSON</button>
           <button class="btn-secondary" onclick="loadAppLog()" style="font-size:11px; padding:4px 10px;" data-i18n="refresh">Refresh</button>
-          <label style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-left:auto;">
+          <label style="font-size:11px; color:var(--text-muted) !important; display:flex; align-items:center; gap:4px; margin-left:auto;">
             <input type="checkbox" id="log-auto-refresh" onchange="toggleLogAutoRefresh(this.checked)"> <span data-i18n="autoRefresh">Auto-refresh (5s)</span>
           </label>
         </div>
