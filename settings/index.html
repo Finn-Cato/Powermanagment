@@ -238,10 +238,10 @@
       <button class="tab-btn"        id="tb-consumption" onclick="showTab('consumption')"><span class="tab-icon">⚡</span><span class="tab-label" data-i18n="tabPower">Power</span></button>
       <button class="tab-btn"        id="tb-floorheater" onclick="showTab('floorheater')"><span class="tab-icon">🌡️</span><span class="tab-label" data-i18n="tabHeaters">Heaters</span></button>
       <button class="tab-btn"        id="tb-log"         onclick="showTab('log')"><span class="tab-icon">📋</span><span class="tab-label" data-i18n="tabLog">Log</span></button>
-      <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label">Pris</span></button>
-      <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🔄</span><span class="tab-label">Modus</span></button>
-      <button class="tab-btn"        id="tb-ev"          onclick="showTab('ev')"><span class="tab-icon">🔌</span><span class="tab-label">Lader</span></button>
-      <button class="tab-btn"        id="tb-tempplan"    onclick="showTab('tempplan')" style="display:none"><span class="tab-icon">📅</span><span class="tab-label">Temperaturplan</span></button>
+      <button class="tab-btn"        id="tb-price"       onclick="showTab('price')"><span class="tab-icon">💰</span><span class="tab-label" data-i18n="tabPrice">Price</span></button>
+      <button class="tab-btn"        id="tb-modes"       onclick="showTab('modes')"><span class="tab-icon">🔄</span><span class="tab-label" data-i18n="tabModes">Modes</span></button>
+      <button class="tab-btn"        id="tb-ev"          onclick="showTab('ev')"><span class="tab-icon">🔌</span><span class="tab-label" data-i18n="tabEv">Charger</span></button>
+      <button class="tab-btn"        id="tb-tempplan"    onclick="showTab('tempplan')" style="display:none"><span class="tab-icon">📅</span><span class="tab-label" data-i18n="tabTempPlan">Temperature plan</span></button>
     </div>
 
     <!-- ── Overview tab (with Settings + System sub-tabs) ───────────────── -->
@@ -347,12 +347,12 @@
 
       <div class="card">
         <div class="row" style="margin-bottom:8px;">
-          <div class="label-group"><label style="font-size:16px;font-weight:600;">Avansert termostatstyrting</label></div>
+          <div class="label-group"><label style="font-size:16px;font-weight:600;" data-i18n="tpSettingsTitle">Temperature plan</label></div>
           <div class="control">
             <label class="toggle"><input type="checkbox" id="tp-main-toggle" onchange="tpToggleEnabled(this.checked)"><span class="slider"></span></label>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;">Lar deg sette opp en ukentlig temperaturplan per termostat. Power Guard setter automatisk ønsket temperatur til riktig tid — og kan redusere temperaturen midlertidig for å holde effektforbruket under grensen. Når du bruker denne funksjonen er det Power Guard som styrer termostatene etter planen du setter opp her.</div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.5;" data-i18n="tpSettingsDesc">Set up a weekly temperature schedule per thermostat. Power Guard automatically sets the desired temperature at the right time — and can temporarily reduce the temperature to keep power consumption below the limit.</div>
       </div>
 
       <div class="card">
@@ -634,23 +634,10 @@
         </div>
 
         <div class="card">
-          <h2>🌡️ Temperaturplan</h2>
-          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 10px;">Temperaturplan lar deg sette opp ukentlige temperaturplaner for termostater. Hver plan har egne enheter og en ukeplan med tidsblokkene du definerer.</p>
-          <ol style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0 0 10px;padding-left:18px;">
-            <li>Aktiver <b>Temperaturplan</b> under <b>⚙️ Innstillinger</b>.</li>
-            <li>Gå til <b>🌡️ Temperaturplaner</b>-fanen og opprett en plan (f.eks. «Hjemme»).</li>
-            <li>Legg til enheter (termostater) på planen.</li>
-            <li>Klikk på en dag for å legge til tidsperioder med ønsket temperatur.</li>
-            <li>Bruk <b>Kopier til valgte dager</b> for å kopiere oppsettet til flere dager raskt.</li>
-          </ol>
-          <div style="background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;">
-            <b>Flere planer kjører samtidig:</b><br>
-            Du kan ha flere planer — f.eks. én for stue og én for soverom. Alle aktive planer kjører alltid parallelt. Hver plan styrer sine egne enheter uavhengig av de andre.<br><br>
-            <b>Plan tar prioritet over moduser:</b><br>
-            Enheter som er koblet til en temperaturplan styres eksklusivt av planen. Manuell justering i Modus-fanen er ikke tilgjengelig for disse enhetene — planens settpunkt vises i stedet.<br><br>
-            <b>Endringer aktiveres umiddelbart:</b><br>
-            Når du lagrer en periode, settes den nye temperaturen på termostaten med en gang — du trenger ikke vente til neste minutt.
-          </div>
+          <h2>🌡️ <span data-i18n="helpTpTitle">Temperature plan</span></h2>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin:0 0 10px;" data-i18n="helpTpDesc"></p>
+          <ol style="font-size:13px;color:var(--text-muted);line-height:1.8;margin:0 0 10px;padding-left:18px;" data-i18n-html="helpTpSteps"></ol>
+          <div style="background:var(--bg-surface);border-radius:8px;padding:10px;font-size:12px;color:var(--text-muted);line-height:1.6;" data-i18n-html="helpTpNotes"></div>
         </div>
 
         <div class="card">
@@ -1060,16 +1047,16 @@
         <!-- Plan selector + device list (merged card) -->
         <div class="card" style="margin-bottom:12px" id="tp-device-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h2>Temperaturplaner</h2>
-            <button class="btn-secondary btn-small" onclick="tpNewPlan()">+ Ny plan</button>
+            <h2 data-i18n="tpTitle">Temperature plans</h2>
+            <button class="btn-secondary btn-small" onclick="tpNewPlan()" data-i18n="tpNewPlan">+ New plan</button>
           </div>
           <div id="tp-plan-bar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-            <div style="color:var(--text-muted);font-size:13px">Laster planer…</div>
+            <div style="color:var(--text-muted);font-size:13px" data-i18n="tpLoadingPlans">Loading plans…</div>
           </div>
           <hr style="border:none;border-top:1px solid var(--border-color,rgba(0,0,0,.1));margin:12px 0">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <h2 id="tp-plan-title" style="font-size:14px;font-weight:600">Enheter</h2>
-            <button class="btn-secondary btn-small" onclick="tpAddDevice()">+ Legg til enhet</button>
+            <h2 id="tp-plan-title" style="font-size:14px;font-weight:600" data-i18n="tpDevices">Devices</h2>
+            <button class="btn-secondary btn-small" onclick="tpAddDevice()" data-i18n="tpAddDevice">+ Add device</button>
           </div>
           <div id="tp-device-list"></div>
           <div id="tp-active-status" style="font-size:12px;color:var(--text-muted);margin-top:10px;min-height:18px"></div>
@@ -1078,7 +1065,7 @@
         <!-- Week grid editor -->
         <div id="tp-editor-wrap" style="display:block">
           <div class="card">
-            <h2 id="tp-editor-title">Ukeplan</h2>
+            <h2 id="tp-editor-title" data-i18n="tpWeekPlan">Week plan</h2>
             <div id="tp-schedule-list"></div>
           </div>
         </div>
@@ -1090,8 +1077,8 @@
           <h2 style="margin-bottom:14px;font-size:16px;color:var(--text-primary)" id="tp-name-title">Navn på plan</h2>
           <input type="text" id="tp-name-input" maxlength="40" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid var(--input-border);border-radius:8px;font-size:14px;margin-bottom:16px;background:var(--bg-input);color:var(--text-primary)">
           <div style="display:flex;gap:8px">
-            <button class="btn-primary" style="flex:1" onclick="tpNameModalSave()">Lagre</button>
-            <button class="btn-secondary" style="flex:1" onclick="tpNameModalClose()">Avbryt</button>
+            <button class="btn-primary" style="flex:1" onclick="tpNameModalSave()" data-i18n="save">Save</button>
+            <button class="btn-secondary" style="flex:1" onclick="tpNameModalClose()" data-i18n="cancel">Cancel</button>
           </div>
         </div>
       </div>
@@ -1099,9 +1086,9 @@
       <!-- Modal: device picker -->
       <div id="tp-picker-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1001;align-items:center;justify-content:center">
         <div style="background:var(--bg-card);border-radius:16px;padding:24px;width:320px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">
-          <h2 style="margin-bottom:14px;font-size:16px;color:var(--text-primary)" id="tp-picker-title">Legg til enhet</h2>
+          <h2 style="margin-bottom:14px;font-size:16px;color:var(--text-primary)" id="tp-picker-title" data-i18n="tpAddDeviceTitle">Add device</h2>
           <div id="tp-picker-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px"></div>
-          <button class="btn-secondary" style="width:100%" onclick="tpPickerClose()">Avbryt</button>
+          <button class="btn-secondary" style="width:100%" onclick="tpPickerClose()" data-i18n="cancel">Cancel</button>
         </div>
       </div>
 
@@ -1110,8 +1097,8 @@
         <div style="background:var(--bg-card);border-radius:16px;padding:24px;width:300px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2)">
           <p id="tp-confirm-msg" style="font-size:14px;margin-bottom:20px;line-height:1.5;color:var(--text-primary)"></p>
           <div style="display:flex;gap:8px">
-            <button class="btn-primary" style="flex:1" onclick="tpConfirmOk()">Ja, slett</button>
-            <button class="btn-secondary" style="flex:1" onclick="tpConfirmClose()">Avbryt</button>
+            <button class="btn-primary" style="flex:1" onclick="tpConfirmOk()" data-i18n="tpDeleteYes">Yes, delete</button>
+            <button class="btn-secondary" style="flex:1" onclick="tpConfirmClose()" data-i18n="cancel">Cancel</button>
           </div>
         </div>
       </div>
@@ -1148,6 +1135,37 @@
       connect: 'Connect',
       tabHome: 'Home', tabDevices: 'Devices', tabPower: 'Power',
       tabHeaters: 'Heaters', tabLog: 'Log', tabSmart: 'EV',
+      tabPrice: 'Price', tabModes: 'Modes', tabEv: 'Charger', tabTempPlan: 'Temperature plan',
+      cancel: 'Cancel',
+      tpTitle: 'Temperature plans', tpNewPlan: '+ New plan', tpLoadingPlans: 'Loading plans\u2026',
+      tpNoPlans: 'No plans yet. Press &quot;+ New plan&quot; to get started.',
+      tpDevices: 'Devices', tpAddDevice: '+ Add device', tpWeekPlan: 'Week plan',
+      tpSelectAbove: 'Select a plan above.',
+      tpNewPlanTitle: 'New plan name', tpNewPlanDefault: 'My plan',
+      tpRenameTitle: 'Rename plan', tpDuplicateTitle: 'Name of copy', tpCopyOf: 'Copy of ',
+      tpDeleteConfirm: 'Delete this plan? Devices in the plan must be re-added.',
+      tpRemoveDeviceConfirm: 'Remove this device from the plan?',
+      tpAllDevicesAdded: 'All available thermostats are already added to a plan.',
+      tpDeleteYes: 'Yes, delete',
+      tpRename: 'Rename', tpDuplicate: 'Duplicate', tpActive: 'Active', tpInactive: 'Inactive',
+      tpDeletePlan: 'Delete plan',
+      tpDevicesIn: 'Devices in',
+      tpNoDevicesInPlan: 'No devices in this plan yet.',
+      tpNoDevicesYet: 'No devices added yet \u2014 add devices to a plan to get started.',
+      tpAllInactive: 'All plans are inactive \u2014 no devices are being controlled.',
+      tpActivePlans: 'Active plans', tpManaged: 'device(s) controlled',
+      tpInactiveCount: 'inactive',
+      tpRoomTemp: 'Room temp', tpSetpoint: 'Setpoint',
+      tpRemove: 'Remove', tpAddDeviceTitle: 'Add device',
+      tpAddPeriod: 'Add period', tpCopyToDay: 'Copy to day', tpCopyToDays: 'Copy to selected days',
+      tpEdit: 'Edit',
+      tpInvalidTime: 'Invalid start time (HH:MM)', tpInvalidTemp: 'Temperature must be 5\u201335\u00b0C',
+      tpSettingsTitle: 'Temperature plan',
+      tpSettingsDesc: 'Set up a weekly temperature schedule per thermostat. Power Guard automatically sets the desired temperature at the right time \u2014 and can temporarily lower the temperature to keep power consumption below the limit. Devices in a plan are controlled exclusively by the plan.',
+      helpTpTitle: 'Temperature plan',
+      helpTpDesc: 'Temperature plan lets you set up weekly temperature schedules for thermostats. Each plan has its own devices and a week schedule with the time blocks you define.',
+      helpTpSteps: '<li>Enable <b>Temperature plan</b> under <b>\u2699\ufe0f Settings</b>.</li><li>Go to the <b>\uD83C\uDF21\uFE0F Temperature plans</b> tab and create a plan (e.g. \u00abHome\u00bb).</li><li>Add devices (thermostats) to the plan.</li><li>Click a day to add time periods with your desired temperature.</li><li>Use <b>Copy to selected days</b> to quickly copy the schedule to multiple days.</li>',
+      helpTpNotes: '<b>Multiple plans run simultaneously:</b><br>You can have multiple plans \u2014 e.g. one for the living room and one for the bedroom. All active plans always run in parallel. Each plan controls its own devices independently.<br><br><b>Plan takes priority over modes:</b><br>Devices linked to a temperature plan are controlled exclusively by the plan. Manual adjustment in the Modes tab is not available for these devices \u2014 the plan\u2019s setpoint is shown instead.<br><br><b>Changes take effect immediately:</b><br>When you save a period, the new temperature is applied to the thermostat right away \u2014 no need to wait until the next minute.',
       subOverview: '\uD83C\uDFE0 Overview', subSettings: '\u2699\uFE0F Settings',
       subSystem: '\uD83D\uDCCA System', subHelp: '\u2753 Help',
       activeModeLabel: 'ACTIVE MODE',
@@ -1509,6 +1527,37 @@
       connect: 'Koble til',
       tabHome: 'Hjem', tabDevices: 'Enheter', tabPower: 'Effekt',
       tabHeaters: 'Varmere', tabLog: 'Logg', tabSmart: 'EV',
+      tabPrice: 'Pris', tabModes: 'Modus', tabEv: 'Lader', tabTempPlan: 'Temperaturplan',
+      cancel: 'Avbryt',
+      tpTitle: 'Temperaturplaner', tpNewPlan: '+ Ny plan', tpLoadingPlans: 'Laster planer\u2026',
+      tpNoPlans: 'Ingen planer enn\u00e5. Trykk &quot;+ Ny plan&quot; for \u00e5 starte.',
+      tpDevices: 'Enheter', tpAddDevice: '+ Legg til enhet', tpWeekPlan: 'Ukeplan',
+      tpSelectAbove: 'Velg en plan ovenfor.',
+      tpNewPlanTitle: 'Navn p\u00e5 ny plan', tpNewPlanDefault: 'Min plan',
+      tpRenameTitle: 'Gi planen nytt navn', tpDuplicateTitle: 'Navn p\u00e5 kopi', tpCopyOf: 'Kopi av ',
+      tpDeleteConfirm: 'Slette denne planen? Enheter i planen m\u00e5 legges inn p\u00e5 nytt.',
+      tpRemoveDeviceConfirm: 'Fjerne enheten fra planen?',
+      tpAllDevicesAdded: 'Alle tilgjengelige termostater er allerede lagt til i en plan.',
+      tpDeleteYes: 'Ja, slett',
+      tpRename: 'Gi nytt navn', tpDuplicate: 'Dupliser', tpActive: 'Aktiv', tpInactive: 'Inaktiv',
+      tpDeletePlan: 'Slett plan',
+      tpDevicesIn: 'Enheter i',
+      tpNoDevicesInPlan: 'Ingen enheter i denne planen enn\u00e5.',
+      tpNoDevicesYet: 'Ingen enheter lagt til enn\u00e5 \u2014 legg til enheter i en plan for \u00e5 starte.',
+      tpAllInactive: 'Alle planer er inaktive \u2014 ingen enheter styres.',
+      tpActivePlans: 'Aktive planer', tpManaged: 'enhet(er) styres',
+      tpInactiveCount: 'inaktiv',
+      tpRoomTemp: 'Romtemp', tpSetpoint: 'Settpunkt',
+      tpRemove: 'Fjern', tpAddDeviceTitle: 'Legg til enhet',
+      tpAddPeriod: 'Legg til periode', tpCopyToDay: 'Kopier til dag', tpCopyToDays: 'Kopier til valgte dager',
+      tpEdit: 'Endre',
+      tpInvalidTime: 'Ugyldig starttid (HH:MM)', tpInvalidTemp: 'Temperatur m\u00e5 v\u00e6re 5\u201335\u00b0C',
+      tpSettingsTitle: 'Temperaturplan',
+      tpSettingsDesc: 'Lar deg sette opp en ukentlig temperaturplan per termostat. Power Guard setter automatisk \u00f8nsket temperatur til riktig tid \u2014 og kan redusere temperaturen midlertidig for \u00e5 holde effektforbruket under grensen. Enheter i en plan styres eksklusivt av planen.',
+      helpTpTitle: 'Temperaturplan',
+      helpTpDesc: 'Temperaturplan lar deg sette opp ukentlige temperaturplaner for termostater. Hver plan har egne enheter og en ukeplan med tidsblokkene du definerer.',
+      helpTpSteps: '<li>Aktiver <b>Temperaturplan</b> under <b>\u2699\ufe0f Innstillinger</b>.</li><li>G\u00e5 til <b>\uD83C\uDF21\uFE0F Temperaturplaner</b>-fanen og opprett en plan (f.eks. \u00abHjemme\u00bb).</li><li>Legg til enheter (termostater) p\u00e5 planen.</li><li>Klikk p\u00e5 en dag for \u00e5 legge til tidsperioder med \u00f8nsket temperatur.</li><li>Bruk <b>Kopier til valgte dager</b> for \u00e5 kopiere oppsettet til flere dager raskt.</li>',
+      helpTpNotes: '<b>Flere planer kj\u00f8rer samtidig:</b><br>Du kan ha flere planer \u2014 f.eks. \u00e9n for stue og \u00e9n for soverom. Alle aktive planer kj\u00f8rer alltid parallelt. Hver plan styrer sine egne enheter uavhengig av de andre.<br><br><b>Plan tar prioritet over moduser:</b><br>Enheter som er koblet til en temperaturplan styres eksklusivt av planen. Manuell justering i Modus-fanen er ikke tilgjengelig for disse enhetene \u2014 planens settpunkt vises i stedet.<br><br><b>Endringer aktiveres umiddelbart:</b><br>N\u00e5r du lagrer en periode, settes den nye temperaturen p\u00e5 termostaten med en gang \u2014 du trenger ikke vente til neste minutt.',
       subOverview: '\uD83C\uDFE0 Oversikt', subSettings: '\u2699\uFE0F Innstillinger',
       subSystem: '\uD83D\uDCCA System', subHelp: '\u2753 Hjelp',
       activeModeLabel: 'AKTIV MODUS',
@@ -5187,8 +5236,8 @@
       }
       if (action === 'target_temperature' && lt.currentMeasure != null) {
         var nowStr = Number(lt.currentMeasure).toFixed(1) + '°';
-        var tgtStr = lt.currentTarget != null ? ' <span style="color:var(--text-muted);margin:0 3px;">|</span> <span style="color:var(--text-muted);font-size:10px;">Settpunkt:</span> ' + Number(lt.currentTarget).toFixed(1) + '°' : '';
-        liveTempStr = '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;"><span style="font-size:10px;">Romtemp:</span> <b>' + nowStr + '</b>' + tgtStr + pwrLabel + '</div>';
+        var tgtStr = lt.currentTarget != null ? ' <span style="color:var(--text-muted);margin:0 3px;">|</span> <span style="color:var(--text-muted);font-size:10px;">' + t('tpSetpoint') + ':</span> ' + Number(lt.currentTarget).toFixed(1) + '°' : '';
+        liveTempStr = '<div style="font-size:11px;color:var(--text-muted);margin-top:1px;"><span style="font-size:10px;">' + t('tpRoomTemp') + ':</span> <b>' + nowStr + '</b>' + tgtStr + pwrLabel + '</div>';
       }
     }
 
@@ -5456,7 +5505,7 @@
 
   function tpPickerOpen(devices, callback, title) {
     var titleEl = document.getElementById('tp-picker-title');
-    if (titleEl) titleEl.textContent = title || 'Legg til enhet';
+    if (titleEl) titleEl.textContent = title || t('tpAddDeviceTitle');
     var list = document.getElementById('tp-picker-list');
     list.innerHTML = '';
     devices.forEach(function(dev) {
@@ -5539,7 +5588,7 @@
     if (!bar) return;
 
     if (_tpPlans.length === 0) {
-      bar.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Ingen planer ennå. Trykk &quot;+ Ny plan&quot; for å starte.</div>';
+      bar.innerHTML = '<div style="color:var(--text-muted);font-size:13px">' + t('tpNoPlans') + '</div>';
       if (status) status.textContent = '';
       return;
     }
@@ -5561,12 +5610,12 @@
       var disabledCount = _tpPlans.length - enabledPlans.length;
       var totalDevices  = enabledPlans.reduce(function(n, p) { return n + (p.devices || []).length; }, 0);
       if (enabledPlans.length === 0) {
-        status.innerHTML = '<span style="color:#e67e22">Alle planer er inaktive — ingen enheter styres.</span>';
+        status.innerHTML = '<span style="color:#e67e22">' + t('tpAllInactive') + '</span>';
       } else if (totalDevices === 0) {
-        status.innerHTML = '<span style="color:#e67e22">Ingen enheter lagt til ennå — legg til enheter i en plan for å starte.</span>';
+        status.innerHTML = '<span style="color:#e67e22">' + t('tpNoDevicesYet') + '</span>';
       } else {
-        var txt = 'Aktive planer: <b>' + enabledPlans.length + '</b>, <b>' + totalDevices + '</b> enhet(er) styres.';
-        if (disabledCount > 0) txt += ' <span style="opacity:0.6">(' + disabledCount + ' inaktiv)</span>';
+        var txt = t('tpActivePlans') + ': <b>' + enabledPlans.length + '</b>, <b>' + totalDevices + '</b> ' + t('tpManaged') + '.';
+        if (disabledCount > 0) txt += ' <span style="opacity:0.6">(' + disabledCount + ' ' + t('tpInactiveCount') + ')</span>';
         status.innerHTML = txt;
       }
     }
@@ -5583,7 +5632,7 @@
   function tpRenderWeekSummary() {} // merged into tpRenderScheduleList
 
   function tpNewPlan() {
-    tpNameModalOpen('Navn på ny plan', 'Min plan', function(name) {
+    tpNameModalOpen(t('tpNewPlanTitle'), t('tpNewPlanDefault'), function(name) {
       var plan = { id: tpGenId(), name: name, schedule: tpDefaultSchedule(20), devices: [] };
       _tpPlans.push(plan);
       _tpSelectedPlanId = plan.id;
@@ -5597,7 +5646,7 @@
   function tpRenamePlan(planId) {
     var plan = _tpPlans.find(function(p) { return p.id === planId; });
     if (!plan) return;
-    tpNameModalOpen('Gi planen nytt navn', plan.name, function(name) {
+    tpNameModalOpen(t('tpRenameTitle'), plan.name, function(name) {
       plan.name = name;
       tpSave();
       tpRenderPlanBar();
@@ -5618,7 +5667,7 @@
   function tpDuplicatePlan(planId) {
     var src = _tpPlans.find(function(p) { return p.id === planId; });
     if (!src) return;
-    tpNameModalOpen('Navn på kopi', 'Kopi av ' + src.name, function(name) {
+    tpNameModalOpen(t('tpDuplicateTitle'), t('tpCopyOf') + src.name, function(name) {
       var copy = {
         id: tpGenId(),
         name: name,
@@ -5635,8 +5684,8 @@
   }
 
   function tpDeletePlan(planId) {
-    if (_tpPlans.length <= 1) return; // Slett-knappen vises ikke når bare én plan
-    tpConfirmOpen('Slette denne planen? Enheter i planen må legges inn på nytt.', function() {
+    if (_tpPlans.length <= 1) return;
+    tpConfirmOpen(t('tpDeleteConfirm'), function() {
       _tpPlans = _tpPlans.filter(function(p) { return p.id !== planId; });
       if (_tpSelectedPlanId === planId) _tpSelectedPlanId = _tpPlans[0].id;
       _tpEditDeviceId = null;
@@ -5657,38 +5706,38 @@
     if (!listEl) return;
 
     if (!plan) {
-      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Velg en plan ovenfor.</div>';
+      listEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px">' + t('tpSelectAbove') + '</div>';
       return;
     }
-    if (titleEl) titleEl.textContent = 'Enheter i «' + plan.name + '»';
+    if (titleEl) titleEl.textContent = t('tpDevicesIn') + ' «' + plan.name + '»';
 
     var actionsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
     var isEnabled = plan.enabled !== false;
-    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpRenamePlan(\'' + escHtml(plan.id) + '\')">Gi nytt navn</button>';
-    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDuplicatePlan(\'' + escHtml(plan.id) + '\')">Dupliser</button>';
-    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpTogglePlan(\'' + escHtml(plan.id) + '\')" style="' + (isEnabled ? '' : 'opacity:0.55') + '">' + (isEnabled ? '✅ Aktiv' : '❌ Inaktiv') + '</button>';
+    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpRenamePlan(\'' + escHtml(plan.id) + '\')">'+t('tpRename')+'</button>';
+    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDuplicatePlan(\'' + escHtml(plan.id) + '\')">'+t('tpDuplicate')+'</button>';
+    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpTogglePlan(\'' + escHtml(plan.id) + '\')" style="' + (isEnabled ? '' : 'opacity:0.55') + '">' + (isEnabled ? '✅ ' + t('tpActive') : '❌ ' + t('tpInactive')) + '</button>';
     if (_tpPlans.length > 1) {
-      actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDeletePlan(\'' + escHtml(plan.id) + '\')">Slett plan</button>';
+      actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDeletePlan(\'' + escHtml(plan.id) + '\')">'+t('tpDeletePlan')+'</button>';
     }
     actionsHtml += '</div>';
 
     var html = actionsHtml;
     if (!plan.devices || plan.devices.length === 0) {
-      html += '<div style="color:var(--text-muted);font-size:13px">Ingen enheter i denne planen ennå.</div>';
+      html += '<div style="color:var(--text-muted);font-size:13px">' + t('tpNoDevicesInPlan') + '</div>';
     } else {
       plan.devices.forEach(function(dev) {
         var lt = _liveTemps && _liveTemps[dev.deviceId];
         var tempStr = '';
         if (lt) {
-          if (lt.currentMeasure != null) tempStr += 'Romtemp: <b>' + Number(lt.currentMeasure).toFixed(1) + '°</b>';
-          if (lt.currentTarget  != null) tempStr += (tempStr ? '  |  ' : '') + 'Settpunkt: <b>' + Number(lt.currentTarget).toFixed(1) + '°</b>';
+          if (lt.currentMeasure != null) tempStr += t('tpRoomTemp') + ': <b>' + Number(lt.currentMeasure).toFixed(1) + '°</b>';
+          if (lt.currentTarget  != null) tempStr += (tempStr ? '  |  ' : '') + t('tpSetpoint') + ': <b>' + Number(lt.currentTarget).toFixed(1) + '°</b>';
         }
         html += '<div class="row" style="align-items:center;flex-wrap:wrap">';
         html += '<div class="label-group"><label>' + escHtml(dev.deviceName || dev.deviceId) + '</label>';
         if (tempStr) html += '<div style="font-size:11px;color:var(--text-muted);margin-top:2px">' + tempStr + '</div>';
         html += '</div>';
         html += '<div class="control" style="gap:8px">';
-        html += '<button class="btn-secondary btn-small" onclick="tpRemoveDevice(\'' + escHtml(dev.deviceId) + '\')">Fjern</button>';
+        html += '<button class="btn-secondary btn-small" onclick="tpRemoveDevice(\'' + escHtml(dev.deviceId) + '\')">'+t('tpRemove')+'</button>';
         html += '</div></div>';
       });
     }
@@ -5712,7 +5761,7 @@
       var available = thermoDevices.filter(function(d) { return !usedIds.includes(d.deviceId); });
 
       if (available.length === 0) {
-        tpConfirmOpen('Alle tilgjengelige termostater er allerede lagt til i en plan.', null);
+        tpConfirmOpen(t('tpAllDevicesAdded'), null);
         return;
       }
 
@@ -5725,7 +5774,7 @@
   }
 
   function tpRemoveDevice(deviceId) {
-    tpConfirmOpen('Fjerne enheten fra planen?', function() {
+    tpConfirmOpen(t('tpRemoveDeviceConfirm'), function() {
       var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
       if (!plan) return;
       plan.devices = plan.devices.filter(function(d) { return d.deviceId !== deviceId; });
@@ -5803,13 +5852,13 @@
           var suggestFrom = lastBlock ? tpAddHour(lastBlock.from) : '00:00';
           html += tpEditRow(day, -1, suggestFrom, '20');
         } else {
-          html += '<div style="padding:6px 0"><button class="btn-secondary btn-small" style="font-size:12px" onclick="tpStartAddPeriod(\'' + day + '\')">+ Legg til periode</button></div>';
+          html += '<div style="padding:6px 0"><button class="btn-secondary btn-small" style="font-size:12px" onclick="tpStartAddPeriod(\'' + day + '\')">+ ' + t('tpAddPeriod') + '</button></div>';
         }
 
         // Copy-to section
         var anySelected = TP_DAYS.some(function(d) { return d !== day && _tpCopyToDays[d]; });
         html += '<div style="margin-top:10px;padding:10px;background:rgba(230,126,34,.06);border-radius:8px;border:1px solid rgba(230,126,34,.2)">';
-        html += '<div style="font-size:11px;font-weight:600;color:#e67e22;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Kopier til dag</div>';
+        html += '<div style="font-size:11px;font-weight:600;color:#e67e22;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">' + t('tpCopyToDay') + '</div>';
         // Day buttons — scrollable row
         html += '<div style="display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;padding-bottom:4px">';
         TP_DAYS.forEach(function(d) {
@@ -5829,7 +5878,7 @@
           html += '<div style="margin-top:8px">'
             + '<button onclick="tpDoCopy(\'' + day + '\')" style="'
             + 'padding:6px 20px;font-size:13px;font-weight:700;border-radius:8px;border:none;'
-            + 'background:#e67e22;color:#fff;cursor:pointer;width:100%">Kopier til valgte dager</button>'
+            + 'background:#e67e22;color:#fff;cursor:pointer;width:100%">' + t('tpCopyToDays') + '</button>'
             + '</div>';
         }
         html += '</div>'; // copy box
@@ -5885,7 +5934,7 @@
       + '<span style="font-size:13px;color:var(--text-secondary);min-width:60px;flex-shrink:0">' + block.from + '</span>'
       + '<span style="background:' + color + ';color:#fff;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.45)">' + block.temp + '°C</span>'
       + '<span style="flex:1"></span>'
-      + '<button class="btn-secondary btn-small" style="padding:2px 8px;font-size:11px" onclick="tpStartEdit(\'' + day + '\',' + idx + ')">Endre</button>'
+      + '<button class="btn-secondary btn-small" style="padding:2px 8px;font-size:11px" onclick="tpStartEdit(\'' + day + '\',' + idx + ')">' + t('tpEdit') + '</button>'
       + '<button class="btn-secondary btn-small" style="padding:2px 8px;font-size:11px" onclick="tpDeletePeriod(\'' + day + '\',' + idx + ')">×</button>'
       + '</div>';
   }
@@ -5926,8 +5975,8 @@
       + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:14px;font-weight:700" onclick="tpStepTemp(-0.5)">\u2212</button>'
       + '<span id="tp-edit-temp-disp" style="' + dispBox + ';min-width:62px">' + tempNum + '\u00b0C</span>'
       + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:14px;font-weight:700" onclick="tpStepTemp(0.5)">+</button>'
-      + '<button class="btn-primary btn-small" style="padding:3px 10px;font-size:12px;margin-left:6px" onclick="tpSaveEdit(\'' + day + '\',' + idx + ')">Lagre</button>'
-      + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:12px" onclick="tpCancelEdit()">Avbryt</button>'
+      + '<button class="btn-primary btn-small" style="padding:3px 10px;font-size:12px;margin-left:6px" onclick="tpSaveEdit(\'' + day + '\',' + idx + ')">' + t('save') + '</button>'
+      + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:12px" onclick="tpCancelEdit()">' + t('cancel') + '</button>'
       + '<span id="tp-edit-error" style="color:#e74c3c;font-size:11px;width:100%;display:none"></span>'
       + '</div>';
   }
@@ -5956,8 +6005,8 @@
     var errEl   = document.getElementById('tp-edit-error');
     function showErr(msg) { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } }
 
-    if (!/^\d{1,2}:\d{2}$/.test(fromRaw)) { showErr('Ugyldig starttid (HH:MM)'); return; }
-    if (isNaN(temp) || temp < 5 || temp > 35) { showErr('Temperatur må være 5–35°C'); return; }
+    if (!/^\d{1,2}:\d{2}$/.test(fromRaw)) { showErr(t('tpInvalidTime')); return; }
+    if (isNaN(temp) || temp < 5 || temp > 35) { showErr(t('tpInvalidTemp')); return; }
 
     var plan = _tpPlans.find(function(p) { return p.id === _tpSelectedPlanId; });
     if (!plan) return;
