@@ -5563,43 +5563,10 @@
     _tpPlans.forEach(function(plan) {
       var isSelected = plan.id === _tpSelectedPlanId;
       var cls = isSelected ? 'btn-primary' : 'btn-secondary';
-      html += '<button class="' + cls + '" draggable="true"'
-            + ' style="padding:6px 14px;font-size:13px;cursor:grab"'
-            + ' data-plan-id="' + escHtml(plan.id) + '"'
-            + ' onclick="tpSelectPlan(\'' + escHtml(plan.id) + '\')">';
-      html += '&#8801; ' + escHtml(plan.name) + '</button>';
+      html += '<button class="' + cls + '" style="padding:6px 14px;font-size:13px" onclick="tpSelectPlan(\'' + escHtml(plan.id) + '\')">';
+      html += escHtml(plan.name) + '</button>';
     });
     bar.innerHTML = html;
-
-    // Wire up drag-and-drop on the rendered buttons
-    var btns = bar.querySelectorAll('[data-plan-id]');
-    var _dragSrcId = null;
-    btns.forEach(function(btn) {
-      btn.addEventListener('dragstart', function(e) {
-        _dragSrcId = btn.getAttribute('data-plan-id');
-        e.dataTransfer.effectAllowed = 'move';
-        btn.style.opacity = '0.4';
-      });
-      btn.addEventListener('dragend', function() {
-        btn.style.opacity = '';
-      });
-      btn.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-      });
-      btn.addEventListener('drop', function(e) {
-        e.preventDefault();
-        var targetId = btn.getAttribute('data-plan-id');
-        if (!_dragSrcId || _dragSrcId === targetId) return;
-        var srcIdx = _tpPlans.findIndex(function(p) { return p.id === _dragSrcId; });
-        var tgtIdx = _tpPlans.findIndex(function(p) { return p.id === targetId; });
-        if (srcIdx < 0 || tgtIdx < 0) return;
-        var moved = _tpPlans.splice(srcIdx, 1)[0];
-        _tpPlans.splice(tgtIdx, 0, moved);
-        tpSave();
-        tpRenderPlanBar();
-      });
-    });
 
     // Status: all plans run simultaneously — no "active plan" concept
     if (status) {
@@ -5610,18 +5577,6 @@
         status.innerHTML = 'Alle planer kjører — <b>' + _tpPlans.length + '</b> plan(er), <b>' + totalDevices + '</b> enhet(er) styres.';
       }
     }
-  }
-
-  function tpMovePlan(planId, dir) {
-    var idx = _tpPlans.findIndex(function(p) { return p.id === planId; });
-    if (idx < 0) return;
-    var newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= _tpPlans.length) return;
-    var tmp = _tpPlans[idx];
-    _tpPlans[idx] = _tpPlans[newIdx];
-    _tpPlans[newIdx] = tmp;
-    tpSave();
-    tpRenderPlanBar();
   }
 
   function tpSelectPlan(planId) {
