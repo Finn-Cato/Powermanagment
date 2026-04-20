@@ -4914,9 +4914,11 @@ class PowerGuardApp extends Homey.App {
       }
       
       // Check for target temperature capability (various names used by different brands)
+      // Also match sub-capabilities like target_temperature.heat (Heatit Z-TRM2FX, Z-TRM3)
       let targetTempCap = null;
       for (const candidate of ['target_temperature', 'set_temperature', 'setpoint_temperature', 'heating_setpoint', 'desired_temperature']) {
-        if (caps.includes(candidate)) { targetTempCap = candidate; break; }
+        const found = caps.find(c => c === candidate || c.startsWith(candidate + '.'));
+        if (found) { targetTempCap = found; break; }
       }
       
       // Check for measure temperature capability
@@ -5100,9 +5102,11 @@ class PowerGuardApp extends Homey.App {
       this._appLogEntry('charger', `[FloorHeater] ${action} "${device.name}" val=${value} caps=${caps.join(',')}`);
       
       // Find correct target temperature capability
+      // Also match sub-capabilities like target_temperature.heat (Heatit Z-TRM2FX, Z-TRM3)
       let targetTempCap = null;
       for (const candidate of ['target_temperature', 'set_temperature', 'setpoint_temperature', 'heating_setpoint', 'desired_temperature']) {
-        if (caps.includes(candidate)) { targetTempCap = candidate; break; }
+        const found = caps.find(c => c === candidate || c.startsWith(candidate + '.'));
+        if (found) { targetTempCap = found; break; }
       }
       
       if (action === 'on') {
