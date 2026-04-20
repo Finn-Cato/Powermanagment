@@ -3646,6 +3646,7 @@ class PowerGuardApp extends Homey.App {
     const STEPDOWN_GUARD_MS        = 60000; // Window after step-down where higher headroom applies
     const RAMP_UP_COOLDOWN         = 60000; // 1 minute between up-steps per charger
     const SETTLE_WINDOW            = 30000; // 30s shared settling — no charger ramps until meter confirms previous step
+    const PAUSE_RESUME_COOLDOWN_MS = 90000; // 90s after pause before resume is allowed — lets HAN settle and prevents oscillation
     let madeIncrease = false;        // Belt-and-suspenders: also blocks a second ramp within the same cycle
 
     for (const entry of chargerEntries) {
@@ -3845,7 +3846,8 @@ class PowerGuardApp extends Homey.App {
         // EV cooldown active forever and preventing evProactive-shed devices from ever restoring.
         const _chargingDone = [4, 'completed', 'COMPLETED', 'Completed'].includes(evDataNow?.chargerStatus)
                            && (evDataNow?.powerW || 0) < 200;
-        if (!_chargingDone && evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && priceCap > 0) {
+        const sincePause = now - (cState.lastPauseTime || 0);
+        if (!_chargingDone && evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && sincePause >= PAUSE_RESUME_COOLDOWN_MS && priceCap > 0) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._chargerState[entry.deviceId].waitingForCapacity = false;
@@ -3895,6 +3897,7 @@ class PowerGuardApp extends Homey.App {
             const _blockReasons = [];
             if (madeIncrease)               _blockReasons.push('annen lader rampet opp denne syklusen');
             if (sinceLastAny < SETTLE_WINDOW) _blockReasons.push(`settling (${Math.round((SETTLE_WINDOW - sinceLastAny) / 1000)}s igjen)`);
+            if (sincePause < PAUSE_RESUME_COOLDOWN_MS) _blockReasons.push(`pause-cooldown (${Math.round((PAUSE_RESUME_COOLDOWN_MS - sincePause) / 1000)}s igjen)`);
             if (priceCap <= 0)              _blockReasons.push('pris blokkerer');
             if (_blockReasons.length > 0) {
               const lastBlockLog = this._chargerState[entry.deviceId].lastBlockLog || 0;
@@ -4709,6 +4712,7 @@ class PowerGuardApp extends Homey.App {
             this._appLogEntry('charger', `Easee paused: ${device.name} (pre-armed at ${CHARGER_DEFAULTS.minCurrent}A for next start)`);
             // Record command for confirmation tracking
             if (!this._chargerState[deviceId]) this._chargerState[deviceId] = {};
+            this._chargerState[deviceId].lastPauseTime = Date.now();
             Object.assign(this._chargerState[deviceId], { lastCommandA: 0, commandTime: Date.now(), confirmed: false, timedOut: false });
             delete this._pendingChargerCommands[deviceId];
             return true;
