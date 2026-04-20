@@ -5850,7 +5850,7 @@
       var w = ((seg.to - seg.from) / 1440 * 100).toFixed(2);
       var bg = seg.temp !== null ? tpTempColor(seg.temp) : '#e0e0e0';
       var label = (seg.temp !== null && (seg.to - seg.from) >= 120) ? seg.temp + '°' : '';
-      html += '<div style="width:' + w + '%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:rgba(255,255,255,.9);overflow:hidden;white-space:nowrap">' + label + '</div>';
+      html += '<div style="width:' + w + '%;background:' + bg + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);overflow:hidden;white-space:nowrap">' + label + '</div>';
     });
     html += '</div>';
     return html;
@@ -5860,21 +5860,51 @@
     var color = tpTempColor(block.temp);
     return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06)">'
       + '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></div>'
-      + '<span style="font-size:13px;color:var(--text-secondary);min-width:80px">' + block.from + ' →</span>'
-      + '<span style="font-size:13px;font-weight:600;flex:1">' + block.temp + '°C</span>'
+      + '<span style="font-size:13px;color:var(--text-secondary);min-width:60px;flex-shrink:0">' + block.from + '</span>'
+      + '<span style="background:' + color + ';color:#fff;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.45);flex:1">' + block.temp + '°C</span>'
       + '<button class="btn-secondary btn-small" style="padding:2px 8px;font-size:11px" onclick="tpStartEdit(\'' + day + '\',' + idx + ')">Endre</button>'
       + '<button class="btn-secondary btn-small" style="padding:2px 8px;font-size:11px" onclick="tpDeletePeriod(\'' + day + '\',' + idx + ')">×</button>'
       + '</div>';
   }
 
+  function tpStepTime(delta) {
+    var inp  = document.getElementById('tp-edit-from');
+    var disp = document.getElementById('tp-edit-from-disp');
+    if (!inp) return;
+    var m = tpToMin(inp.value) + delta;
+    if (m < 0) m += 1440;
+    if (m >= 1440) m -= 1440;
+    var val = tpFromMin(m);
+    inp.value = val;
+    if (disp) disp.textContent = val;
+  }
+
+  function tpStepTemp(delta) {
+    var inp  = document.getElementById('tp-edit-temp');
+    var disp = document.getElementById('tp-edit-temp-disp');
+    if (!inp) return;
+    var t = Math.round((parseFloat(inp.value || 20) + delta) * 2) / 2;
+    if (t < 5)  t = 5;
+    if (t > 35) t = 35;
+    inp.value = String(t);
+    if (disp) disp.textContent = t + '°C';
+  }
+
   function tpEditRow(day, idx, fromVal, tempVal) {
-    var inp = 'padding:4px 8px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;box-sizing:border-box';
-    return '<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.06);flex-wrap:wrap">'
-      + '<input id="tp-edit-from" type="text" value="' + escHtml(String(fromVal)) + '" placeholder="00:00" maxlength="5" style="' + inp + ';width:66px">'
-      + '<span style="font-size:12px;color:var(--text-muted)">→</span>'
-      + '<input id="tp-edit-temp" type="number" value="' + escHtml(String(tempVal)) + '" min="5" max="35" step="0.5" placeholder="20" style="' + inp + ';width:60px">'
-      + '<span style="font-size:12px;color:var(--text-muted)">°C</span>'
-      + '<button class="btn-primary btn-small" style="padding:3px 10px;font-size:12px" onclick="tpSaveEdit(\'' + day + '\',' + idx + ')">Lagre</button>'
+    var stepBtn = 'padding:5px 11px;border:1px solid var(--input-border);border-radius:6px;font-size:15px;font-weight:700;background:rgba(255,255,255,.08);color:var(--text,#fff);cursor:pointer;user-select:none;line-height:1';
+    var dispBox = 'padding:5px 10px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);min-width:58px;text-align:center;display:inline-block';
+    var tempNum = parseFloat(tempVal) || 20;
+    return '<div style="display:flex;align-items:center;gap:5px;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);flex-wrap:wrap">'
+      + '<input id="tp-edit-from" type="hidden" value="' + escHtml(String(fromVal)) + '">'
+      + '<button style="' + stepBtn + '" onclick="tpStepTime(-30)">◀</button>'
+      + '<span id="tp-edit-from-disp" style="' + dispBox + '">' + escHtml(String(fromVal)) + '</span>'
+      + '<button style="' + stepBtn + '" onclick="tpStepTime(30)">▶</button>'
+      + '<span style="font-size:16px;color:var(--text-muted);margin:0 2px">→</span>'
+      + '<input id="tp-edit-temp" type="hidden" value="' + escHtml(String(tempNum)) + '">'
+      + '<button style="' + stepBtn + '" onclick="tpStepTemp(-0.5)">▼</button>'
+      + '<span id="tp-edit-temp-disp" style="' + dispBox + ';min-width:66px">' + tempNum + '°C</span>'
+      + '<button style="' + stepBtn + '" onclick="tpStepTemp(0.5)">▲</button>'
+      + '<button class="btn-primary btn-small" style="padding:3px 10px;font-size:12px;margin-left:4px" onclick="tpSaveEdit(\'' + day + '\',' + idx + ')">Lagre</button>'
       + '<button class="btn-secondary btn-small" style="padding:3px 10px;font-size:12px" onclick="tpCancelEdit()">Avbryt</button>'
       + '<span id="tp-edit-error" style="color:#e74c3c;font-size:11px;width:100%;display:none"></span>'
       + '</div>';
