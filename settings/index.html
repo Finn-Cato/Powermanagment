@@ -5560,17 +5560,11 @@
     }
 
     var html = '';
-    _tpPlans.forEach(function(plan, idx) {
+    _tpPlans.forEach(function(plan) {
       var isSelected = plan.id === _tpSelectedPlanId;
       var cls = isSelected ? 'btn-primary' : 'btn-secondary';
-      html += '<span style="display:inline-flex;align-items:center;gap:2px">';
       html += '<button class="' + cls + '" style="padding:6px 14px;font-size:13px" onclick="tpSelectPlan(\'' + escHtml(plan.id) + '\')">';
       html += escHtml(plan.name) + '</button>';
-      if (_tpPlans.length > 1) {
-        html += '<button class="btn-secondary" style="padding:3px 6px;font-size:11px;line-height:1" title="Flytt opp" onclick="tpMovePlan(\'' + escHtml(plan.id) + '\',-1)" ' + (idx === 0 ? 'disabled' : '') + '>▲</button>';
-        html += '<button class="btn-secondary" style="padding:3px 6px;font-size:11px;line-height:1" title="Flytt ned" onclick="tpMovePlan(\'' + escHtml(plan.id) + '\',1)" ' + (idx === _tpPlans.length - 1 ? 'disabled' : '') + '>▼</button>';
-      }
-      html += '</span>';
     });
     bar.innerHTML = html;
 
@@ -5690,10 +5684,13 @@
 
     var actionsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
     var isEnabled = plan.enabled !== false;
+    var curIdx = _tpPlans.findIndex(function(p) { return p.id === plan.id; });
     actionsHtml += '<button class="btn-secondary btn-small" onclick="tpRenamePlan(\'' + escHtml(plan.id) + '\')">Gi nytt navn</button>';
     actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDuplicatePlan(\'' + escHtml(plan.id) + '\')">Dupliser</button>';
     actionsHtml += '<button class="btn-secondary btn-small" onclick="tpTogglePlan(\'' + escHtml(plan.id) + '\')" style="' + (isEnabled ? '' : 'opacity:0.55') + '">' + (isEnabled ? '✅ Aktiv' : '❌ Inaktiv') + '</button>';
     if (_tpPlans.length > 1) {
+      actionsHtml += '<button class="btn-secondary btn-small" onclick="tpMovePlan(\'' + escHtml(plan.id) + '\',-1)" ' + (curIdx === 0 ? 'disabled' : '') + '>&#9650; Flytt opp</button>';
+      actionsHtml += '<button class="btn-secondary btn-small" onclick="tpMovePlan(\'' + escHtml(plan.id) + '\',1)" ' + (curIdx === _tpPlans.length - 1 ? 'disabled' : '') + '>&#9660; Flytt ned</button>';
       actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDeletePlan(\'' + escHtml(plan.id) + '\')">Slett plan</button>';
     }
     actionsHtml += '</div>';
