@@ -2902,6 +2902,13 @@ class PowerGuardApp extends Homey.App {
         // Derive connected state using whitelist approach
         this._evPowerData[entry.deviceId].isConnected = this._isCarConnected(entry.deviceId);
 
+        // On startup: if car is already connected, start session tracking immediately so the
+        // avg kW learning captures the ongoing session (rather than waiting for a reconnect).
+        if (this._evPowerData[entry.deviceId].isConnected && !this._evSessionTracking[entry.deviceId]) {
+          this._evSessionTracking[entry.deviceId] = { startMs: Date.now(), totalWh: 0, lastSampleMs: Date.now() };
+          this.log(`[EV Session] ${entry.name}: car already connected on startup — started tracking`);
+        }
+
         // On startup: if charger is already running, Power Guard takes control immediately.
         // _adjustEVChargersForPower will detect the untracked-but-running charger and set it to
         // 6A on the first HAN reading. No immunity window — we always start from 6A and ramp up.
