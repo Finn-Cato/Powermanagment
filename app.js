@@ -2126,7 +2126,7 @@ class PowerGuardApp extends Homey.App {
     const actEvBattery = this.homey.flow.getActionCard('report_ev_battery');
     if (actEvBattery) {
       actEvBattery.registerArgumentAutocompleteListener('charger', async (query) => {
-        const list = (this._settings.priorityList || []).filter(e => e.batteryCapacityKwh || e.carDeviceId);
+        const list = (this._settings.priorityList || []).filter(e => e.action === 'dynamic_current');
         return list
           .filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase()))
           .map(e => ({ id: e.deviceId, name: e.name }));
