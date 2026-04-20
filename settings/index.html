@@ -5613,6 +5613,25 @@
     });
   }
 
+  function tpDuplicatePlan(planId) {
+    var src = _tpPlans.find(function(p) { return p.id === planId; });
+    if (!src) return;
+    tpNameModalOpen('Navn på kopi', 'Kopi av ' + src.name, function(name) {
+      var copy = {
+        id: tpGenId(),
+        name: name,
+        schedule: JSON.parse(JSON.stringify(src.schedule)),
+        devices: JSON.parse(JSON.stringify(src.devices || []))
+      };
+      _tpPlans.push(copy);
+      _tpSelectedPlanId = copy.id;
+      tpSave();
+      tpRenderPlanBar();
+      tpRenderWeekSummary();
+      tpRenderDeviceList();
+    });
+  }
+
   function tpDeletePlan(planId) {
     if (_tpPlans.length <= 1) return; // Slett-knappen vises ikke når bare én plan
     tpConfirmOpen('Slette denne planen? Enheter i planen må legges inn på nytt.', function() {
@@ -5645,6 +5664,7 @@
 
     var actionsHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
     actionsHtml += '<button class="btn-secondary btn-small" onclick="tpRenamePlan(\'' + escHtml(plan.id) + '\')">Gi nytt navn</button>';
+    actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDuplicatePlan(\'' + escHtml(plan.id) + '\')">Dupliser</button>';
     if (_tpPlans.length > 1) {
       actionsHtml += '<button class="btn-secondary btn-small" onclick="tpDeletePlan(\'' + escHtml(plan.id) + '\')">Slett plan</button>';
     }
