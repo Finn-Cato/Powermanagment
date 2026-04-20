@@ -4154,6 +4154,7 @@
           // Restore Temperaturplan toggle + tab visibility
           hApi('GET', '/thermostat-schedule-enabled', null).then(function(res) {
             var on = !!(res && res.enabled);
+            _tpFeatureEnabled = on;
             var tog = document.getElementById('tp-main-toggle');
             if (tog) tog.checked = on;
             var tabBtn = document.getElementById('tb-tempplan');
@@ -5413,6 +5414,7 @@
   // ══════════════════════════════════════════════════════════════════
 
   var _tpPlans               = [];   // [{ id, name, devices:[{deviceId,deviceName,schedule}] }]
+  var _tpFeatureEnabled      = false; // mirrors thermostatScheduleEnabled setting
 
   function tpPrefetchPlans() {
     if (_tpPlans.length > 0) return;
@@ -5423,9 +5425,15 @@
   }
 
   function tpGetActivePlanInfo() {
-    // All plans are active — collect all device IDs across all plans
+    // Return empty set when feature is disabled — devices must not show plan badge/lock
+    if (!_tpFeatureEnabled) return { ids: new Set(), name: '' };
+    // Collect all device IDs across all enabled plans
     var ids = new Set();
-    _tpPlans.forEach(function(p) { (p.devices || []).forEach(function(d) { ids.add(d.deviceId); }); });
+    _tpPlans.forEach(function(p) {
+      if (p.enabled !== false) {
+        (p.devices || []).forEach(function(d) { ids.add(d.deviceId); });
+      }
+    });
     return { ids: ids, name: '' };
   }
   var _tpSelectedPlanId      = null; // plan shown in UI
@@ -5574,6 +5582,7 @@
   }
 
   function tpToggleEnabled(val) {
+    _tpFeatureEnabled = !!val;
     var mainToggle = document.getElementById('tp-main-toggle');
     if (mainToggle) mainToggle.checked = val;
     var tabBtn = document.getElementById('tb-tempplan');
