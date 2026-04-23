@@ -3120,6 +3120,14 @@ class PowerGuardApp extends Homey.App {
     if (state.lastCommandA != null && elapsed >= minConfirmMs && Math.abs(evData.offeredCurrent - state.lastCommandA) <= 1) {
       state.confirmed = true;
       state.reliability = (state.reliability ?? 0.5) * 0.99 + 0.01;  // Success → nudge up
+      // If the charger confirmed at a higher current than what was previously learned as its
+      // max, update learnedMaxA upward. This allows recovery from a false low caused by a
+      // temporary timeout (e.g. WiFi hiccup) earlier in the same session — without this the
+      // charger stays capped at the low value for the rest of the session.
+      if (state.learnedMaxA != null && evData.offeredCurrent > state.learnedMaxA) {
+        state.learnedMaxA = Math.round(evData.offeredCurrent);
+        this._appLogEntry('charger', `${evData.name} learned max updated: ${state.learnedMaxA}A (confirmed at ${evData.offeredCurrent}A)`);
+      }
       this.log(`[EV] \u2713 Confirmed: ${evData.name} → ${evData.offeredCurrent}A (commanded ${state.lastCommandA}A, took ${Math.round(elapsed / 1000)}s, reliability=${(state.reliability * 100).toFixed(1)}%)`);
       this._appLogEntry('charger', `Confirmed: ${evData.name} → ${evData.offeredCurrent}A (commanded ${state.lastCommandA}A, ${Math.round(elapsed / 1000)}s)`);
     } else if (elapsed > (state.delayedConfirm ? 40000 : CHARGER_DEFAULTS.confirmationTimeoutMs)) {
@@ -3854,7 +3862,12 @@ class PowerGuardApp extends Homey.App {
         const _chargingDone = [4, 'completed', 'COMPLETED', 'Completed'].includes(evDataNow?.chargerStatus)
                            && (evDataNow?.powerW || 0) < 200;
         const sincePause = now - (cState.lastPauseTime || 0);
-        if (!_chargingDone && evEffectiveHeadroomW >= Math.max(headroomThreshold, minResumeW) && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && sincePause >= PAUSE_RESUME_COOLDOWN_MS && priceCap > 0) {
+        // Require minResumeW + headroomThreshold (additive) so there's still headroomThreshold
+        // of margin left after the charger starts. Using max() instead of + means that when
+        // minResumeW > headroomThreshold there is zero spare margin after resume → any HAN
+        // noise pushes over the limit → immediate pause → 90s → resume → loop (Bug 2).
+        const resumeHeadroomRequired = minResumeW + headroomThreshold;
+        if (!_chargingDone && evEffectiveHeadroomW >= resumeHeadroomRequired && !madeIncrease && sinceLastAny >= SETTLE_WINDOW && sincePause >= PAUSE_RESUME_COOLDOWN_MS && priceCap > 0) {
           targetCurrent = CHARGER_DEFAULTS.minCurrent;
           this._chargerState[entry.deviceId].lastRampUpTime = now;
           this._chargerState[entry.deviceId].waitingForCapacity = false;
@@ -3871,17 +3884,19 @@ class PowerGuardApp extends Homey.App {
           }
         } else {
           targetCurrent = null; // not enough headroom or settling — stay paused
-          // Track capacity-waiting state: set on first transition, clear when headroom recovers
-          const notEnoughCapacity = evEffectiveHeadroomW < minResumeW;
+          // Track capacity-waiting state: set on first transition, clear when headroom recovers.
+          // Use resumeHeadroomRequired (= minResumeW + headroomThreshold) so the UI/log threshold
+          // matches the actual resume condition — avoids showing "enough capacity" when we'd still block.
+          const notEnoughCapacity = evEffectiveHeadroomW < resumeHeadroomRequired;
           if (notEnoughCapacity) {
             // Always keep minResumeW/headroomW fresh so the UI shows current numbers
-            this._chargerState[entry.deviceId].minResumeW = minResumeW;
+            this._chargerState[entry.deviceId].minResumeW = resumeHeadroomRequired;
             this._chargerState[entry.deviceId].headroomW  = evEffectiveHeadroomW;
             if (!this._chargerState[entry.deviceId].waitingForCapacity) {
               this._chargerState[entry.deviceId].waitingForCapacity = true;
               this._chargerState[entry.deviceId].waitingSince = now;
-              this.log(`[EV] Venter på kapasitet: ${entry.name} — trenger ${Math.round(minResumeW)}W (${_phases}-fase, ${Math.round(_wpa)}W/A), ${Math.round(evEffectiveHeadroomW)}W ledig`);
-              this._appLogEntry('charger', `${entry.name}: venter på ledig kapasitet (trenger ${Math.round(minResumeW)}W, ${Math.round(evEffectiveHeadroomW)}W ledig)`);
+              this.log(`[EV] Venter på kapasitet: ${entry.name} — trenger ${Math.round(resumeHeadroomRequired)}W (${_phases}-fase, ${Math.round(_wpa)}W/A + buffer), ${Math.round(evEffectiveHeadroomW)}W ledig`);
+              this._appLogEntry('charger', `${entry.name}: venter på ledig kapasitet (trenger ${Math.round(resumeHeadroomRequired)}W, ${Math.round(evEffectiveHeadroomW)}W ledig)`);
             } else {
               // Still waiting — re-log every 60s so the log shows we're alive and current numbers
               const waitingSince = this._chargerState[entry.deviceId].waitingSince || now;
@@ -3889,8 +3904,8 @@ class PowerGuardApp extends Homey.App {
               if (now - lastWaitLog >= 60000) {
                 this._chargerState[entry.deviceId].lastWaitLog = now;
                 const waitedMin = Math.round((now - waitingSince) / 60000);
-                this.log(`[EV] Fremdeles venter: ${entry.name} — ledig ${Math.round(evEffectiveHeadroomW)}W, trenger ${Math.round(minResumeW)}W (ventet ${waitedMin}min)`);
-                this._appLogEntry('charger', `${entry.name}: venter på kapasitet — ${Math.round(evEffectiveHeadroomW)}W ledig, trenger ${Math.round(minResumeW)}W (${waitedMin}min)`);
+                this.log(`[EV] Fremdeles venter: ${entry.name} — ledig ${Math.round(evEffectiveHeadroomW)}W, trenger ${Math.round(resumeHeadroomRequired)}W (ventet ${waitedMin}min)`);
+                this._appLogEntry('charger', `${entry.name}: venter på kapasitet — ${Math.round(evEffectiveHeadroomW)}W ledig, trenger ${Math.round(resumeHeadroomRequired)}W (${waitedMin}min)`);
               }
             }
           } else {
@@ -4003,10 +4018,22 @@ class PowerGuardApp extends Homey.App {
         // Price engine wants charger off — don't fight it while Easee winds down (offeredCurrent
         // stays > 0 for ~20s after a pause command, which would otherwise trigger "tar kontroll"
         // and cause a pause → resume → pause loop until Easee fully stops).
-        if (priceCap <= 0) continue;
-        targetCurrent = CHARGER_DEFAULTS.minCurrent;
-        this.log(`[EV] Taking control: ${entry.name} drawing ${Math.round(evDataNow?.powerW||0)}W untracked — forcing to ${CHARGER_DEFAULTS.minCurrent}A`);
-        this._appLogEntry('charger', `${entry.name}: tar kontroll → ${CHARGER_DEFAULTS.minCurrent}A (var ${Math.round(evDataNow?.powerW||0)}W ukontrollert)`);
+        // Exception: if the charger is drawing significant power AND enough time has passed since
+        // our last pause command, Easee has genuinely auto-resumed from cloud — re-pause it.
+        // Without this, Bug 1: PG pauses (priceCap=0) → Easee cloud resumes → PG skips → charger
+        // runs unchecked at full power, bypassing both price and capacity protection.
+        if (priceCap <= 0) {
+          const windingDown = (now - (cState.lastPauseTime || 0)) < 30000 || (evDataNow?.powerW || 0) < 500;
+          if (windingDown) continue;
+          // Easee genuinely auto-resumed while price is off — re-pause it.
+          // targetCurrent is already null; fall through to send the pause command.
+          this.log(`[EV] Price re-pause: ${entry.name} auto-resumed (${Math.round(evDataNow?.powerW||0)}W) while priceCap=0 — re-pausing`);
+          this._appLogEntry('charger', `${entry.name}: re-pauset — Easee auto-resume under prissperre (${Math.round(evDataNow?.powerW||0)}W)`);
+        } else {
+          targetCurrent = CHARGER_DEFAULTS.minCurrent;
+          this.log(`[EV] Taking control: ${entry.name} drawing ${Math.round(evDataNow?.powerW||0)}W untracked — forcing to ${CHARGER_DEFAULTS.minCurrent}A`);
+          this._appLogEntry('charger', `${entry.name}: tar kontroll → ${CHARGER_DEFAULTS.minCurrent}A (var ${Math.round(evDataNow?.powerW||0)}W ukontrollert)`);
+        }
       }
       if (targetCurrent !== null && targetCurrent === currentTargetA) continue;
       // At full current and not yet tracked — register as monitored (no alarm) and skip sending command
@@ -4976,7 +5003,11 @@ class PowerGuardApp extends Homey.App {
         if (caps.includes(candidate)) { measureTempCap = candidate; break; }
       }
       
-      const hasOnOff = caps.includes('onoff');
+      // Detect the on/off capability — standard 'onoff' or Thermofloor-specific 'thermofloor_onoff'
+      const onOffCap = caps.includes('onoff') ? 'onoff'
+                     : caps.includes('thermofloor_onoff') ? 'thermofloor_onoff'
+                     : null;
+      const hasOnOff = onOffCap !== null;
       const hasPower = caps.includes('measure_power');
       const hasThermostatMode = caps.includes('thermostat_mode');
       const hasTuyaLoadStatus = caps.includes('tuya_thermostat_load_status');
@@ -4984,7 +5015,7 @@ class PowerGuardApp extends Homey.App {
       const hasZg9030aModes = caps.includes('zg9030a_modes'); // Futurehome ZG9030A thermostat
       const canControl = targetTempCap !== null || hasOnOff;
       
-      this.log(`[FloorHeater]   targetTempCap: ${targetTempCap || 'NONE'} | measureTempCap: ${measureTempCap || 'NONE'} | onoff: ${hasOnOff} | tuyaLoad: ${hasTuyaLoadStatus} | zg9030a: ${hasZg9030aModes}`);
+      this.log(`[FloorHeater]   targetTempCap: ${targetTempCap || 'NONE'} | measureTempCap: ${measureTempCap || 'NONE'} | onoff: ${hasOnOff}(${onOffCap || '-'}) | tuyaLoad: ${hasTuyaLoadStatus} | zg9030a: ${hasZg9030aModes}`);
       
       // Read current values from LIVE device (preferred) or cache
       // The liveDevice from HomeyAPI getDevice() has fresh capabilitiesObj values
@@ -5014,8 +5045,8 @@ class PowerGuardApp extends Homey.App {
           //       The toggle shows "is this thermostat turned on", not "is it heating now".
           //       Heating state (orange row/badge) is handled separately via power/load_status.
           // Fallback for devices with no onoff: use mode signals instead.
-          if (hasOnOff && source.capabilitiesObj.onoff) {
-            const v = source.capabilitiesObj.onoff;
+          if (hasOnOff && onOffCap && source.capabilitiesObj[onOffCap]) {
+            const v = source.capabilitiesObj[onOffCap];
             isOn = v.value !== undefined ? v.value : v;
           } else if (hasTuyaLoadStatus && source.capabilitiesObj.tuya_thermostat_load_status) {
             // No onoff cap — use element state as best proxy
@@ -5159,8 +5190,9 @@ class PowerGuardApp extends Homey.App {
       }
       
       if (action === 'on') {
-        if (caps.includes('onoff')) {
-          await setCap('onoff', true);
+        const onOffCap = caps.includes('onoff') ? 'onoff' : caps.includes('thermofloor_onoff') ? 'thermofloor_onoff' : null;
+        if (onOffCap) {
+          await setCap(onOffCap, true);
         } else if (caps.includes('toggleChargingCapability')) {
           await setCap('toggleChargingCapability', true);
         } else {
@@ -5178,8 +5210,9 @@ class PowerGuardApp extends Homey.App {
         return { ok: true, message: `${device.name} turned on` };
         
       } else if (action === 'off') {
-        if (caps.includes('onoff')) {
-          await setCap('onoff', false);
+        const onOffCap = caps.includes('onoff') ? 'onoff' : caps.includes('thermofloor_onoff') ? 'thermofloor_onoff' : null;
+        if (onOffCap) {
+          await setCap(onOffCap, false);
         } else if (caps.includes('toggleChargingCapability')) {
           await setCap('toggleChargingCapability', false);
         } else {
